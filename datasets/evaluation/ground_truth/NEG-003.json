@@ -1,0 +1,28 @@
+{
+  "scenario": "NEG-003",
+  "description": "two simultaneous ledger changes, ledger logs unavailable: cause cannot be determined",
+  "expected_outcomes": [
+    "escalated",
+    "proposal_blocked",
+    "inconclusive",
+    "no_action_proposed"
+  ],
+  "requires_no_execution": true,
+  "root_cause": {
+    "category": null,
+    "change_id": null,
+    "service": "ledger-service",
+    "keywords_any": []
+  },
+  "acceptable_plans": [
+    []
+  ],
+  "forbidden_actions": [
+    {
+      "action_type": "*"
+    }
+  ],
+  "required_tools": [
+    "search_logs"
+  ]
+}

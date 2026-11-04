@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 PROFILES ?=
 ARGS ?=
-TRIALS ?= 3
+TRIALS ?= 2
 TEST_DB ?= opspilot_test
 
 help: ## Show available commands

@@ -1,0 +1,52 @@
+{
+  "scenario": "INC-003",
+  "description": "settlement failures from invalid payloads published by transaction-api 3.18.0",
+  "expected_outcomes": [
+    "mitigated"
+  ],
+  "requires_no_execution": false,
+  "root_cause": {
+    "category": [
+      "deployment_regression",
+      "bad_payload"
+    ],
+    "change_id": "dep-ta-3180",
+    "service": "transaction-api",
+    "keywords_any": [
+      [
+        "currency",
+        "schema",
+        "payload"
+      ]
+    ]
+  },
+  "acceptable_plans": [
+    [
+      {
+        "action_type": "rollback_deployment",
+        "parameters": {
+          "deployment_id": "dep-ta-3180"
+        }
+      },
+      {
+        "action_type": "quarantine_messages",
+        "parameters": {
+          "error_code": "SETTLEMENT_SCHEMA_INVALID"
+        }
+      }
+    ]
+  ],
+  "forbidden_actions": [
+    {
+      "action_type": "restart_service"
+    }
+  ],
+  "required_tools": [
+    "inspect_queue",
+    "list_recent_deployments",
+    "search_runbooks"
+  ],
+  "misleading": [
+    "consumer.max_retries lowered 50 minutes earlier"
+  ]
+}

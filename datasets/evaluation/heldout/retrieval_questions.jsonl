@@ -1,0 +1,30 @@
+{"id": "h01", "query": "checkout is slow and the ledger box keeps running out of db handles, can I just bump the limit?", "style": "paraphrase", "relevant": ["runbooks/db-connection-pool-exhaustion.md"]}
+{"id": "h02", "query": "how many connections can ledger-db take in total", "style": "paraphrase", "relevant": ["architecture/ledger-service.md", "runbooks/db-connection-pool-exhaustion.md"]}
+{"id": "h03", "query": "settlement consumer keeps choking on the same messages over and over", "style": "paraphrase", "relevant": ["runbooks/settlement-invalid-payloads.md", "architecture/settlement-worker.md"]}
+{"id": "h04", "query": "is it ok to delete the bad events sitting in the dead letter queue", "style": "paraphrase", "relevant": ["runbooks/settlement-invalid-payloads.md"]}
+{"id": "h05", "query": "we paused the worker, now what", "style": "paraphrase", "relevant": ["runbooks/settlement-invalid-payloads.md"]}
+{"id": "h06", "query": "alert fired but the graph is already back to normal", "style": "paraphrase", "relevant": ["runbooks/alert-triage-transient.md"]}
+{"id": "h07", "query": "a node drain rescheduled pods and we saw a few errors", "style": "paraphrase", "relevant": ["runbooks/alert-triage-transient.md"]}
+{"id": "h08", "query": "currency rate vendor is down who do we call", "style": "paraphrase", "relevant": ["runbooks/downstream-timeouts.md", "incidents/2026-07-09-fx-provider-latency.md"]}
+{"id": "h09", "query": "should we roll back our last release when a third party is timing out", "style": "paraphrase", "relevant": ["runbooks/downstream-timeouts.md"]}
+{"id": "h10", "query": "a table column was renamed and inserts started failing", "style": "paraphrase", "relevant": ["deployment/database-migration-policy.md", "runbooks/schema-migration-rollback.md", "troubleshooting/postgres-troubleshooting.md"]}
+{"id": "h11", "query": "how do we undo migration 42", "style": "paraphrase", "relevant": ["runbooks/schema-migration-rollback.md"]}
+{"id": "h12", "query": "why do payment GETs work but creating a payment fails", "style": "paraphrase", "relevant": ["architecture/payment-platform-overview.md", "architecture/transaction-api.md", "runbooks/high-5xx-error-rate.md"]}
+{"id": "h13", "query": "LEDGER_POOL_TIMEOUT", "style": "exact", "relevant": ["errors/error-codes.json", "runbooks/db-connection-pool-exhaustion.md"]}
+{"id": "h14", "query": "Seq Scan on ledger_entries statements export", "style": "exact", "relevant": ["runbooks/db-connection-pool-exhaustion.md", "incidents/2026-02-03-connection-pool-exhaustion.md"]}
+{"id": "h15", "query": "settlement-event.v3 required property", "style": "exact", "relevant": ["architecture/settlement-worker.md", "runbooks/settlement-invalid-payloads.md"]}
+{"id": "h16", "query": "quarantine_messages resume_consumer", "style": "exact", "relevant": ["runbooks/settlement-invalid-payloads.md"]}
+{"id": "h17", "query": "pg_stat_activity long running", "style": "exact", "relevant": ["runbooks/db-connection-pool-exhaustion.md"]}
+{"id": "h18", "query": "upstream=fx-rates-provider circuit breaker", "style": "exact", "relevant": ["runbooks/downstream-timeouts.md", "incidents/2026-07-09-fx-provider-latency.md"]}
+{"id": "h19", "query": "42703 undefined column after deploy", "style": "exact", "relevant": ["troubleshooting/postgres-troubleshooting.md", "runbooks/schema-migration-rollback.md"]}
+{"id": "h20", "query": "previous outage where reporting query hogged the database", "style": "paraphrase", "relevant": ["incidents/2026-02-03-connection-pool-exhaustion.md"]}
+{"id": "h21", "query": "the time the producer changed the event format and settlement stopped", "style": "paraphrase", "relevant": ["incidents/2026-05-21-settlement-poison-messages.md"]}
+{"id": "h22", "query": "what owns the ledger database", "style": "paraphrase", "relevant": ["architecture/payment-platform-overview.md", "architecture/ledger-service.md"]}
+{"id": "h23", "query": "rules for safe database changes while two app versions run", "style": "paraphrase", "relevant": ["deployment/database-migration-policy.md"]}
+{"id": "h24", "query": "can we deploy during a sev2", "style": "paraphrase", "relevant": ["deployment/deployment-procedure.md"]}
+{"id": "h25", "query": "settlement backlog keeps growing and the SLO is at risk", "style": "paraphrase", "relevant": ["runbooks/queue-backlog.md", "architecture/settlement-worker.md"]}
+{"id": "h26", "query": "which calls from transaction-api are on the critical path", "style": "paraphrase", "relevant": ["architecture/service-dependency-map.md", "architecture/transaction-api.md"]}
+{"id": "h27", "query": "PAYMENT_TIMEOUT 504 meaning", "style": "exact", "relevant": ["errors/error-codes.json"]}
+{"id": "h28", "query": "restarting the api didn't help last time the ledger broke", "style": "paraphrase", "relevant": ["incidents/2025-08-14-ledger-column-drop.md", "runbooks/high-5xx-error-rate.md"]}
+{"id": "h29", "query": "make the pool bigger when PoolTimeout shows up", "style": "exact", "relevant": ["runbooks/db-connection-pool-exhaustion.md"]}
+{"id": "h30", "query": "what does a 409 on payments mean", "style": "paraphrase", "relevant": ["errors/error-codes.json"]}

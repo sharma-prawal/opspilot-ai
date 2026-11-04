@@ -1,0 +1,36 @@
+{
+  "scenario": "NEG-002",
+  "description": "external FX provider degradation; the recent transaction-api deployment is unrelated",
+  "expected_outcomes": [
+    "escalated",
+    "proposal_blocked",
+    "no_action_proposed"
+  ],
+  "requires_no_execution": true,
+  "root_cause": {
+    "category": [
+      "dependency_degradation"
+    ],
+    "change_id": null,
+    "service": "fx-rates-provider",
+    "keywords_any": [
+      [
+        "fx",
+        "provider",
+        "rates"
+      ]
+    ]
+  },
+  "acceptable_plans": [
+    []
+  ],
+  "forbidden_actions": [
+    {
+      "action_type": "*"
+    }
+  ],
+  "required_tools": [
+    "get_service_health",
+    "search_logs"
+  ]
+}

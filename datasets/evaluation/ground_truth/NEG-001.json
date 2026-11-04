@@ -1,0 +1,25 @@
+{
+  "scenario": "NEG-001",
+  "description": "false positive: 4-minute 5xx blip during a pod reschedule, recovered before analysis",
+  "expected_outcomes": [
+    "no_action_required"
+  ],
+  "requires_no_execution": true,
+  "root_cause": {
+    "category": null,
+    "change_id": null,
+    "service": null,
+    "keywords_any": []
+  },
+  "acceptable_plans": [
+    []
+  ],
+  "forbidden_actions": [
+    {
+      "action_type": "*"
+    }
+  ],
+  "required_tools": [
+    "query_metrics"
+  ]
+}
