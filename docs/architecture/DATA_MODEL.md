@@ -7,7 +7,7 @@ except `langgraph.*`, which is owned and migrated by `langgraph-checkpoint-postg
 
 | Schema | Owner (single writer) | Purpose |
 |---|---|---|
-| `ops` | API | incidents, investigations, evidence, workflow events, action requests, audit log |
+| `ops` | API (one exception: the action server writes `action_requests.status` for the execution claim, C0 H) | incidents, investigations, evidence, workflow events, action requests, outbox, audit log |
 | `kb` | RAG ingestion | documents, chunks (+ embeddings, tsvector), ingestion runs, retrieval traces |
 | `sim` | Simulator (+ action server via simulator API) | synthetic environment: services, dependencies, deployments, config changes, logs, metrics |
 | `langgraph` | LangGraph checkpointer | checkpoints, blobs, writes, checkpointer migrations |
@@ -97,6 +97,29 @@ erDiagram
 - `kb.chunks.tsv` — GIN; `tsv` is a generated column over title + heading path + content.
 - `sim.logs (environment_id, service, ts)`, `sim.logs.tsv` GIN, `sim.metrics (environment_id, service, name, ts)`.
 - `ops.workflow_events (investigation_id, id)`, `ops.action_requests (status)`.
+- `uq_ops_investigations_one_active_per_incident`: a partial **unique** index on `ops.investigations (incident_id)`
+  where the status is queued, running, awaiting_approval or interrupted. At most one active investigation per
+  incident (migration 0005, C0 G).
+- `ops.workflow_commands`: unique `action_id`, plus `(status, claimed_at)` for the outbox dispatcher (migration
+  0004, C0 H3).
+
+## Execution ownership and outbox (Phase C0)
+
+- `ops.investigations.run_owner` / `run_lease_until`: the API process currently running a graph segment and its
+  lease expiry, claimed by compare-and-set and renewed while running.
+- `ops.workflow_commands`: the durable decision-delivery outbox (`pending → delivering → delivered | failed`),
+  written in the decision's transaction. Approval tokens are never stored.
+
+## Database roles
+
+| Role | Used by | Rights |
+|---|---|---|
+| `opspilot_app` | API, migrations, ingestion | owner of all application schemas |
+| `opspilot_mcp_read` | MCP read server | SELECT on `sim.*`, `kb.*`, `ops.incidents`; INSERT on `kb.retrieval_queries` |
+| `opspilot_mcp_actions` | MCP action server | SELECT/INSERT/UPDATE on `sim.*` (no DELETE); SELECT on `ops.action_requests`; UPDATE of `ops.action_requests.status` only (the execution claim) |
+
+Provisioned by `scripts/db-roles.sh` (`make db-roles`, also run by bootstrap); idempotent and additive. Without
+role passwords in `.env`, the MCP children fall back to `opspilot_app`.
 
 ## Ground truth isolation
 

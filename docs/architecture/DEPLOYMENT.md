@@ -39,6 +39,18 @@ flowchart TB
 
 Both models stay resident under `LLM_KEEP_ALIVE=10m`; `OLLAMA_MAX_LOADED_MODELS` was left at its default.
 
+### Resource limits (Phase C0)
+
+| Setting | Default | Bound |
+|---|---|---|
+| `LLM_MAX_CONCURRENCY` | 1 | in-flight chat requests per process |
+| `EMBEDDING_MAX_CONCURRENCY` | 2 | in-flight `/api/embed` requests per process (API and each MCP child) |
+| `MAX_CONCURRENT_INVESTIGATIONS` | 1 | graph segments running at once |
+| `MAX_PENDING_INVESTIGATIONS` | 4 | segments running + waiting; beyond it new work gets HTTP 429 before anything is written |
+
+`make evaluate` measures embedding bursts, a chat call and Ollama's resident memory on this machine; see
+"Resources on this machine" in `docs/evaluation/BASELINE.md`.
+
 ## Disk budget
 
 | Item | Size |
@@ -64,7 +76,9 @@ Start optional profiles explicitly, e.g. `make infra-up PROFILES=observability`.
 |---|---|
 | `make infra-up` | start Colima if stopped, `docker-compose up -d postgres`, wait for health |
 | `make migrate` | Alembic upgrade + LangGraph checkpointer `setup()` |
+| `make db-roles` | create/refresh the least-privilege MCP database roles (idempotent, additive; bootstrap runs it) |
 | `make dev` | start API and web (skips any already listening) |
+| `make e2e` | isolated E2E stack: API :8100 forced onto `opspilot_test`, web :3100 with its own build dir; identity verified before any mutation; can run beside `make dev` |
 | `make stop` / `make infra-down` | stop app processes / stop containers (**volumes preserved**) |
 
 Nothing in the tooling runs `docker system prune`, `docker volume prune` or deletes volumes.

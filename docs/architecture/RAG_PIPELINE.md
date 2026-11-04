@@ -59,6 +59,14 @@ flowchart LR
 - **Fusion**: RRF, `score = Σ 1/(k + rank)`. Chosen because the two score scales (cosine
   distance vs. `ts_rank_cd`) are not comparable, and RRF needs no calibration.
 - **Filters**: `doc_types`, `services` (JSONB containment), `tags` — applied inside both retrievers.
+- **Lifecycle policy (C0 I):** applied to the fused candidates (top_k × 4) *before* truncation. It is a stable
+  partition — `current` first, then `unreviewed` or unknown, then superseded / deprecated / retired / withdrawn /
+  obsolete / archived — with score order kept within a tier. Results carry `metadata.lifecycle_tier`.
+- **Degradation (C0 M):** if embeddings fail, hybrid degrades to keyword-only. `warnings` and
+  `effective_mode = keyword` are returned and carried across MCP to the agent.
+- **Citation snapshots (C0 J):** each result carries the full chunk `content` and `content_sha256`. The agent
+  stores the passage, its hash, the document version, the lifecycle status and the retrieval time in the
+  evidence citation, so an RCA stays reconstructable after re-ingestion replaces the chunks.
 - **Trace**: every search writes a row with query, filters, mode, latency and the ranked result IDs.
 
 ## Trust boundary

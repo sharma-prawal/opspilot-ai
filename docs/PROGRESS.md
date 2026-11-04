@@ -121,6 +121,53 @@ NEG-002 root cause is ranked second by the model; retrieval ignores document sta
 
 **Next (Phase C):** see `docs/ROADMAP.md`.
 
+## Status — 2026-11-04, end of Phase C0 (hardening) — CONDITIONAL
+
+**Branch:** `hardening/phase-c0` (from `9ec857c` = v0.2.0); not merged, pushed, tagged or released.
+**Scope:** remediation of the Codex audit (`docs/audits/CODEX_AUDIT_9ec857c.md`, preserved verbatim). Per-finding
+evidence and the verification matrix: `docs/audits/PHASE_C0_REMEDIATION.md`. Draft release notes:
+`docs/releases/V0.2.1_NOTES.md`.
+
+**Milestones:** C0-A (H1–H4) ✅ · C0-B (E–H) ✅ · C0-C (I–M) ✅ · C0-D (N–P) ✅ · C0-E (regression, evaluation,
+docs) ✅ with one open measured regression.
+
+**Verified by execution:**
+- `make lint` clean;
+- `make test`: 180 passed, 3 live skipped, and 30 web tests;
+- `make test-live`: 3 passed;
+- `make e2e`: 4 passed, 3 screenshot specs skipped, with dev-DB row counts unchanged; pointing it at the dev
+  ports aborts before any test;
+- `make doctor` passes;
+- `make evaluate` (`TRIALS=2`, 13 runs, `cc275d7`) — results in `docs/evaluation/BASELINE.md`, frozen under
+  `datasets/evaluation/history/phase-c0-cc275d7/`:
+  - outcome accuracy 12/13;
+  - 0 unsafe, forbidden or unauthorized actions executed;
+  - citation validity 1.0;
+- live smoke through the BFF on the restarted dev stack: sign-in, CSRF, investigation, approval, execution,
+  verified recovery, RCA, and no credentials in 31 responses.
+
+**Open (see the remediation record):**
+1. **INC-002 regression.**
+   - Official run 1/2 mitigated; supplementary run 1/5; Phase B 2/2.
+   - A controlled ablation (Phase B ranking): 5/5.
+   - Cause: the lifecycle-ranking fix (I) changes the model's context. The failure is safe — the gates blocked
+     everything and the incident escalated.
+   - Not tuned away, by policy.
+2. **58 legacy dev-DB rows with expired approval tokens.** They need the owner's authorization for
+   `sanitize-secrets --apply`; a backup and rollback procedure is documented.
+3. **MCP OS-user separation** is not done (DB roles and environment are).
+
+**Machine state changes this phase (additive only):**
+- migrations 0004 and 0005 on `opspilot` and `opspilot_test`;
+- roles `opspilot_mcp_read` and `opspilot_mcp_actions`, with grants;
+- `.env` gained the web session/passphrase and MCP role passwords;
+- dev API and web restarted on the C0 code.
+
+Nothing was deleted.
+
+**Next:** independent Codex verification of the branch. Then, only with authorization: merge, tag `v0.2.1`, and
+publish. Phase C1 is not started.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

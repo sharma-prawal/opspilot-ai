@@ -123,6 +123,12 @@ The resume value must reference the same action ID and parameter hash or the nod
 ## Durability
 
 - Thread ID = investigation ID. Checkpoints are written after every super-step.
+- Decisions are delivered through a transactional outbox (`ops.workflow_commands`, written in the decision's
+  transaction) by a claim-based dispatcher. Delivery is at least once; exactly-once *effects* come from
+  idempotency. The approval token is minted at delivery and never stored. Start-up reconciliation and a 15 s
+  sweep redeliver, finalise or interrupt runs whose process died (C0 H3).
+- Execution ownership is a DB lease (`run_owner`, `run_lease_until`) renewed while a segment runs, so two API
+  processes cannot run one workflow. A resume command re-checks the pause after taking the lease (C0 G).
 - Restart: any run in a non-terminal state can be continued with `graph.ainvoke(None, config)`
   (exposed as `POST /api/v1/investigations/{id}/resume`).
 - `tests/integration/test_checkpoint_resume.py` builds a graph, runs it to the interrupt, discards
@@ -136,7 +142,7 @@ scenario:
 
 | Gate | Rule |
 |---|---|
-| Impact | No remediation when the alerting service has no unrecovered anomaly (computed, not model-reported) |
+| Impact | Tri-state and computed, not model-reported (C0 H2). `ongoing` needs affirmative evidence (an unrecovered anomaly, or unhealthy status). `recovered` needs complete core metrics with ≥ 20 points and healthy status. Anything missing, failed, insufficient or conflicting is `unknown`, which blocks proposals (`insufficient_evidence`) |
 | Evidence | Deployment IDs, services, queues and error codes must appear in collected evidence |
 | Correlation | A rollback target must correlate with the onset (≥ 0.3) |
 | Ambiguity | Refuse a rollback when another change is within 0.15 correlation (≥ 0.5): a human must discriminate |
@@ -145,13 +151,40 @@ scenario:
 | Abnormality | Restart / pause targets must themselves show abnormal evidence |
 | Shape | Canonical containment → resolution → recovery; restart/pool-scale dropped when the plan reverts the cause; a paused consumer is always resumed (policy-added step, separately approved) |
 
-Rejected steps are recorded with a category (`invalid`, `unsafe`, `insufficient_evidence`, `unwarranted`).
+Rejected steps are recorded with a category (`invalid`, `unsafe`, `insufficient_evidence`, `unwarranted`,
+`withheld_uncertain`).
+
+### Uncertainty policy (C0 F)
+
+After the gates, a valid plan is **withheld** (`withheld_uncertain`) when:
+- no hypothesis exists;
+- the top confidence is below `confidence_threshold` (0.6);
+- the RCA requests escalation;
+- the top two hypotheses are within `ambiguity_margin` (0.1) and share no supporting evidence;
+- a tool or model budget was exhausted.
+
+An explicit escalation yields `escalated`; any other withheld plan yields `inconclusive`. There is no operator
+override in this phase.
+
+## Recovery verification (C0 H4)
+
+`verify` checks *every* required condition or reports it as `not_checked` against an explicit budget
+(`max_verification_checks`, default 16). The result is `recovered`, `not_recovered` or `incomplete`.
+
+- **Metric conditions:** every unrecovered anomaly that moved in its metric's unhealthy direction.
+  - Higher-is-bad metrics pass below baseline.
+  - Lower-is-bad metrics may overshoot, so a backlog drain is healthy.
+  - Unknown metrics use a two-sided band and fail on opposite-direction excursions.
+  - Load and config metrics are informational only.
+- **Postconditions:** rollback applied, pool size applied, no unquarantined failing messages, consumer running.
+- Each check links to its anomaly evidence and its tool call.
 
 ## Outcomes
 
-`report` classifies every run deterministically: `mitigated`, `not_recovered`, `remediation_failed`,
-`remediation_rejected`, `approval_expired`, `no_action_required`, `proposal_blocked`, `escalated`,
-`inconclusive`, `no_action_proposed`, `failed`. All except `mitigated` and `no_action_required` set
+`report` classifies every run deterministically: `mitigated`, `not_recovered`, `verification_incomplete`,
+`remediation_failed`, `remediation_rejected`, `approval_expired`, `no_action_required`, `impact_unknown`,
+`proposal_blocked`, `escalated`, `inconclusive`, `no_action_proposed`, `failed`. An explicit escalation request
+always takes precedence over `no_action_required`. All except `mitigated` and `no_action_required` set
 `escalate=true` and render an Escalation section. The incident becomes `mitigated` / `resolved` /
 stays `open` accordingly.
 
