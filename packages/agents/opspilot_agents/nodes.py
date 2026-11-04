@@ -36,6 +36,14 @@ from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_me
 from opspilot_agents.remediation import enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
+from opspilot_agents.verification import (
+    Condition,
+    evaluate_metric,
+    evaluate_postcondition,
+    metric_conditions,
+    overall,
+    postcondition_conditions,
+)
 from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
 from opspilot_shared.domain.common import utcnow
@@ -76,7 +84,7 @@ class AgentPolicy:
     lookback_hours: float = 3.0
     change_horizon_hours: float = 6.0
     recovery_threshold: float = 0.01
-    recovery_position: float = 0.25  # metric must return to within 25% of its excursion from baseline
+    max_verification_checks: int = 16  # explicit budget; unchecked required conditions => incomplete
     max_prompt_evidence: int = 34
 
 
@@ -1177,12 +1185,14 @@ class InvestigationNodes:
         return {"plan_index": idx, "proposed_action": state["remediation_plan"][idx], "approval": None}
 
     async def verify(self, state: State) -> Update:
+        """Check every required recovery condition (see verification.py); never silently truncate."""
         executions = state.get("executions", [])
         last = executions[-1] if executions else {}
         svc = state["incident"]["service"]
         if last.get("status") != "succeeded":
             return {
                 "verification": {
+                    "status": "not_recovered",
                     "recovered": False,
                     "service": svc,
                     "checks": [],
@@ -1191,89 +1201,99 @@ class InvestigationNodes:
             }
         details = last.get("details") or {}
         start, end = details.get("executed_at_sim"), details.get("sim_now_after")
+        evidence = state.get("evidence", {})
         top = ((state.get("rca") or {}).get("hypotheses") or [{}])[0]
         culprits = {
-            state["evidence"][i]["service"]
-            for i in top.get("supporting_evidence_ids", [])
-            if state["evidence"].get(i, {}).get("service")
+            evidence[i]["service"] for i in top.get("supporting_evidence_ids", []) if evidence.get(i, {}).get("service")
         }
-        targets = [a for a in _anomalies(state, {svc} | culprits) if not a["data"].get("recovered")][:4]
+        anomalies = [a for a in _anomalies(state, {svc} | culprits) if not a["data"].get("recovered")]
+        metric_conds, informational = metric_conditions(anomalies)
+        post_conds = postcondition_conditions(executions, state.get("remediation_plan") or [], evidence)
+        required = [*metric_conds, *post_conds]
         calls = _Calls(self.d.tools, state, self.p, "verify")
+        budget = min(self.p.max_verification_checks, max(calls.remaining, 0))
         env = state["incident"]["environment_id"]
-        if not targets:
-            targets = [
-                {
-                    "service": svc,
-                    "data": {
-                        "metric": "http_5xx_ratio",
-                        "unit": "ratio",
-                        "baseline": 0.0,
-                        "extreme": self.p.recovery_threshold / self.p.recovery_position,
-                    },
+
+        def plan_call(c: Condition) -> tuple[str, dict[str, Any]]:
+            if c.kind == "metric":
+                return "query_metrics", {
+                    "environment_id": env,
+                    "service": c.service,
+                    "metric": c.name,
+                    "start": start,
+                    "end": end,
                 }
-            ]
-        results = await calls.many(
-            [
-                (
-                    "query_metrics",
-                    {
-                        "environment_id": env,
-                        "service": t["service"],
-                        "metric": t["data"]["metric"],
-                        "start": start,
-                        "end": end,
-                    },
-                )
-                for t in targets
-            ]
-        )
-        checks = []
-        for t, r in zip(targets, results, strict=True):
-            d = t["data"]
-            if not r or not r.ok or not r.data or len(r.data["points"]) < 3:
+            kind = c.name.split(":", 1)[0]
+            if kind == "rolled_back":
+                begin = c.spec.get("started_at") or start
+                return "list_recent_deployments", {"environment_id": env, "start": begin, "end": end}
+            if kind == "pool_size":
+                return "get_service_config", {"environment_id": env, "service": c.service}
+            return "inspect_queue", {"environment_id": env, "queue": c.spec["queue"]}
+
+        # Deduplicate identical tool calls (e.g. two postconditions on the same queue) so the budget counts reads.
+        planned: dict[str, tuple[str, dict[str, Any]]] = {}
+        for c in required:
+            tool, args = plan_call(c)
+            planned.setdefault(f"{tool}:{sorted(args.items())}", (tool, args))
+        keys = list(planned)
+        checked_keys, omitted_keys = keys[:budget], keys[budget:]
+        results = await calls.many([planned[k] for k in checked_keys])
+        by_key = dict(zip(checked_keys, results, strict=True))
+        checks: list[dict[str, Any]] = []
+        for c in required:
+            tool, args = plan_call(c)
+            key = f"{tool}:{sorted(args.items())}"
+            if key in omitted_keys:
                 checks.append(
                     {
-                        "service": t["service"],
-                        "metric": d["metric"],
-                        "recovered": False,
-                        "note": "insufficient post-remediation data",
+                        "kind": c.kind,
+                        "service": c.service,
+                        "name": c.name,
+                        "evidence_id": c.evidence_id,
+                        "status": "not_checked",
+                        "detail": "verification budget exhausted",
                     }
                 )
                 continue
-            after = mean([float(p["value"]) for p in r.data["points"]][-3:])
-            span = (d["extreme"] - d["baseline"]) or 1e-9
-            position = (after - d["baseline"]) / span
-            checks.append(
-                {
-                    "service": t["service"],
-                    "metric": d["metric"],
-                    "baseline": round(d["baseline"], 5),
-                    "anomalous": round(d["extreme"], 5),
-                    "after": round(after, 5),
-                    "position": round(position, 3),
-                    "recovered": position < self.p.recovery_position,
-                }
-            )
-        recovered = bool(checks) and all(c["recovered"] for c in checks)
-        notes = "; ".join(
-            f"{c['service']} {c['metric']}: "
-            + (
-                f"{c.get('after')} (baseline {c.get('baseline')}, was {c.get('anomalous')})"
-                if "after" in c
-                else c["note"]
-            )
-            for c in checks
+            r = by_key[key]
+            data = r.data if r and r.ok else None
+            if c.kind == "metric":
+                pts = [float(p["value"]) for p in data["points"]] if data else None
+                check = evaluate_metric(c, pts)
+            else:
+                check = evaluate_postcondition(c, data)
+            if r is not None:
+                check["tool_call_id"] = r.record.id
+                if not r.ok:
+                    check["detail"] = f"{check.get('detail', '')}; tool error: {r.error}".strip("; ")
+            checks.append(check)
+        status = overall(checks)
+        failed = [c for c in checks if c["status"] == "failed"]
+        unknown = [c for c in checks if c["status"] in ("unknown", "not_checked")]
+        notes = (
+            f"{len(checks)} required condition(s): {len(checks) - len(failed) - len(unknown)} passed, "
+            f"{len(failed)} failed, {len(unknown)} unknown/not checked"
         )
+        if failed:
+            notes += "; failed: " + ", ".join(f"{c.get('service') or ''} {c['name']}".strip() for c in failed)
+        if unknown:
+            notes += "; unverified: " + ", ".join(f"{c.get('service') or ''} {c['name']}".strip() for c in unknown)
         return {
             **calls.update(),
             "verification": {
-                "recovered": recovered,
+                "status": status,
+                "recovered": status == "recovered",
                 "service": svc,
                 "checks": checks,
+                "informational": informational,
+                "required": len(required),
+                "budget": budget,
+                "omitted": len([c for c in checks if c["status"] == "not_checked"]),
                 "window_start": start,
                 "window_end": end,
-                "criterion": f"each anomalous metric back within {self.p.recovery_position:.0%} of its excursion",
                 "notes": notes,
+                "criterion": "every required metric back inside its healthy band and every action postcondition met",
             },
         }
 
