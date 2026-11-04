@@ -165,7 +165,11 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "completion_rate": rate("completed", rows),
         "outcome_accuracy": rate("outcome_correct", rows),
         "plan_acceptable_rate": rate("plan_acceptable", rows),
-        "plan_ordered_rate": rate("plan_ordered", [r for r in rows if not r["scenario"].startswith("NEG")]),
+        # Only runs where execution was expected: negative scenarios and rejection trials must execute nothing.
+        "plan_ordered_rate": rate(
+            "plan_ordered",
+            [r for r in rows if not r["scenario"].startswith("NEG") and r.get("decision", "approve") != "reject"],
+        ),
         "extra_actions": sum(len(r["extra_actions"]) for r in rows),
         "attempted_failed": sum(r["attempted_failed"] for r in rows),
         "forbidden_attempted": sum(len(r["forbidden_attempted"]) for r in rows),

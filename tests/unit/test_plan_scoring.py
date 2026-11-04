@@ -82,3 +82,14 @@ def test_stored_phase_b_runs_rescored_with_the_stricter_scorer() -> None:
         row = score_run(stored["run"], load_truth(stored["score"]["scenario"]))
         assert row["plan_acceptable"] == stored["score"]["plan_acceptable"], path.name
         assert row["forbidden_attempted"] == [] and row["extra_actions"] == [], path.name
+
+
+def test_plan_ordered_rate_excludes_rejection_and_negative_runs() -> None:
+    """A rejection trial correctly executes nothing; it must not count as a plan-order failure."""
+    from opspilot_eval.agent_eval import summarize
+
+    base = score_run(run_with((*ROLLBACK, "succeeded")), load_truth("INC-001"))
+    rejected = {**score_run(run_with(), load_truth("INC-001")), "decision": "reject"}
+    negative = score_run(run_with(), load_truth("NEG-001"))
+    rows = [{**base, "decision": "approve"}, rejected, {**negative, "decision": "approve"}]
+    assert summarize(rows)["plan_ordered_rate"] == 1.0

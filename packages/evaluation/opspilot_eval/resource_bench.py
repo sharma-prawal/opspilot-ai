@@ -32,9 +32,7 @@ def _sysctl(key: str) -> str:
 
 
 def ollama_rss_mb() -> float:
-    out = subprocess.run(
-        ["/bin/ps", "-axo", "rss=,command="], capture_output=True, text=True, timeout=5
-    ).stdout
+    out = subprocess.run(["/bin/ps", "-axo", "rss=,command="], capture_output=True, text=True, timeout=5).stdout
     kb = sum(int(line.split(None, 1)[0]) for line in out.splitlines() if "ollama" in line.lower() and line.strip())
     return round(kb / 1024, 1)
 
