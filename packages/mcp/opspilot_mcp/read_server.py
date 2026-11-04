@@ -13,7 +13,17 @@ from mcp.types import ToolAnnotations
 from pydantic import AwareDatetime, Field
 
 from opspilot_mcp.backend import OpsBackend
-from opspilot_mcp.schemas import ConfigChangeList, DeploymentList, IncidentView, KnowledgeHits
+from opspilot_mcp.schemas import (
+    ConfigChangeList,
+    DatastoreStatus,
+    DeploymentList,
+    IncidentView,
+    KnowledgeHits,
+    MetricCatalog,
+    MetricInfo,
+    QueueStatus,
+    ServiceConfigView,
+)
 from opspilot_shared.db.models import OpsIncident
 from opspilot_shared.domain.knowledge import DocType, RetrievalFilters
 from opspilot_shared.domain.telemetry import (
@@ -28,6 +38,10 @@ from opspilot_shared.errors import OpsPilotError
 READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 READ_TOOLS = frozenset(
     {
+        "list_service_metrics",
+        "get_service_config",
+        "get_datastore_status",
+        "inspect_queue",
         "get_incident",
         "search_logs",
         "query_metrics",
@@ -129,6 +143,43 @@ def build_read_server(backend: OpsBackend) -> MCPServer:
     async def get_service_health(environment_id: EnvId, service: Service) -> ServiceHealth:
         """Current health of a service, from the last 5 minutes of metrics."""
         return await _guard(lambda: store.service_health(environment_id, service))
+
+    @mcp.tool(title="List service metrics", annotations=READ_ONLY)
+    async def list_service_metrics(environment_id: EnvId, service: Service) -> MetricCatalog:
+        """Metric names (and units) available for a service in this environment."""
+
+        async def run() -> MetricCatalog:
+            rows = await store.list_metrics(environment_id, service)
+            return MetricCatalog(service=service, metrics=[MetricInfo(**r) for r in rows])
+
+        return await _guard(run)
+
+    @mcp.tool(title="Service configuration", annotations=READ_ONLY)
+    async def get_service_config(environment_id: EnvId, service: Service) -> ServiceConfigView:
+        """Current runtime configuration of a service: replicas, pool sizes, timeouts, consumer settings."""
+
+        async def run() -> ServiceConfigView:
+            return ServiceConfigView(**await store.service_config(environment_id, service))
+
+        return await _guard(run)
+
+    @mcp.tool(title="Datastore status", annotations=READ_ONLY)
+    async def get_datastore_status(environment_id: EnvId, datastore: Service) -> DatastoreStatus:
+        """Connection capacity and usage of a datastore (max/active connections by client, long-running queries)."""
+
+        async def run() -> DatastoreStatus:
+            return DatastoreStatus(**await store.datastore_status(environment_id, datastore))
+
+        return await _guard(run)
+
+    @mcp.tool(title="Inspect queue", annotations=READ_ONLY)
+    async def inspect_queue(environment_id: EnvId, queue: Service) -> QueueStatus:
+        """Queue state: pending/dead-lettered/quarantined counts, consumer state, validation failures by producer."""
+
+        async def run() -> QueueStatus:
+            return QueueStatus(**await store.inspect_queue(environment_id, queue))
+
+        return await _guard(run)
 
     @mcp.tool(title="Recent deployments", annotations=READ_ONLY)
     async def list_recent_deployments(

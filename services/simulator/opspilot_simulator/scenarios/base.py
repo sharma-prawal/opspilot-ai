@@ -8,6 +8,7 @@ the generated telemetry through MCP tools. Answer keys live in datasets/evaluati
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Protocol
@@ -68,13 +69,40 @@ class AlertSpec:
 
 
 @dataclass(slots=True)
+class InspectionRow:
+    ts: datetime
+    kind: str  # datastore | queue
+    target: str
+    payload: dict[str, Any]
+
+
+@dataclass(slots=True)
+class QueueMessageRow:
+    queue: str
+    message_id: str
+    producer_service: str
+    producer_version: str
+    schema_version: str
+    payload: dict[str, Any]
+    status: str
+    attempts: int
+    error_code: str | None
+    last_error: str | None
+    enqueued_at: datetime
+
+
+@dataclass(slots=True)
 class Telemetry:
     logs: list[LogRow] = field(default_factory=list)
     metrics: list[MetricRow] = field(default_factory=list)
+    inspections: list[InspectionRow] = field(default_factory=list)
+    queue_messages: list[QueueMessageRow] = field(default_factory=list)
 
     def extend(self, other: Telemetry) -> None:
         self.logs.extend(other.logs)
         self.metrics.extend(other.metrics)
+        self.inspections.extend(other.inspections)
+        self.queue_messages.extend(other.queue_messages)
 
 
 @dataclass(slots=True)
@@ -86,6 +114,20 @@ class ScenarioData:
     alert: AlertSpec
     service_versions: dict[str, str]
     state: dict[str, Any]
+    service_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class QueueUpdate:
+    """Status transition applied to matching queue records (e.g. quarantine). Records are never deleted."""
+
+    queue: str
+    from_statuses: tuple[str, ...]
+    to_status: str
+    predicate: Callable[[dict[str, Any], str | None], bool]
+    attempts: int | None = None
+    error_code: str | None = None
+    last_error: str | None = None
 
 
 @dataclass(slots=True)
@@ -98,6 +140,9 @@ class ActionEffect:
     deployments: list[DeploymentRow] = field(default_factory=list)
     service_versions: dict[str, str] = field(default_factory=dict)
     details: dict[str, Any] = field(default_factory=dict)
+    state_updates: dict[str, Any] = field(default_factory=dict)
+    config_updates: dict[str, dict[str, Any]] = field(default_factory=dict)
+    queue_updates: list[QueueUpdate] = field(default_factory=list)
 
 
 class Scenario(Protocol):

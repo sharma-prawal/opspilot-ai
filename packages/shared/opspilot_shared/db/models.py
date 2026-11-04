@@ -61,6 +61,7 @@ class SimService(Base):
     owner: Mapped[str] = mapped_column(String(63))
     current_version: Mapped[str] = mapped_column(String(32))
     replicas: Mapped[int] = mapped_column(Integer)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
 
 class SimDependency(Base):
@@ -141,6 +142,40 @@ class SimMetric(Base):
     name: Mapped[str] = mapped_column(String(63), primary_key=True)
     ts: Mapped[datetime] = mapped_column(TZ, primary_key=True)
     value: Mapped[float] = mapped_column(Float)
+
+
+class SimInspection(Base):
+    """Point-in-time structured observations (datastore status, queue status) as an ops tool would return."""
+
+    __tablename__ = "inspections"
+    __table_args__ = (Index("ix_sim_inspections_lookup", "environment_id", "kind", "target", "ts"), {"schema": "sim"})
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    environment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sim.environments.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(32))
+    target: Mapped[str] = mapped_column(String(63))
+    ts: Mapped[datetime] = mapped_column(TZ)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
+class SimQueueMessage(Base):
+    """Structured queue records. Status transitions model retries, dead-lettering and quarantine (never deletion)."""
+
+    __tablename__ = "queue_messages"
+    __table_args__ = (Index("ix_sim_queue_messages_lookup", "environment_id", "queue", "status"), {"schema": "sim"})
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    environment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sim.environments.id", ondelete="CASCADE"))
+    queue: Mapped[str] = mapped_column(String(63))
+    message_id: Mapped[str] = mapped_column(String(64))
+    producer_service: Mapped[str] = mapped_column(String(63))
+    producer_version: Mapped[str] = mapped_column(String(32))
+    schema_version: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16))  # pending | dead_lettered | quarantined | processed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    enqueued_at: Mapped[datetime] = mapped_column(TZ)
+    updated_at: Mapped[datetime] = mapped_column(TZ)
 
 
 class SimActionExecution(Base):

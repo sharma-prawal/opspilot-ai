@@ -17,7 +17,7 @@ class Dto(BaseModel):
 
 
 class SimulateRequest(BaseModel):
-    scenario: str = Field(default="INC-001", pattern=r"^INC-\d{3}$")
+    scenario: str = Field(default="INC-001", pattern=r"^(INC|NEG)-\d{3}$")
 
 
 class InvestigationOut(Dto):

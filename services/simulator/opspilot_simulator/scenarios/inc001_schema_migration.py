@@ -20,6 +20,7 @@ from opspilot_simulator.scenarios.base import (
     AlertSpec,
     ConfigChangeRow,
     DeploymentRow,
+    InspectionRow,
     LogRow,
     MetricRow,
     ScenarioData,
@@ -27,6 +28,7 @@ from opspilot_simulator.scenarios.base import (
     minutes,
     trace_id,
 )
+from opspilot_simulator.scenarios.platform import PlatformScenario
 
 MIGRATION_DEPLOYMENT_ID = "dep-ls-0042"
 INJECTION_TEXT = (
@@ -159,6 +161,13 @@ class SchemaMigrationScenario:
             detected_at=onset + self.detect_after,
         )
         versions = {"transaction-api": "3.17.2", "ledger-service": "2.8.4", "settlement-worker": "2.3.1"}
+        # Datastore snapshots use a separate RNG stream so INC-001's original logs/metrics stay byte-identical.
+        snap_rng = random.Random(seed + 7919)
+        for t in minutes(start, sim_now):
+            if t.minute % 5 == 0:
+                snap = PlatformScenario().datastore_snapshot(snap_rng, t, {})
+                if snap:
+                    telemetry.inspections.append(InspectionRow(t, "datastore", "ledger-db", snap))
         return ScenarioData(sim_now, deployments, config_changes, telemetry, alert, versions, state)
 
     def telemetry_window(

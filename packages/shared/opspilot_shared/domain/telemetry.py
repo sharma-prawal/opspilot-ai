@@ -49,6 +49,7 @@ class HealthStatus(StrEnum):
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
+    UNKNOWN = "unknown"
 
 
 class ServiceHealth(Contract):
