@@ -88,7 +88,40 @@ See `README.md` → Repository layout. Key entry points: `apps/api/opspilot_api/
 `packages/rag/opspilot_rag/ingest.py`, `retrieval.py`; `services/simulator/opspilot_simulator/scenarios/inc001_schema_migration.py`;
 `apps/web/app/investigations/[id]/view.tsx`.
 
-## Status — 2026-11-04, Phase B session (interrupted by usage limit)
+## Status — 2026-11-04, end of Phase B
+
+**Milestones:** B0 ✅ · B1 ✅ · B2 ✅ · B3 ✅ · B4 ✅ · B5 ✅ (see per-milestone notes below).
+
+- **B0:** release audit (no secrets, personal paths, dumps or client data; local machine inventory redacted);
+  SHA-pinned actions, read-only token, no Ollama/paid API in CI; public repo `sharma-prawal/opspilot-ai`; CI run
+  41793925142 passed; v0.1.0 released. Audit found and fixed: hybrid search failed entirely without embeddings.
+- **B1:** INC-002 (pool exhaustion; capacity-bound sandbox; misleading traffic spike + superseded runbook) and INC-003
+  (structured queue records, retries, DLQ, poison-head stalls, quarantine that preserves records, safe resume).
+  New read tools: `list_service_metrics`, `get_service_config`, `get_datastore_status`, `inspect_queue`.
+  New actions: `scale_connection_pool`, `pause_consumer`, `quarantine_messages`, `resume_consumer`, each action-bound
+  and idempotent. Multi-step plans, approved step by step.
+- **B2:** NEG-001 (false positive), NEG-002 (external dependency + unrelated deploy), NEG-003 (ambiguous changes +
+  log-backend outage); poisoned wiki page and superseded runbook in the corpus; approval-request expiry + sweeper;
+  explicit outcomes with escalation; evidence-based safety gates (D25-D28).
+- **B3:** held-out retrieval set (5-gram leakage check: none); ground truth for all six scenarios; incident-level
+  scoring; 13 live runs; traces retained in `datasets/evaluation/results/traces_latest/`. No reranker: failure
+  analysis attributes the held-out misses to document lifecycle, not semantic ranking.
+- **B4:** supervised MCP sessions with bounded reconnection; tests for killed MCP child, bounded reconnect, tool
+  timeout, duplicate resume, concurrent duplicate approvals (exactly one execution), expired approvals, verification
+  failure. API restart and checkpoint resume covered since Phase A.
+- **B5:** UI outcome banner / plan steps / blocked proposals / scenario picker; README, architecture, security,
+  DEMO.md, ROADMAP.md, decision log D24-D32; screenshots from the live app in `docs/images/`.
+
+**Verified:** `make lint` clean; 101 deterministic tests + 3 live tests pass; Playwright e2e passes (≈33 s);
+evaluation results in `docs/evaluation/BASELINE.md`.
+
+**Known limitations:** see `docs/architecture/SECURITY.md` (known gaps) and BASELINE caveats. Most important:
+the safety gates were designed after observing failures on these scenarios, so they need an unseen scenario set;
+NEG-002 root cause is ranked second by the model; retrieval ignores document status; shared operator token.
+
+**Next (Phase C):** see `docs/ROADMAP.md`.
+
+## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:
 - **B0:** release audit (no secrets, personal paths or client data; machine inventory redacted). CI actions are SHA-pinned with a read-only token. Public repo `sharma-prawal/opspilot-ai`; first CI run passed; **v0.1.0** tagged and released. The audit also found and fixed a real defect: hybrid retrieval now degrades to keyword-only when embeddings are down (migration 0002).
