@@ -424,4 +424,38 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
 - **Remaining risk:** the tiers are a fixed policy. A deliberately mislabelled `status: current` on poisoned
   content is not detected here; that remains a review and ingestion-provenance concern.
 
+## J — Historical citations lose their underlying chunk versions (Medium, audit #13) ✅
+
+- **Reproduction:** reproduced with the real API and ingestion.
+  - An INC-001 investigation cited knowledge chunks.
+  - The cited document was then re-ingested with a change. Its chunks were replaced (new IDs, new version), and
+    the cited chunk ID no longer resolved in `kb.chunks`.
+  - The persisted citation carried only IDs, a title and a heading, plus a 420-character excerpt in the
+    summary, so the cited passage could not be reconstructed.
+- **Root cause:** citations referenced mutable storage, chunks are replaced on update, and the citation contract
+  had no version or content identity.
+- **Change:** each citation is now a self-contained, verifiable snapshot persisted with the investigation's
+  evidence in `ops.evidence.citation`. It records:
+  - `document_version`;
+  - the complete cited `passage`, i.e. the full chunk text at retrieval time;
+  - `passage_sha256`;
+  - `lifecycle_status`;
+  - `retrieved_at`.
+
+  Supporting changes:
+  - The retriever returns `content` and `content_sha256` with each chunk.
+  - The RCA report's "Knowledge sources" list shows the version and hash prefix.
+  - The RCA prompt still uses only the short summary, so context size on the 8B model is unchanged.
+  - We chose snapshots over retaining every chunk version in `kb`, which would have needed a retrieval-wide
+    "current version" filter and unbounded storage growth for a property that matters only for cited chunks.
+  - New fields are optional, so citations recorded before C0 remain valid; they simply lack a snapshot.
+- **Regression test:** `tests/integration/test_citation_snapshots.py`. After the cited document is re-ingested,
+  the old chunk is gone from `kb`, and the investigation's stored citation still returns the exact passage,
+  matching its hash. It fails on the unfixed code (no passage recorded).
+- **Remaining risk:** citations recorded before C0 cannot be repaired retroactively.
+
+## C0-C gate (findings I, J, K, L, M)
+
+*(K, the agent-path retrieval benchmark, follows; the gate is recorded when it completes.)*
+
 *(C0-C to C0-E entries are added as those milestones complete.)*

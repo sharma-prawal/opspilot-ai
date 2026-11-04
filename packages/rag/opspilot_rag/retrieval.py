@@ -23,6 +23,7 @@ from opspilot_shared.domain.knowledge import (
     SearchResponse,
 )
 from opspilot_shared.errors import EmbeddingError
+from opspilot_shared.ids import sha256_hex
 from opspilot_shared.llm.ports import Embedder
 from opspilot_shared.logging import get_logger
 from opspilot_shared.tracing import get_tracer
@@ -145,6 +146,8 @@ class HybridRetriever:
             doc_type=DocType(d.doc_type),
             heading_path=c.heading_path,
             snippet=c.content[:SNIPPET_CHARS],
+            content=c.content,
+            content_sha256=sha256_hex(c.content),
             score=round(score, 6),
             vector_rank=vrank,
             keyword_rank=krank,

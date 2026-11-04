@@ -44,6 +44,8 @@ class RetrievedChunk(Contract):
     vector_rank: int | None = None
     keyword_rank: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    content: str | None = Field(default=None, description="complete chunk text (citation snapshot)")
+    content_sha256: str | None = None
 
 
 class SearchResponse(Contract):

@@ -872,6 +872,7 @@ class InvestigationNodes:
             ]
         )
         evidence: dict[str, dict[str, Any]] = {}
+        retrieved_at = utcnow()
         for res, kind in ((rrun, EvidenceKind.KNOWLEDGE), (rinc, EvidenceKind.HISTORICAL_INCIDENT)):
             if not res or not res.ok or not res.data:
                 continue
@@ -891,6 +892,11 @@ class InvestigationNodes:
                         source_uri=hit["source_uri"],
                         title=hit["title"],
                         heading_path=hit["heading_path"],
+                        document_version=hit.get("document_version"),
+                        passage=hit.get("content") or hit["snippet"],
+                        passage_sha256=hit.get("content_sha256"),
+                        lifecycle_status=status or "current",
+                        retrieved_at=retrieved_at,
                     ),
                     data={
                         "rank": rank,

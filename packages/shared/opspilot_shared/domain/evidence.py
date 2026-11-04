@@ -27,11 +27,20 @@ class EvidenceKind(StrEnum):
 
 
 class Citation(Contract):
+    """A citation is a self-contained snapshot (audit finding 13): re-ingestion replaces chunks, so the cited
+    passage, its document version, a content hash, the lifecycle status and the retrieval time are recorded
+    with the evidence itself. Optional for compatibility with citations recorded before Phase C0."""
+
     document_id: str
     chunk_id: str
     source_uri: str
     title: str
     heading_path: str
+    document_version: int | None = None
+    passage: str | None = Field(default=None, description="complete cited chunk text at retrieval time")
+    passage_sha256: str | None = None
+    lifecycle_status: str | None = None
+    retrieved_at: UtcDatetime | None = None
 
 
 class Evidence(Contract):

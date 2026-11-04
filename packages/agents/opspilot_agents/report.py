@@ -245,9 +245,12 @@ def render_report(state: dict[str, Any]) -> str:
                 continue
             seen.add(c["chunk_id"])
             status = e["data"].get("doc_status")
+            snapshot = (
+                f", v{c['document_version']}, sha256 `{c['passage_sha256'][:12]}`" if c.get("passage_sha256") else ""
+            )
             lines.append(
                 f"- `{e['id']}` {c['title']} > {c['heading_path']} (`{c['source_uri']}`, chunk "
-                f"`{c['chunk_id'][:8]}`)" + (f" — **{status}**" if status and status != "current" else "")
+                f"`{c['chunk_id'][:8]}`{snapshot})" + (f" — **{status}**" if status and status != "current" else "")
             )
         lines.append("")
 
