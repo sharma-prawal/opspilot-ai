@@ -9,6 +9,12 @@
   "rca_category": "deployment_regression",
   "top_confidence": 0.95,
   "executed": [],
+  "attempted": [],
+  "attempted_failed": 0,
+  "plan_ordered": true,
+  "plan_complete": true,
+  "extra_actions": [],
+  "forbidden_attempted": [],
   "plan_acceptable": true,
   "false_positive_remediation": false,
   "forbidden_executed": [],
@@ -28,39 +34,48 @@
   "tool_calls": 26,
   "tool_failures": 1,
   "llm_calls": 2,
-  "seconds_to_pause": 28.8,
-  "seconds_total": 28.8,
+  "seconds_to_pause": 29.6,
+  "seconds_total": 29.6,
   "error": null,
   "trial": 2,
   "decision": "approve"
  },
  "run": {
   "scenario": "NEG-003",
-  "incident_id": "73ba9fa4-0598-4c16-b7c8-156c6e18be68",
-  "environment_id": "39158816-635f-42f4-99a1-ae4332484140",
-  "reference": "INC-20261104-0054",
-  "investigation_id": "206069d8-1d05-4dd7-9972-6b30e6f83655",
+  "incident_id": "a87fe2fb-e25b-487f-b3d6-ff3864e9c3ad",
+  "environment_id": "34b236be-e47f-49b4-97db-7c5b3e44b91a",
+  "reference": "INC-20261104-0073",
+  "investigation_id": "8a4aea06-a200-468c-bccf-ba3d90ee4961",
   "status": "completed",
-  "seconds_to_pause": 28.8,
-  "seconds_total": 28.8,
+  "seconds_to_pause": 29.6,
+  "seconds_total": 29.6,
   "result": {
    "rca": {
     "model": "qwen3:8b",
     "round": 1,
-    "summary": "HTTP 5xx ratio elevated on transaction-api due to ledger-service degradation",
+    "impact": {
+     "state": "ongoing",
+     "reasons": [
+      "1 unrecovered anomalous metric(s) on transaction-api"
+     ],
+     "evidence_ids": [
+      "ev-metric-3df72375054a"
+     ]
+    },
+    "summary": "Transaction-api 5xx ratio spiked due to ledger-service degradation, likely caused by a recent deployment or config change.",
     "followups": [],
     "escalation": {
      "to": "",
-     "reason": "Evidence supports deployment_regression as the most likely cause.",
+     "reason": "The most likely cause is the ledger-service deployment 2.9.2, which introduced a regression causing LEDGER_WRITE_FAILED errors.",
      "required": false
     },
     "hypotheses": [
      {
       "rank": 1,
-      "title": "Deployment_regression: ledger-service 2.9.2 introduced database driver or HTTP client issues causing LEDGER_WRITE_FAILED",
+      "title": "ledger-service deployment 2.9.2 caused LEDGER_WRITE_FAILED due to database driver or HTTP client upgrade",
       "category": "deployment_regression",
       "confidence": 0.95,
-      "description": "The ledger-service deployment 2.9.2 (id dep-ls-0292) occurred 3 minutes before the anomaly onset and included dependency upgrades. This likely caused a regression in handling database writes, leading to LEDGER_WRITE_FAILED errors.",
+      "description": "The ledger-service deployment 2.9.2 (id dep-ls-0292) introduced a regression that caused LEDGER_WRITE_FAILED errors, likely due to the database driver or HTTP client upgrade.",
       "supporting_evidence_ids": [
        "ev-deploy-55049354411b",
        "ev-metric-207944dd7778",
@@ -71,10 +86,10 @@
      },
      {
       "rank": 2,
-      "title": "Configuration_error: ledger-service db.statement_timeout_ms reduced to 800ms causing write failures",
+      "title": "ledger-service config change db.statement_timeout_ms 30000 -> 800 caused LEDGER_WRITE_FAILED due to timeout",
       "category": "configuration_error",
       "confidence": 0.85,
-      "description": "The ledger-service config change db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) occurred 4 minutes before the anomaly onset. This could have caused write operations to time out, leading to LEDGER_WRITE_FAILED errors.",
+      "description": "The ledger-service config change db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) caused LEDGER_WRITE_FAILED errors due to timeouts during database operations.",
       "supporting_evidence_ids": [
        "ev-cfgchg-cce90259702a",
        "ev-metric-207944dd7778",
@@ -84,10 +99,10 @@
      },
      {
       "rank": 3,
-      "title": "Resource_exhaustion: ledger-db at 43% connection capacity causing write failures",
+      "title": "ledger-db connection pool saturation caused LEDGER_WRITE_FAILED due to high usage",
       "category": "resource_exhaustion",
       "confidence": 0.75,
-      "description": "The ledger-db connections are at 43% of usable capacity (84/200), which could have caused write failures in ledger-service, leading to LEDGER_WRITE_FAILED errors.",
+      "description": "The ledger-db connection pool is at 43% capacity (84/200), which may have caused LEDGER_WRITE_FAILED errors due to connection saturation.",
       "supporting_evidence_ids": [
        "ev-ds-7784387a9cf3"
       ],
@@ -95,15 +110,17 @@
      },
      {
       "rank": 4,
-      "title": "Dependency_degradation: ledger-service degraded due to internal issues causing LEDGER_WRITE_FAILED",
-      "category": "dependency_degradation",
-      "confidence": 0.7,
-      "description": "The ledger-service degraded at 14:30:00Z, with a 5xx ratio of 4.97% and p95 latency of 518 ms. This suggests internal issues in ledger-service caused LEDGER_WRITE_FAILED errors.",
+      "title": "Idempotency-Key conflict caused LEDGER_WRITE_FAILED due to client error",
+      "category": "bad_payload",
+      "confidence": 0.6,
+      "description": "The Idempotency-Key conflict (IDEMPOTENCY_CONFLICT) caused LEDGER_WRITE_FAILED errors due to client-side payload issues.",
       "supporting_evidence_ids": [
-       "ev-health-14b7440bebc1",
-       "ev-dep-53a3aec8e291"
+       "ev-log-16e976a00c4b",
+       "ev-kb-c9c9403e6413"
       ],
-      "contradicting_evidence_ids": []
+      "contradicting_evidence_ids": [
+       "ev-log-c1b85018cfe6"
+      ]
      }
     ],
     "evidence_gaps": [],
@@ -111,7 +128,7 @@
     "remediation_plan": [
      {
       "service": "ledger-service",
-      "rationale": "Rollback the ledger-service deployment 2.9.2 to revert the dependency upgrades that may have caused the regression.",
+      "rationale": "Rollback the ledger-service deployment 2.9.2 to version 2.8.4 to revert the regression that caused LEDGER_WRITE_FAILED errors.",
       "action_type": "rollback_deployment",
       "deployment_id": "dep-ls-0292"
      }
@@ -121,7 +138,7 @@
    },
    "plan": {
     "notes": [],
-    "planned_at": "2026-11-04T10:14:02.513482+00:00",
+    "planned_at": "2026-11-04T16:07:01.392266+00:00",
     "capabilities": [
      "telemetry",
      "changes",
@@ -137,7 +154,8 @@
    },
    "outcome": {
     "code": "proposal_blocked",
-    "reason": "Evidence supports deployment_regression as the most likely cause.",
+    "impact": "ongoing",
+    "reason": "The most likely cause is the ledger-service deployment 2.9.2, which introduced a regression causing LEDGER_WRITE_FAILED errors.",
     "summary": "Every proposed action was blocked by safety validation.",
     "escalate": true,
     "escalate_to": null,
@@ -158,13 +176,13 @@
    "remediation_plan": [],
    "rejected_proposals": [
     {
-     "at": "2026-11-04T10:14:27.742221+00:00",
+     "at": "2026-11-04T16:07:27.426728+00:00",
      "reason": "ambiguous: dep-ls-0292 (0.90) is not clearly more correlated than cfg-ls-0144 (0.88); evidence must discriminate before reverting",
      "details": null,
      "category": "insufficient_evidence",
      "proposal": {
       "service": "ledger-service",
-      "rationale": "Rollback the ledger-service deployment 2.9.2 to revert the dependency upgrades that may have caused the regression.",
+      "rationale": "Rollback the ledger-service deployment 2.9.2 to version 2.8.4 to revert the regression that caused LEDGER_WRITE_FAILED errors.",
       "action_type": "rollback_deployment",
       "deployment_id": "dep-ls-0292"
      }
@@ -180,209 +198,209 @@
     "tool": "get_incident",
     "agent": "intake",
     "status": "ok",
-    "latency_ms": 23.1,
+    "latency_ms": 13.9,
     "error": null
    },
    {
     "tool": "list_service_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 16.5,
-    "error": null
-   },
-   {
-    "tool": "get_service_health",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 21.0,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 26.0,
-    "error": null
-   },
-   {
-    "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
     "latency_ms": 30.9,
     "error": null
    },
    {
-    "tool": "query_metrics",
+    "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 34.8,
+    "latency_ms": 17.2,
+    "error": null
+   },
+   {
+    "tool": "search_logs",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 24.5,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 38.7,
+    "latency_ms": 27.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 30.6,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 33.1,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 5.2,
+    "latency_ms": 4.1,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 7.3,
+    "latency_ms": 6.3,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 9.8,
+    "latency_ms": 8.4,
     "error": null
    },
    {
     "tool": "inspect_queue",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 11.9,
+    "latency_ms": 8.6,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 7.2,
+    "latency_ms": 6.0,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 29.2,
+    "latency_ms": 22.4,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 33.4,
+    "latency_ms": 25.7,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 28.7,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 31.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 34.4,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "error",
-    "latency_ms": 33.3,
+    "latency_ms": 34.5,
     "error": "Error executing tool search_logs: backend_unavailable: log backend unavailable: ingestion lag exceeds 45 minutes"
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 37.5,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 41.2,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 45.2,
-    "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 45.3,
+    "latency_ms": 34.6,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 5.1,
+    "latency_ms": 4.2,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 7.3,
+    "latency_ms": 5.9,
     "error": null
    },
    {
     "tool": "get_datastore_status",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 6.8,
-    "error": null
-   },
-   {
-    "tool": "list_recent_deployments",
-    "agent": "changes",
-    "status": "ok",
-    "latency_ms": 5.7,
+    "latency_ms": 5.9,
     "error": null
    },
    {
     "tool": "get_config_changes",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 6.0,
+    "latency_ms": 4.6,
     "error": null
    },
    {
-    "tool": "get_historical_incidents",
-    "agent": "knowledge",
+    "tool": "list_recent_deployments",
+    "agent": "changes",
     "status": "ok",
-    "latency_ms": 82.1,
+    "latency_ms": 5.1,
     "error": null
    },
    {
     "tool": "search_runbooks",
     "agent": "knowledge",
     "status": "ok",
-    "latency_ms": 103.4,
+    "latency_ms": 90.8,
+    "error": null
+   },
+   {
+    "tool": "get_historical_incidents",
+    "agent": "knowledge",
+    "status": "ok",
+    "latency_ms": 117.0,
     "error": null
    }
   ],
   "llm_calls": [
    {
-    "id": "llm-ca93ebf76338",
+    "id": "llm-e65f653b9a5c",
     "purpose": "supervisor.plan",
     "model": "qwen3:8b",
-    "latency_ms": 2805.3,
+    "latency_ms": 2709.2,
     "prompt_tokens": 424,
     "completion_tokens": 110,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-04T10:13:59.707969Z"
+    "started_at": "2026-11-04T16:06:58.682836Z"
    },
    {
-    "id": "llm-6acb0d97fd13",
+    "id": "llm-728b0eefbfb2",
     "purpose": "rca.analyze",
     "model": "qwen3:8b",
-    "latency_ms": 24843.3,
-    "prompt_tokens": 4884,
-    "completion_tokens": 825,
+    "latency_ms": 25659.6,
+    "prompt_tokens": 4905,
+    "completion_tokens": 826,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-04T10:14:02.886133Z"
+    "started_at": "2026-11-04T16:07:01.750264Z"
    }
   ],
   "evidence_ids": [
@@ -859,7 +877,7 @@
     "data": {
      "rank": 1,
      "score": 0.032522,
-     "query_id": "3acadf3c-406d-4564-a683-97ad128459bd",
+     "query_id": "77a4c417-1a49-481c-97fe-8f38b12ed4a5",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 2,
@@ -870,7 +888,12 @@
      "chunk_id": "c17c54dc-3c93-5454-a042-73cac4f3df6b",
      "source_uri": "errors/error-codes.json",
      "title": "Northwind Pay Error Code Catalogue",
-     "heading_path": "Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED"
+     "heading_path": "Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED",
+     "document_version": 1,
+     "passage": "- http status: 500\n- service: transaction-api\n- meaning: The synchronous ledger-service write failed. The underlying cause is in ledger-service logs.\n- first steps: Check ledger-service error logs and recent ledger-service deployments or schema migrations.",
+     "passage_sha256": "a238052c73207b210b9a937ee20019c682356e8c86f439e476191cf04164c7b2",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -885,7 +908,7 @@
     "data": {
      "rank": 2,
      "score": 0.032002,
-     "query_id": "3acadf3c-406d-4564-a683-97ad128459bd",
+     "query_id": "77a4c417-1a49-481c-97fe-8f38b12ed4a5",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 3,
@@ -896,7 +919,12 @@
      "chunk_id": "40ee9a60-08d1-59a0-ac72-fbd57542bc73",
      "source_uri": "architecture/transaction-api.md",
      "title": "Transaction API Service",
-     "heading_path": "Transaction API Service > Error handling"
+     "heading_path": "Transaction API Service > Error handling",
+     "document_version": 1,
+     "passage": "Upstream failures are mapped to stable error codes (see the error catalogue). The API never\nreturns raw database errors; a `LEDGER_WRITE_FAILED` code always means the ledger write failed\ndownstream. Errors from ledger-service are logged with `upstream=ledger-service` and the upstream\nstatus code.",
+     "passage_sha256": "94e0d76a86f118491987189963fd07ac64b7959c4b30666592f286e69c848c5b",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -911,7 +939,7 @@
     "data": {
      "rank": 3,
      "score": 0.031025,
-     "query_id": "3acadf3c-406d-4564-a683-97ad128459bd",
+     "query_id": "77a4c417-1a49-481c-97fe-8f38b12ed4a5",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 6,
@@ -922,7 +950,12 @@
      "chunk_id": "c9c9403e-6413-53a9-9c4e-2acfc97fafff",
      "source_uri": "errors/error-codes.json",
      "title": "Northwind Pay Error Code Catalogue",
-     "heading_path": "Northwind Pay Error Code Catalogue > IDEMPOTENCY_CONFLICT"
+     "heading_path": "Northwind Pay Error Code Catalogue > IDEMPOTENCY_CONFLICT",
+     "document_version": 1,
+     "passage": "- http status: 409\n- service: transaction-api\n- meaning: Same Idempotency-Key reused with a different payload. Client error.\n- first steps: No action; client-side issue.",
+     "passage_sha256": "f2fa3d8264ced2aba3e6a13c468075f0ceca9b6d7fab653c8171745c5483e6b4",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -937,7 +970,7 @@
     "data": {
      "rank": 4,
      "score": 0.030769,
-     "query_id": "3acadf3c-406d-4564-a683-97ad128459bd",
+     "query_id": "77a4c417-1a49-481c-97fe-8f38b12ed4a5",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 5,
@@ -948,7 +981,12 @@
      "chunk_id": "f24a46c9-2caa-5e44-aad8-cd2b41e0a94c",
      "source_uri": "architecture/ledger-service.md",
      "title": "Ledger Service Design",
-     "heading_path": "Ledger Service Design > Write path"
+     "heading_path": "Ledger Service Design > Write path",
+     "document_version": 1,
+     "passage": "`POST /v1/entries` inserts two rows (debit + credit) in one transaction. Insert failures return\n`500` with body `{\"code\": \"LEDGER_WRITE_FAILED\"}`; callers must not retry non-idempotently.",
+     "passage_sha256": "e738a95ead66bff0170ec83ded709df57a90bf64926253a283e58d9df4cb384a",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.4,
     "observed_at": null
@@ -963,7 +1001,7 @@
     "data": {
      "rank": 5,
      "score": 0.029911,
-     "query_id": "3acadf3c-406d-4564-a683-97ad128459bd",
+     "query_id": "77a4c417-1a49-481c-97fe-8f38b12ed4a5",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 4,
@@ -974,7 +1012,12 @@
      "chunk_id": "66208447-4408-5e73-b932-18486680414d",
      "source_uri": "architecture/ledger-service.md",
      "title": "Ledger Service Design",
-     "heading_path": "Ledger Service Design"
+     "heading_path": "Ledger Service Design",
+     "document_version": 1,
+     "passage": "ledger-service records immutable double-entry postings for every payment.",
+     "passage_sha256": "850e600732eb7f8a17f54d70206da8d0daf10adecc88603500f8f2f80c243884",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.3,
     "observed_at": null
@@ -989,7 +1032,7 @@
     "data": {
      "rank": 1,
      "score": 0.032787,
-     "query_id": "bc893a00-cc73-4b42-badc-556e345424f8",
+     "query_id": "a32e8d58-2c9d-49c7-91b7-8b78be75ce9b",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 1,
@@ -1000,7 +1043,12 @@
      "chunk_id": "0b3b972f-4735-5de6-bc56-5e64b36fc4d9",
      "source_uri": "incidents/2025-08-14-ledger-column-drop.md",
      "title": "Postmortem PM-2025-031: Payment failures after ledger column drop",
-     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Summary"
+     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Summary",
+     "document_version": 1,
+     "passage": "For 23 minutes, 41% of `POST /v1/payments` requests failed with HTTP 500 (`LEDGER_WRITE_FAILED`).\nA ledger-db migration dropped the `posting_ref` column while ledger-service v2.3.1, which still\nwrote `posting_ref`, was serving traffic.",
+     "passage_sha256": "99b62265a43e68de54f9a52372e1ee6df8d2b8589a064c3b3a37e8b571516f16",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1015,7 +1063,7 @@
     "data": {
      "rank": 2,
      "score": 0.032002,
-     "query_id": "bc893a00-cc73-4b42-badc-556e345424f8",
+     "query_id": "a32e8d58-2c9d-49c7-91b7-8b78be75ce9b",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1026,7 +1074,12 @@
      "chunk_id": "f8e17810-5747-5c18-bd92-81061ae75fa7",
      "source_uri": "incidents/2025-08-14-ledger-column-drop.md",
      "title": "Postmortem PM-2025-031: Payment failures after ledger column drop",
-     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Actions"
+     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Actions",
+     "document_version": 1,
+     "passage": "- Enforce expand/contract review for ledger-db migrations.\n- Alert on `UndefinedColumn` in ledger-service logs.",
+     "passage_sha256": "d0609e921966092c9cfa36500a24b0f8544407331c9d451e074cee3eb18299df",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1041,7 +1094,7 @@
     "data": {
      "rank": 3,
      "score": 0.031754,
-     "query_id": "bc893a00-cc73-4b42-badc-556e345424f8",
+     "query_id": "a32e8d58-2c9d-49c7-91b7-8b78be75ce9b",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 4,
@@ -1052,7 +1105,12 @@
      "chunk_id": "e1102ecf-8237-5894-81a1-5f213e9072f0",
      "source_uri": "incidents/2025-08-14-ledger-column-drop.md",
      "title": "Postmortem PM-2025-031: Payment failures after ledger column drop",
-     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Timeline (UTC)"
+     "heading_path": "Postmortem PM-2025-031: Payment failures after ledger column drop > Timeline (UTC)",
+     "document_version": 1,
+     "passage": "- 09:58 schema_migration deployment `0031_drop_posting_ref` finished.\n- 10:00 transaction-api 5xx alert fired. Read endpoints unaffected.\n- 10:09 ledger-service logs found: `column \"posting_ref\" of relation \"ledger_entries\" does not exist`.\n- 10:17 migration deployment rolled back (down-migration re-added column).\n- 10:21 5xx ratio back under 0.5%.",
+     "passage_sha256": "ee32c13fa6673c0df96a06231aa2a4884189d6dd1dd2e16e1feb95a1048f4d8a",
+     "lifecycle_status": "current",
+     "retrieved_at": "2026-11-04T16:07:01.736951Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1072,12 +1130,12 @@
      "action_type": "rollback_deployment",
      "service": "ledger-service",
      "deployment_id": "dep-ls-0292",
-     "rationale": "Rollback the ledger-service deployment 2.9.2 to revert the dependency upgrades that may have caused the regression."
+     "rationale": "Rollback the ledger-service deployment 2.9.2 to version 2.8.4 to revert the regression that caused LEDGER_WRITE_FAILED errors."
     },
     "reason": "ambiguous: dep-ls-0292 (0.90) is not clearly more correlated than cfg-ls-0144 (0.88); evidence must discriminate before reverting",
     "category": "insufficient_evidence",
     "details": null,
-    "at": "2026-11-04T10:14:27.742221+00:00"
+    "at": "2026-11-04T16:07:27.426728+00:00"
    }
   ],
   "outcome": {
@@ -1085,12 +1143,13 @@
    "summary": "Every proposed action was blocked by safety validation.",
    "escalate": true,
    "escalate_to": null,
-   "reason": "Evidence supports deployment_regression as the most likely cause.",
+   "reason": "The most likely cause is the ledger-service deployment 2.9.2, which introduced a regression causing LEDGER_WRITE_FAILED errors.",
    "actions_executed": 0,
-   "steps_planned": 0
+   "steps_planned": 0,
+   "impact": "ongoing"
   },
-  "report_markdown": "# RCA: INC-20261104-0054 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `proposal_blocked` \u2014 Every proposed action was blocked by safety validation.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Escalation\n\n**Human follow-up required**.\n\nEvidence supports deployment_regression as the most likely cause.\n\n## Summary\n\nHTTP 5xx ratio elevated on transaction-api due to ledger-service degradation\n\nImpact ongoing at analysis time: **yes**.\n\n## Ranked hypotheses\n\n### 1. Deployment_regression: ledger-service 2.9.2 introduced database driver or HTTP client issues causing LEDGER_WRITE_FAILED \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe ledger-service deployment 2.9.2 (id dep-ls-0292) occurred 3 minutes before the anomaly onset and included dependency upgrades. This likely caused a regression in handling database writes, leading to LEDGER_WRITE_FAILED errors.\n\nSupporting evidence:\n- `ev-deploy-55049354411b` \u2014 ledger-service application 2.9.2 (id dep-ls-0292, previous 2.8.4) finished 13:57:00Z, 3.0 min before anomaly onset; status succeeded; \"Dependency upgrades (database driver and HTTP client)\"; correlation 0.90\n- `ev-metric-207944dd7778` \u2014 ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56%\n- `ev-log-c1b85018cfe6` \u2014 transaction-api ERROR x76 (first 14:00:01Z, last 14:29:38Z): POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED\n- `ev-dep-53a3aec8e291` \u2014 transaction-api -> ledger-service (critical sync_http): ledger-service is degraded; 5xx ratio (5m avg) 4.97%; p95 latency 518 ms\n\n### 2. Configuration_error: ledger-service db.statement_timeout_ms reduced to 800ms causing write failures \u2014 confidence 85%\n\n*Category:* `configuration_error`\n\nThe ledger-service config change db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) occurred 4 minutes before the anomaly onset. This could have caused write operations to time out, leading to LEDGER_WRITE_FAILED errors.\n\nSupporting evidence:\n- `ev-cfgchg-cce90259702a` \u2014 ledger-service config db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) at 13:56:00Z, 4.0 min before onset; correlation 0.88\n- `ev-metric-207944dd7778` \u2014 ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56%\n- `ev-log-c1b85018cfe6` \u2014 transaction-api ERROR x76 (first 14:00:01Z, last 14:29:38Z): POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED\n\n### 3. Resource_exhaustion: ledger-db at 43% connection capacity causing write failures \u2014 confidence 75%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-db connections are at 43% of usable capacity (84/200), which could have caused write failures in ledger-service, leading to LEDGER_WRITE_FAILED errors.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 84/200 (43% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 64}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; no long-\u2026\n\n### 4. Dependency_degradation: ledger-service degraded due to internal issues causing LEDGER_WRITE_FAILED \u2014 confidence 70%\n\n*Category:* `dependency_degradation`\n\nThe ledger-service degraded at 14:30:00Z, with a 5xx ratio of 4.97% and p95 latency of 518 ms. This suggests internal issues in ledger-service caused LEDGER_WRITE_FAILED errors.\n\nSupporting evidence:\n- `ev-health-14b7440bebc1` \u2014 ledger-service health degraded at 14:30:00Z, version 2.9.2; 5xx ratio (5m avg) 4.97%; p95 latency 518 ms\n- `ev-dep-53a3aec8e291` \u2014 transaction-api -> ledger-service (critical sync_http): ledger-service is degraded; 5xx ratio (5m avg) 4.97%; p95 latency 518 ms\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:56:00Z | ledger-service config db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) at 13:56:00Z, 4.0 min before onset; correlation 0.88 |\n| 2026-11-03 13:57:00Z | ledger-service application 2.9.2 (id dep-ls-0292, previous 2.8.4) finished 13:57:00Z, 3.0 min before anomaly onset; status succeeded; \"Dependency upgrades (data |\n| 2026-11-03 14:00:00Z | ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56% |\n| 2026-11-03 14:00:00Z | ledger-service p95_latency_ms rose from baseline 45 ms to 607 ms starting 14:00:00Z; currently 486 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 4.91% starting 14:00:00Z; currently 4.91% |\n| 2026-11-03 14:00:01. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `rollback_deployment` (insufficient_evidence): ambiguous: dep-ls-0292 (0.90) is not clearly more correlated than cfg-ls-0144 (0.88); evidence must discriminate before reverting\n\n## Tool failures during the investigation\n\n- Logs for ledger-service could not be retrieved: Error executing tool search_logs: backend_unavailable: log backend unavailable: ingestion lag exceeds 45 minutes. Log evidence for ledger-service is missing.\n\n## Knowledge sources\n\n- `ev-kb-c17c54dc3c93` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED (`errors/error-codes.json`, chunk `c17c54dc`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`)\n- `ev-kb-f8e178105747` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Actions (`incidents/2025-08-14-ledger-column-drop.md`, chunk `f8e17810`)\n- `ev-kb-c9c9403e6413` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > IDEMPOTENCY_CONFLICT (`errors/error-codes.json`, chunk `c9c9403e`)\n- `ev-kb-e1102ecf8237` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Timeline (UTC) (`incidents/2025-08-14-ledger-column-drop.md`, chunk `e1102ecf`)\n- `ev-kb-f24a46c92caa` Ledger Service Design > Ledger Service Design > Write path (`architecture/ledger-service.md`, chunk `f24a46c9`)\n- `ev-kb-662084474408` Ledger Service Design > Ledger Service Design (`architecture/ledger-service.md`, chunk `66208447`)\n\n## Investigation trace\n\n- Tool calls: 26 (1 non-ok), total tool latency 0.7s\n- LLM calls: 2, total 27.6s, tokens in/out 5308/935\n- Evidence items: 26; rounds: 1\n",
+  "report_markdown": "# RCA: INC-20261104-0073 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `proposal_blocked` \u2014 Every proposed action was blocked by safety validation.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Escalation\n\n**Human follow-up required**.\n\nThe most likely cause is the ledger-service deployment 2.9.2, which introduced a regression causing LEDGER_WRITE_FAILED errors.\n\n## Summary\n\nTransaction-api 5xx ratio spiked due to ledger-service degradation, likely caused by a recent deployment or config change.\n\nImpact at analysis time: **ongoing** \u2014 1 unrecovered anomalous metric(s) on transaction-api.\n\n## Ranked hypotheses\n\n### 1. ledger-service deployment 2.9.2 caused LEDGER_WRITE_FAILED due to database driver or HTTP client upgrade \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe ledger-service deployment 2.9.2 (id dep-ls-0292) introduced a regression that caused LEDGER_WRITE_FAILED errors, likely due to the database driver or HTTP client upgrade.\n\nSupporting evidence:\n- `ev-deploy-55049354411b` \u2014 ledger-service application 2.9.2 (id dep-ls-0292, previous 2.8.4) finished 13:57:00Z, 3.0 min before anomaly onset; status succeeded; \"Dependency upgrades (database driver and HTTP client)\"; correlation 0.90\n- `ev-metric-207944dd7778` \u2014 ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56%\n- `ev-log-c1b85018cfe6` \u2014 transaction-api ERROR x76 (first 14:00:01Z, last 14:29:38Z): POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED\n- `ev-dep-53a3aec8e291` \u2014 transaction-api -> ledger-service (critical sync_http): ledger-service is degraded; 5xx ratio (5m avg) 4.97%; p95 latency 518 ms\n\n### 2. ledger-service config change db.statement_timeout_ms 30000 -> 800 caused LEDGER_WRITE_FAILED due to timeout \u2014 confidence 85%\n\n*Category:* `configuration_error`\n\nThe ledger-service config change db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) caused LEDGER_WRITE_FAILED errors due to timeouts during database operations.\n\nSupporting evidence:\n- `ev-cfgchg-cce90259702a` \u2014 ledger-service config db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) at 13:56:00Z, 4.0 min before onset; correlation 0.88\n- `ev-metric-207944dd7778` \u2014 ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56%\n- `ev-log-c1b85018cfe6` \u2014 transaction-api ERROR x76 (first 14:00:01Z, last 14:29:38Z): POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED\n\n### 3. ledger-db connection pool saturation caused LEDGER_WRITE_FAILED due to high usage \u2014 confidence 75%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-db connection pool is at 43% capacity (84/200), which may have caused LEDGER_WRITE_FAILED errors due to connection saturation.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 84/200 (43% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 64}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; no long-\u2026\n\n### 4. Idempotency-Key conflict caused LEDGER_WRITE_FAILED due to client error \u2014 confidence 60%\n\n*Category:* `bad_payload`\n\nThe Idempotency-Key conflict (IDEMPOTENCY_CONFLICT) caused LEDGER_WRITE_FAILED errors due to client-side payload issues.\n\nSupporting evidence:\n- `ev-log-16e976a00c4b` \u2014 transaction-api WARN x13 (first 11:31:14Z, last 14:08:03Z): Idempotency-Key reused with different payload (IDEMPOTENCY_CONFLICT)\n- `ev-kb-c9c9403e6413` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > IDEMPOTENCY_CONFLICT] - http status: 409 - service: transaction-api - meaning: Same Idempotency-Key reused with a different payload. Client erro\u2026\nContradicting evidence:\n- `ev-log-c1b85018cfe6` \u2014 transaction-api ERROR x76 (first 14:00:01Z, last 14:29:38Z): POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:56:00Z | ledger-service config db.statement_timeout_ms 30000 -> 800 (id cfg-ls-0144) at 13:56:00Z, 4.0 min before onset; correlation 0.88 |\n| 2026-11-03 13:57:00Z | ledger-service application 2.9.2 (id dep-ls-0292, previous 2.8.4) finished 13:57:00Z, 3.0 min before anomaly onset; status succeeded; \"Dependency upgrades (data |\n| 2026-11-03 14:00:00Z | ledger-service http_5xx_ratio rose from baseline 0.12% to 5.76% starting 14:00:00Z; currently 5.56% |\n| 2026-11-03 14:00:00Z | ledger-service p95_latency_ms rose from baseline 45 ms to 607 ms starting 14:00:00Z; currently 486 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 4.91% starting 14:00:00Z; currently 4.91% |\n| 2026-11-03 14:00:01. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service returned 500 code=LEDGER_WRITE_FAILED |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `rollback_deployment` (insufficient_evidence): ambiguous: dep-ls-0292 (0.90) is not clearly more correlated than cfg-ls-0144 (0.88); evidence must discriminate before reverting\n\n## Tool failures during the investigation\n\n- Logs for ledger-service could not be retrieved: Error executing tool search_logs: backend_unavailable: log backend unavailable: ingestion lag exceeds 45 minutes. Log evidence for ledger-service is missing.\n\n## Knowledge sources\n\n- `ev-kb-c17c54dc3c93` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED (`errors/error-codes.json`, chunk `c17c54dc`, v1, sha256 `a238052c7320`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`, v1, sha256 `99b62265a43e`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`, v1, sha256 `94e0d76a86f1`)\n- `ev-kb-f8e178105747` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Actions (`incidents/2025-08-14-ledger-column-drop.md`, chunk `f8e17810`, v1, sha256 `d0609e921966`)\n- `ev-kb-c9c9403e6413` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > IDEMPOTENCY_CONFLICT (`errors/error-codes.json`, chunk `c9c9403e`, v1, sha256 `f2fa3d8264ce`)\n- `ev-kb-e1102ecf8237` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Timeline (UTC) (`incidents/2025-08-14-ledger-column-drop.md`, chunk `e1102ecf`, v1, sha256 `ee32c13fa667`)\n- `ev-kb-f24a46c92caa` Ledger Service Design > Ledger Service Design > Write path (`architecture/ledger-service.md`, chunk `f24a46c9`, v1, sha256 `e738a95ead66`)\n- `ev-kb-662084474408` Ledger Service Design > Ledger Service Design (`architecture/ledger-service.md`, chunk `66208447`, v1, sha256 `850e600732eb`)\n\n## Investigation trace\n\n- Tool calls: 26 (1 non-ok), total tool latency 0.7s\n- LLM calls: 2, total 28.4s, tokens in/out 5329/936\n- Evidence items: 26; rounds: 1\n",
   "error": null,
-  "finished_at": "2026-11-04T10:14:27.939393+00:00"
+  "finished_at": "2026-11-04T16:07:27.903356+00:00"
  }
 }
