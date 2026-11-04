@@ -904,12 +904,18 @@ class InvestigationNodes:
                 )
                 evidence[eid] = item
         warnings = [w for r in (rrun, rinc) if r and r.ok and r.data for w in r.data.get("warnings", [])]
+        degraded = [
+            r.data.get("effective_mode")
+            for r in (rrun, rinc)
+            if r and r.ok and r.data and r.data.get("effective_mode") not in (None, r.data.get("mode"))
+        ]
         obs = {
             "agent": "knowledge",
             "service": None,
             "finding": f"retrieved {len(evidence)} cited passages for query: {query[:200]}"
             + (f" (retrieval degraded: {warnings[0]})" if warnings else ""),
             "evidence_ids": list(evidence),
+            "retrieval": {"warnings": warnings, "degraded_to": sorted({str(d) for d in degraded})},
         }
         return {
             **calls.update(),

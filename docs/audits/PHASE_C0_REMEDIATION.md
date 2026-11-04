@@ -370,4 +370,25 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
 - **Remaining risk:** ground truth names acceptable plans explicitly, so a different but valid remediation would
   score as unacceptable. This is conservative by design.
 
+## M — MCP drops retrieval degradation warnings (Low, audit #11) ✅
+
+- **Reproduction:** reproduced through a real MCP client, with an embedder that fails. The retriever recorded the
+  keyword-only fallback warning, but `search_runbooks` / `get_historical_incidents` returned no warning and no
+  mode, so the agent's degradation branch never fired.
+- **Root cause:** the MCP wrapper rebuilt the response as `KnowledgeHits(query_id, query, results)`, and that
+  contract had no warning field.
+- **Change:**
+  - `SearchResponse` gains `effective_mode`: `keyword` when a hybrid search degraded.
+  - `KnowledgeHits` carries `mode`, `effective_mode` and `warnings`.
+  - The knowledge agent records `retrieval: {warnings, degraded_to}` in its observation, alongside the existing
+    "retrieval degraded" note in the finding text.
+- **Regression test:** `tests/integration/test_mcp_protocol.py::test_retrieval_degradation_survives_the_mcp_contract`
+  checks, over the real MCP protocol:
+  - both knowledge tools report `hybrid → keyword` with the warning, and keyword results are still returned;
+  - feeding those exact payloads to the knowledge node yields a degraded observation.
+
+  It fails on the unfixed contract.
+- **Remaining risk:** none specific. RCA prompt use of the degradation flag is unchanged; it appears in the
+  observation text the model already receives.
+
 *(C0-C to C0-E entries are added as those milestones complete.)*

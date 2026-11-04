@@ -53,3 +53,6 @@ class SearchResponse(Contract):
     results: list[RetrievedChunk]
     latency_ms: float
     warnings: list[str] = Field(default_factory=list, description="e.g. degraded to keyword-only")
+    effective_mode: RetrievalMode | None = Field(
+        default=None, description="mode actually used; differs from ``mode`` when hybrid degraded to keyword-only"
+    )

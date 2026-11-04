@@ -214,7 +214,14 @@ def build_read_server(backend: OpsBackend) -> MCPServer:
 
     async def _search(query: str, top_k: int, filters: RetrievalFilters, caller: str) -> KnowledgeHits:
         resp = await backend.retriever.search(query, top_k=top_k, filters=filters, caller=caller)
-        return KnowledgeHits(query_id=resp.query_id, query=resp.query, results=resp.results)
+        return KnowledgeHits(
+            query_id=resp.query_id,
+            query=resp.query,
+            results=resp.results,
+            mode=resp.mode.value,
+            effective_mode=(resp.effective_mode or resp.mode).value,
+            warnings=resp.warnings,
+        )
 
     @mcp.tool(title="Search runbooks and docs", annotations=READ_ONLY)
     async def search_runbooks(

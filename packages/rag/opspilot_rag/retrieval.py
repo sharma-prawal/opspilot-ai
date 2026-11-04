@@ -222,6 +222,13 @@ class HybridRetriever:
             latency_ms=latency,
             caller=caller,
         )
+        degraded = mode == RetrievalMode.HYBRID and bool(warnings)
         return SearchResponse(
-            query_id=query_id, query=query, mode=mode, results=results, latency_ms=latency, warnings=warnings
+            query_id=query_id,
+            query=query,
+            mode=mode,
+            results=results,
+            latency_ms=latency,
+            warnings=warnings,
+            effective_mode=RetrievalMode.KEYWORD if degraded else mode,
         )
