@@ -37,6 +37,7 @@ class Outcome(StrEnum):
     CREATED = "created"
     UPDATED = "updated"
     UNCHANGED = "unchanged"
+    METADATA_UPDATED = "metadata_updated"  # lifecycle/metadata changed, content and embeddings unchanged
     DUPLICATE = "duplicate"
     FAILED = "failed"
 
@@ -153,7 +154,15 @@ class IngestionService:
                 and not reindex
                 and existing.embedding_model == self._embedder.model_name
             ):
-                return ItemReport(source_uri, Outcome.UNCHANGED, str(doc_id), existing.version, existing.chunk_count)
+                # Lifecycle metadata (status, version, superseded_by, owner, ...) is tracked independently of
+                # the content hash (audit finding 7): a metadata-only change is applied without re-embedding.
+                if (existing.metadata_ or {}) == doc.metadata:
+                    return ItemReport(
+                        source_uri, Outcome.UNCHANGED, str(doc_id), existing.version, existing.chunk_count
+                    )
+                existing_version, existing_chunks = existing.version, existing.chunk_count
+            else:
+                existing_version = None
             # Duplicates are re-checked each run: if their twin changed they become active.
             twin = (
                 await session.execute(
@@ -162,6 +171,14 @@ class IngestionService:
                     .limit(1)
                 )
             ).scalar_one_or_none()
+
+        if existing_version is not None:
+            async with self._sf() as session, session.begin():
+                row = await session.get(KbDocument, doc_id)
+                assert row is not None
+                row.metadata_ = doc.metadata
+            _log.info("ingest_metadata_updated", source_uri=source_uri, status=doc.metadata.get("status"))
+            return ItemReport(source_uri, Outcome.METADATA_UPDATED, str(doc_id), existing_version, existing_chunks)
 
         version = 1 if existing is None else (existing.version + (existing.content_hash != digest))
         if twin is not None:

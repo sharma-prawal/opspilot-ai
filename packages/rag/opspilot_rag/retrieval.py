@@ -31,6 +31,20 @@ _log = get_logger(__name__)
 _tracer = get_tracer(__name__)
 _TERM = re.compile(r"[A-Za-z0-9_]{2,}")
 SNIPPET_CHARS = 700
+# Lifecycle policy, applied to the fused candidate list BEFORE truncation (audit finding 7): current guidance
+# always outranks unreviewed or unknown-status material, which outranks superseded / withdrawn guidance.
+# Within a tier the retrieval order is preserved. Obsolete documents stay retrievable (for history) but can
+# no longer displace current ones.
+OBSOLETE_STATUSES = frozenset({"superseded", "deprecated", "retired", "withdrawn", "obsolete", "archived"})
+
+
+def lifecycle_tier(status: object) -> int:
+    s = str(status or "current").lower()
+    if s == "current":
+        return 0
+    return 2 if s in OBSOLETE_STATUSES else 1
+
+
 OVERFETCH = 4
 
 
@@ -139,6 +153,7 @@ class HybridRetriever:
                 "tags": d.tags,
                 "ordinal": c.ordinal,
                 "status": str(d.metadata_.get("status", "current")),
+                "lifecycle_tier": lifecycle_tier(d.metadata_.get("status")),
                 "doc_version": d.metadata_.get("version"),
             },
         )
@@ -184,6 +199,13 @@ class HybridRetriever:
             else:
                 fused = rrf_fuse([[h.chunk.id for h in vhits], [h.chunk.id for h in khits]], self._s.retrieval_rrf_k)
                 ordered = sorted(fused.items(), key=lambda kv: (-kv[1], str(kv[0])))
+            ordered = [
+                item
+                for _, item in sorted(
+                    enumerate(ordered),
+                    key=lambda t: (lifecycle_tier((by_id[t[1][0]].document.metadata_ or {}).get("status")), t[0]),
+                )
+            ]
             results = [self._to_result(by_id[cid], s, vrank.get(cid), krank.get(cid)) for cid, s in ordered[:top_k]]
             results = await self._reranker.rerank(query, results)
             latency = round((time.perf_counter() - t0) * 1000, 2)

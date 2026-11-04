@@ -391,4 +391,37 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
 - **Remaining risk:** none specific. RCA prompt use of the degradation flag is unchanged; it appears in the
   observation text the model already receives.
 
+## I — Lifecycle changes ignored; obsolete documents compete equally (Medium, audit #7) ✅
+
+- **Reproduction:** reproduced.
+  - Changing only `status: superseded → withdrawn` and `version: 1 → 2` was reported `unchanged`, and the stored
+    metadata kept the old status.
+  - With lifecycle ranking disabled, a query about ledger pool tuning ranks the *superseded* runbook first.
+  - The Phase B held-out miss `h01` shows the same effect: superseded and unreviewed documents ranked ahead of
+    the current runbook.
+- **Root cause:** the content hash deliberately excludes lifecycle metadata, and the skip path never compared
+  metadata. Retrieval filtered on storage status only; the agent's lifecycle demotion happened *after* the top-k
+  was already chosen.
+- **Change:**
+  - **Ingestion:** metadata is compared independently of the content hash. A metadata-only change updates the
+    stored metadata *without re-embedding*, and the content version and chunk IDs stay the same. It is reported
+    with the new outcome `metadata_updated`.
+  - **Retrieval:** a lifecycle policy (`lifecycle_tier`) is applied to the fused candidate list (top_k × 4
+    candidates) *before* truncation. It is a stable partition: `current` first, then `unreviewed` or unknown,
+    then superseded / deprecated / retired / withdrawn / obsolete / archived. Score order is kept within a tier.
+    Obsolete documents remain retrievable, for history, but cannot displace current guidance. Each result
+    carries `metadata.lifecycle_tier`.
+- **Regression tests** (`tests/integration/test_ingestion_retrieval.py`):
+  - `test_metadata_only_lifecycle_change_is_applied_without_reembedding`: 0 documents embedded, metadata updated,
+    chunk IDs unchanged, restore round-trip;
+  - `test_lifecycle_policy_is_applied_before_truncation`: tiers non-decreasing; the premise check shows the
+    obsolete document first without the policy.
+
+  Both fail on the unfixed code.
+- **Evaluation note, disclosed for honesty:** the audit cited the held-out miss `h01` as evidence. The policy is
+  the audit's prescribed correction, not tuning, but the held-out set is no longer blind *on this specific
+  aspect*. The C0-E re-measurement reports `h01` explicitly.
+- **Remaining risk:** the tiers are a fixed policy. A deliberately mislabelled `status: current` on poisoned
+  content is not detected here; that remains a review and ingestion-provenance concern.
+
 *(C0-C to C0-E entries are added as those milestones complete.)*
