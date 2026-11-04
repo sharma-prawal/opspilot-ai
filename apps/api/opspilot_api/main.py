@@ -68,6 +68,7 @@ def create_app(
                         if n := await rt.approvals.expire_stale():
                             _log.warning("approval_requests_expired", count=n)
                         await rt.dispatcher.dispatch_due()  # retry undelivered decisions (at-least-once)
+                        await rt.investigations.reconcile(expired_leases_only=True)  # owners that died mid-run
                     except Exception:
                         _log.exception("maintenance_sweep_failed")
                     await asyncio.sleep(15)

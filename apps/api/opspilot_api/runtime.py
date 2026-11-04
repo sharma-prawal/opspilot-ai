@@ -68,7 +68,12 @@ class AppRuntime:
                     chat=chat or infra.chat_model, tools=read_gw, actions=act_gw, policy=policy_from(settings)
                 )
                 graph = build_graph(deps, saver, node_timeout_seconds=settings.llm_timeout_seconds * 2)
-                runner = InvestigationRunner(infra.session_factory, graph, settings.max_concurrent_investigations)
+                runner = InvestigationRunner(
+                    infra.session_factory,
+                    graph,
+                    settings.max_concurrent_investigations,
+                    lease_seconds=settings.run_lease_seconds,
+                )
                 dispatcher = CommandDispatcher(infra.session_factory, runner, graph, settings)
                 investigations = InvestigationService(infra.session_factory, runner, graph, settings.llm_model)
                 investigations.dispatcher = dispatcher

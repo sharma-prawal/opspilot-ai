@@ -122,7 +122,7 @@ class CommandDispatcher:
             raise
 
     async def _deliver_claimed(self, cmd: OpsWorkflowCommand) -> str:
-        if self._runner.is_active(cmd.investigation_id):
+        if self._runner.is_active(cmd.investigation_id) or await self._runner.owned_elsewhere(cmd.investigation_id):
             await self._set(cmd.id, status="pending", claimed_at=None)
             return "busy"
         async with self._sf() as s:
@@ -140,7 +140,11 @@ class CommandDispatcher:
                     ttl_seconds=self._s.approval_token_ttl_seconds,
                 )
             self._runner.submit(
-                cmd.investigation_id, Command(resume=resume), on_success=self.mark_delivered, command_id=cmd.id
+                cmd.investigation_id,
+                Command(resume=resume),
+                on_success=self.mark_delivered,
+                command_id=cmd.id,
+                expect_action_id=str(cmd.action_id),
             )
             _log.info("command_submitted", command_id=str(cmd.id), action_id=str(cmd.action_id))
             return "submitted"

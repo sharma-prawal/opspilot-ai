@@ -23,6 +23,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -292,9 +293,21 @@ class OpsIncident(Base):
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
 
+ACTIVE_INVESTIGATION_STATUSES = ("queued", "running", "awaiting_approval", "interrupted")
+
+
 class OpsInvestigation(Base):
     __tablename__ = "investigations"
-    __table_args__ = {"schema": "ops"}
+    __table_args__ = (
+        # At most one active (non-terminal) investigation per incident (audit finding G, migration 0005).
+        Index(
+            "uq_ops_investigations_one_active_per_incident",
+            "incident_id",
+            unique=True,
+            postgresql_where=text("status IN (" + ", ".join(f"'{x}'" for x in ACTIVE_INVESTIGATION_STATUSES) + ")"),
+        ),
+        {"schema": "ops"},
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ops.incidents.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
@@ -306,6 +319,9 @@ class OpsInvestigation(Base):
     report_markdown: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     error_class: Mapped[str | None] = mapped_column(String(64))
+    # Execution ownership lease: which API process is running a graph segment, and until when (finding G).
+    run_owner: Mapped[str | None] = mapped_column(String(128))
+    run_lease_until: Mapped[datetime | None] = mapped_column(TZ)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 

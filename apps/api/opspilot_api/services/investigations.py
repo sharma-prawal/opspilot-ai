@@ -8,17 +8,22 @@ progress and nothing is lost if the process dies (the checkpoint has the rest).
 from __future__ import annotations
 
 import asyncio
+import os
+import socket
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from typing import Any
 
 from langgraph.types import Command
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opspilot_api import repositories as repo
 from opspilot_shared.db.models import (
+    ACTIVE_INVESTIGATION_STATUSES,
     OpsActionRequest,
     OpsEvidence,
     OpsIncident,
@@ -43,18 +48,85 @@ def thread_config(investigation_id: uuid.UUID) -> dict[str, Any]:
 
 
 class InvestigationRunner:
-    """Runs graph segments as bounded background tasks (one per investigation at a time)."""
+    """Runs graph segments as bounded background tasks (one per investigation at a time).
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession], graph: Any, max_concurrency: int) -> None:
+    Execution ownership is recorded in the database (audit finding G): before a segment runs, the runner
+    claims ``run_owner``/``run_lease_until`` with compare-and-set and renews the lease while it runs. A
+    second API process cannot run the same workflow concurrently; a crashed owner's lease simply expires.
+    The in-process task registry is only a fast path for this process.
+    """
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        graph: Any,
+        max_concurrency: int,
+        *,
+        lease_seconds: float = 60.0,
+        owner: str | None = None,
+    ) -> None:
         self._sf = session_factory
         self._graph = graph
         self._sem = asyncio.Semaphore(max_concurrency)
         self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
         self._shutting_down = False
+        self._lease = lease_seconds
+        self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
     def is_active(self, investigation_id: uuid.UUID) -> bool:
         t = self._tasks.get(investigation_id)
         return t is not None and not t.done()
+
+    # -- execution ownership lease ----------------------------------------------------
+    async def claim(self, investigation_id: uuid.UUID) -> bool:
+        """Take (or renew) the execution lease unless another live owner holds it."""
+        now = utcnow()
+        async with self._sf() as s, s.begin():
+            got = (
+                await s.execute(
+                    update(OpsInvestigation)
+                    .where(
+                        OpsInvestigation.id == investigation_id,
+                        or_(
+                            OpsInvestigation.run_owner.is_(None),
+                            OpsInvestigation.run_owner == self.owner,
+                            OpsInvestigation.run_lease_until < now,
+                        ),
+                    )
+                    .values(run_owner=self.owner, run_lease_until=now + timedelta(seconds=self._lease))
+                    .returning(OpsInvestigation.id)
+                )
+            ).scalar_one_or_none()
+        return got is not None
+
+    async def release(self, investigation_id: uuid.UUID) -> None:
+        async with self._sf() as s, s.begin():
+            await s.execute(
+                update(OpsInvestigation)
+                .where(OpsInvestigation.id == investigation_id, OpsInvestigation.run_owner == self.owner)
+                .values(run_owner=None, run_lease_until=None)
+            )
+
+    async def owned_elsewhere(self, investigation_id: uuid.UUID) -> bool:
+        """True while another process holds an unexpired execution lease on this investigation."""
+        async with self._sf() as s:
+            row = (
+                await s.execute(
+                    select(OpsInvestigation.run_owner, OpsInvestigation.run_lease_until).where(
+                        OpsInvestigation.id == investigation_id
+                    )
+                )
+            ).one_or_none()
+        if row is None or row.run_owner is None or row.run_owner == self.owner:
+            return False
+        return row.run_lease_until is not None and row.run_lease_until > utcnow()
+
+    async def _heartbeat(self, investigation_id: uuid.UUID) -> None:
+        while True:
+            await asyncio.sleep(self._lease / 3)
+            if not await self.claim(investigation_id):  # pragma: no cover - lease stolen after expiry
+                _log.error("run_lease_lost", investigation_id=str(investigation_id), owner=self.owner)
+                return
 
     def submit(
         self,
@@ -63,12 +135,22 @@ class InvestigationRunner:
         *,
         on_success: Callable[[uuid.UUID], Awaitable[None]] | None = None,
         command_id: uuid.UUID | None = None,
+        expect_action_id: str | None = None,
     ) -> None:
-        """Start a graph segment. ``on_success(command_id)`` runs only after the segment's results are persisted."""
+        """Start a graph segment. ``on_success(command_id)`` runs only after the segment's results are persisted.
+
+        ``expect_action_id``: deliver a resume only if, once the lease is held, the workflow is still paused on
+        that action (closes the window between the dispatcher's check and execution)."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
         task = asyncio.create_task(
-            self.run(investigation_id, graph_input, on_success=on_success, command_id=command_id),
+            self.run(
+                investigation_id,
+                graph_input,
+                on_success=on_success,
+                command_id=command_id,
+                expect_action_id=expect_action_id,
+            ),
             name=f"investigation-{investigation_id}",
         )
         self._tasks[investigation_id] = task
@@ -107,61 +189,86 @@ class InvestigationRunner:
         *,
         on_success: Callable[[uuid.UUID], Awaitable[None]] | None = None,
         command_id: uuid.UUID | None = None,
+        expect_action_id: str | None = None,
     ) -> None:
         config = thread_config(investigation_id)
         async with self._sem:
-            async with self._sf() as s:
-                inv = await s.get(OpsInvestigation, investigation_id)
-            if inv is None:
+            if not await self.claim(investigation_id):
+                _log.warning("run_skipped_owned_elsewhere", investigation_id=str(investigation_id))
                 return
-            incident_id = inv.incident_id
-            with (
-                log_context(investigation_id=str(investigation_id), incident_id=str(incident_id)),
-                _tracer.start_as_current_span("investigation.run") as span,
-            ):
-                span.set_attribute("investigation.id", str(investigation_id))
-                async with self._sf() as s, s.begin():
-                    await repo.set_investigation(
-                        s,
+            heartbeat = asyncio.create_task(self._heartbeat(investigation_id), name=f"lease-{investigation_id}")
+            try:
+                await self._run_owned(investigation_id, graph_input, config, on_success, command_id, expect_action_id)
+            finally:
+                heartbeat.cancel()
+                await asyncio.gather(heartbeat, return_exceptions=True)
+                await self.release(investigation_id)
+
+    async def _run_owned(
+        self,
+        investigation_id: uuid.UUID,
+        graph_input: Any,
+        config: dict[str, Any],
+        on_success: Callable[[uuid.UUID], Awaitable[None]] | None,
+        command_id: uuid.UUID | None,
+        expect_action_id: str | None,
+    ) -> None:
+        async with self._sf() as s:
+            inv = await s.get(OpsInvestigation, investigation_id)
+        if inv is None:
+            return
+        if expect_action_id is not None:
+            snap = await self._graph.aget_state(config)
+            waiting = [i.value for t in snap.tasks for i in (t.interrupts or ())]
+            if not any((w.get("action") or {}).get("action_id") == expect_action_id for w in waiting):
+                _log.warning("resume_skipped_not_waiting", action_id=expect_action_id)
+                return
+        incident_id = inv.incident_id
+        with (
+            log_context(investigation_id=str(investigation_id), incident_id=str(incident_id)),
+            _tracer.start_as_current_span("investigation.run") as span,
+        ):
+            span.set_attribute("investigation.id", str(investigation_id))
+            async with self._sf() as s, s.begin():
+                await repo.set_investigation(
+                    s,
+                    investigation_id,
+                    status=InvestigationStatus.RUNNING.value,
+                    started_at=inv.started_at or utcnow(),
+                    error=None,
+                    error_class=None,
+                )
+                await repo.set_incident_status(s, incident_id, IncidentStatus.INVESTIGATING.value)
+                await repo.add_event(
+                    s,
+                    investigation_id,
+                    "run_started",
+                    None,
+                    {"resume": isinstance(graph_input, Command) or graph_input is None},
+                )
+            try:
+                async for mode, chunk in self._graph.astream(graph_input, config, stream_mode=["updates", "custom"]):
+                    await self._persist(investigation_id, incident_id, mode, chunk)
+                await self._finish_segment(investigation_id, incident_id, config)
+                if on_success is not None and command_id is not None:
+                    await on_success(command_id)
+            except asyncio.CancelledError:
+                if self._shutting_down:
+                    await self._mark(
                         investigation_id,
-                        status=InvestigationStatus.RUNNING.value,
-                        started_at=inv.started_at or utcnow(),
-                        error=None,
-                        error_class=None,
+                        InvestigationStatus.INTERRUPTED,
+                        "process shutting down; resumable from checkpoint",
+                        "interrupted",
                     )
-                    await repo.set_incident_status(s, incident_id, IncidentStatus.INVESTIGATING.value)
-                    await repo.add_event(
-                        s,
-                        investigation_id,
-                        "run_started",
-                        None,
-                        {"resume": isinstance(graph_input, Command) or graph_input is None},
+                else:
+                    await self._mark(
+                        investigation_id, InvestigationStatus.CANCELLED, "cancelled by operator", "cancelled"
                     )
-                try:
-                    async for mode, chunk in self._graph.astream(
-                        graph_input, config, stream_mode=["updates", "custom"]
-                    ):
-                        await self._persist(investigation_id, incident_id, mode, chunk)
-                    await self._finish_segment(investigation_id, incident_id, config)
-                    if on_success is not None and command_id is not None:
-                        await on_success(command_id)
-                except asyncio.CancelledError:
-                    if self._shutting_down:
-                        await self._mark(
-                            investigation_id,
-                            InvestigationStatus.INTERRUPTED,
-                            "process shutting down; resumable from checkpoint",
-                            "interrupted",
-                        )
-                    else:
-                        await self._mark(
-                            investigation_id, InvestigationStatus.CANCELLED, "cancelled by operator", "cancelled"
-                        )
-                    raise
-                except Exception as exc:
-                    error_class = exc.error_class if isinstance(exc, OpsPilotError) else type(exc).__name__
-                    _log.exception("investigation_failed", error_class=error_class)
-                    await self._mark(investigation_id, InvestigationStatus.FAILED, str(exc)[:2000], error_class)
+                raise
+            except Exception as exc:
+                error_class = exc.error_class if isinstance(exc, OpsPilotError) else type(exc).__name__
+                _log.exception("investigation_failed", error_class=error_class)
+                await self._mark(investigation_id, InvestigationStatus.FAILED, str(exc)[:2000], error_class)
 
     async def _mark(
         self, investigation_id: uuid.UUID, status: InvestigationStatus, error: str, error_class: str
@@ -407,35 +514,48 @@ class InvestigationService:
         self.dispatcher: Any = None  # CommandDispatcher, wired by the runtime (avoids an import cycle)
 
     async def start(self, incident_id: uuid.UUID) -> OpsInvestigation:
-        async with self._sf() as s, s.begin():
-            incident = await s.get(OpsIncident, incident_id)
-            if incident is None:
-                raise NotFoundError(f"incident {incident_id} not found")
-            active = (
-                (
-                    await s.execute(
-                        select(OpsInvestigation).where(
-                            OpsInvestigation.incident_id == incident_id,
-                            OpsInvestigation.status.in_(["queued", "running", "awaiting_approval"]),
+        """Create the incident's single active investigation (audit finding G).
+
+        The incident row is locked so concurrent starts serialize, and the partial unique index
+        ``uq_ops_investigations_one_active_per_incident`` enforces the invariant even for writers that
+        bypass this method. A violation is reported as a conflict, never as a server error."""
+        try:
+            async with self._sf() as s, s.begin():
+                incident = await s.get(OpsIncident, incident_id, with_for_update=True)
+                if incident is None:
+                    raise NotFoundError(f"incident {incident_id} not found")
+                active = (
+                    (
+                        await s.execute(
+                            select(OpsInvestigation).where(
+                                OpsInvestigation.incident_id == incident_id,
+                                OpsInvestigation.status.in_(ACTIVE_INVESTIGATION_STATUSES),
+                            )
                         )
                     )
+                    .scalars()
+                    .first()
                 )
-                .scalars()
-                .first()
-            )
-            if active:
-                raise ConflictError(f"investigation {active.id} is already {active.status} for this incident")
-            inv = OpsInvestigation(
-                id=uuid.uuid4(), incident_id=incident_id, status=InvestigationStatus.QUEUED.value, model=self._model
-            )
-            s.add(inv)
-            await s.flush()
-            await repo.add_event(s, inv.id, "queued", None, {})
-            await repo.audit(
-                s, actor="operator", action="investigation.started", entity_type="investigation", entity_id=str(inv.id)
-            )
+                if active:
+                    raise ConflictError(f"investigation {active.id} is already {active.status} for this incident")
+                inv = OpsInvestigation(
+                    id=uuid.uuid4(), incident_id=incident_id, status=InvestigationStatus.QUEUED.value, model=self._model
+                )
+                s.add(inv)
+                await s.flush()
+                await self._started(s, inv)
+        except IntegrityError as exc:
+            if "uq_ops_investigations_one_active_per_incident" not in str(exc.orig):
+                raise
+            raise ConflictError("an investigation is already active for this incident") from exc
         self.runner.submit(inv.id, {"investigation_id": str(inv.id), "incident_id": str(incident_id)})
         return inv
+
+    async def _started(self, s: AsyncSession, inv: OpsInvestigation) -> None:
+        await repo.add_event(s, inv.id, "queued", None, {})
+        await repo.audit(
+            s, actor="operator", action="investigation.started", entity_type="investigation", entity_id=str(inv.id)
+        )
 
     async def get(self, investigation_id: uuid.UUID) -> OpsInvestigation:
         async with self._sf() as s:
@@ -536,7 +656,7 @@ class InvestigationService:
     async def resume(self, investigation_id: uuid.UUID) -> OpsInvestigation:
         """Continue a run that stopped mid-flight (e.g. API restart). Not for approvals."""
         inv = await self.get(investigation_id)
-        if self.runner.is_active(investigation_id):
+        if self.runner.is_active(investigation_id) or await self.runner.owned_elsewhere(investigation_id):
             raise ConflictError("investigation is currently executing")
         if inv.status in (InvestigationStatus.COMPLETED.value, InvestigationStatus.CANCELLED.value):
             raise ConflictError(f"investigation is {inv.status}")
@@ -586,7 +706,7 @@ class InvestigationService:
             await repo.add_event(s, investigation_id, "run_cancelled", None, {"by": actor})
         return await self.get(investigation_id)
 
-    async def reconcile(self) -> dict[str, int]:
+    async def reconcile(self, *, expired_leases_only: bool = False) -> dict[str, int]:
         """Start-up reconciliation of checkpoints, decisions, executions and application rows (audit H3).
 
         - finished graph, non-terminal row          -> persist the final state (lost final persistence)
@@ -594,6 +714,9 @@ class InvestigationService:
         - mid-run with an accepted decision pending -> resume from the checkpoint (decision already given)
         - mid-run otherwise                         -> interrupted (operator resumes explicitly)
         then deliver every pending / stale delivery command. Idempotent; safe to run repeatedly.
+
+        Rows whose execution lease is held by another live process are skipped (finding G). The periodic
+        sweep passes ``expired_leases_only`` to pick up runs whose owner died after start-up.
         """
         counts: dict[str, int] = {}
 
@@ -605,13 +728,16 @@ class InvestigationService:
                 (
                     await s.execute(
                         select(OpsInvestigation).where(
-                            OpsInvestigation.status.in_(["queued", "running", "awaiting_approval", "interrupted"])
+                            OpsInvestigation.status.in_(["queued", "running"])
+                            if expired_leases_only
+                            else OpsInvestigation.status.in_(ACTIVE_INVESTIGATION_STATUSES),
+                            *([OpsInvestigation.run_lease_until < utcnow()] if expired_leases_only else []),
                         )
                     )
                 ).scalars()
             )
         for inv in rows:
-            if self.runner.is_active(inv.id):
+            if self.runner.is_active(inv.id) or await self.runner.owned_elsewhere(inv.id):
                 continue
             try:
                 snap = await self._graph.aget_state(thread_config(inv.id))
@@ -629,7 +755,13 @@ class InvestigationService:
                     bump("resumed")
                 elif inv.status in ("running", "queued"):
                     async with self._sf() as s, s.begin():
-                        await repo.set_investigation(s, inv.id, status=InvestigationStatus.INTERRUPTED.value)
+                        await repo.set_investigation(
+                            s,
+                            inv.id,
+                            status=InvestigationStatus.INTERRUPTED.value,
+                            run_owner=None,
+                            run_lease_until=None,
+                        )
                         await repo.add_event(
                             s, inv.id, "run_interrupted", inv.current_step, {"reason": "process restart"}
                         )
@@ -637,7 +769,7 @@ class InvestigationService:
             except Exception:
                 _log.exception("reconcile_failed", investigation_id=str(inv.id))
                 bump("errors")
-        if self.dispatcher is not None:
+        if self.dispatcher is not None and not expired_leases_only:
             for k, v in (await self.dispatcher.dispatch_due()).items():
                 counts[f"command_{k}"] = v
         if counts:

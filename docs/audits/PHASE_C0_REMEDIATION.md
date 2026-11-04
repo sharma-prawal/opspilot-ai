@@ -231,4 +231,53 @@ Recorded 2026-11-04 after commits `17ac70d`, `b60a901`, `85ca9d9`, `6bb70f0`:
     errors; the safety validator and human approval remain the controls for those.
   - Live re-measurement is part of the C0-E `make evaluate` run.
 
+## G — Concurrent investigation creation lacks a database invariant (Medium) ✅
+
+- **Reproduction:** confirmed by code and schema inspection, as in the audit: the start path was check-then-insert
+  with no lock and no constraint. Two things were observed directly:
+  - with the new index in place, the *old* service code turned concurrent starts into an unhandled
+    `IntegrityError` (HTTP 500) instead of a conflict;
+  - the old runner had no cross-process ownership, so a second engine ran a segment while another owned it.
+
+  We did not reproduce duplicate rows live. That would have required dropping the index on the shared test
+  database.
+- **Root cause:**
+  - uniqueness of the active investigation was an application-level check only;
+  - `interrupted` (resumable) was not counted as active;
+  - execution coordination was a process-local task registry.
+- **Change:**
+  - **Migration 0005 (additive):**
+    - partial unique index `uq_ops_investigations_one_active_per_incident` on `incident_id`, where the
+      status is `queued`, `running`, `awaiting_approval` or `interrupted`;
+    - new columns `run_owner` and `run_lease_until`;
+    - the migration refuses to run, changing nothing, if existing data already violates the invariant. Both
+      databases had 0 violations; applied to `opspilot_test` and `opspilot` with all rows preserved.
+  - **`start`:** locks the incident row (`FOR UPDATE`) so concurrent starts serialise, and treats `interrupted`
+    as active. A unique violation from any writer is reported as 409.
+  - **DB execution ownership lease:**
+    - the runner claims the lease with compare-and-set before a segment runs, renews it every lease/3
+      (`run_lease_seconds`, default 60) and releases it afterwards;
+    - another process's live lease makes the dispatcher report `busy`, `resume` return 409 and reconciliation
+      skip the row;
+    - the 15 s sweep reconciles `queued`/`running` rows whose lease has expired, i.e. whose owner died after
+      start-up.
+  - **Resume re-check:** a resume command re-checks, *after* taking the lease, that the workflow is still paused
+    on its action. This closes the window between the dispatcher's check and execution.
+  - **Not added:** an `Idempotency-Key` header. With one active investigation per incident, a retried start
+    returns 409 naming the existing investigation, which the client can fetch.
+- **Regression tests:** `tests/integration/test_concurrency.py` (8). Seven fail on the old service code:
+  - the database rejects a second active row (terminal rows are unaffected);
+  - five rounds of four concurrent starts across **two engines** each create exactly one investigation;
+  - an uncommitted competing insert serialises `start` → 409;
+  - a blinded pre-check still yields 409 from the index itself;
+  - six concurrent API requests → one 202 and five 409;
+  - lease exclusion, expiry takeover and release-safety between two "processes";
+  - the dispatcher reports `busy` under a foreign lease;
+  - a resume is skipped when the pause changed.
+- **Remaining risk:**
+  - Cancellation is still delivered to the local task only. Cancelling a run owned by another process records
+    `cancelled`, but that process stops only at its next lease renewal or segment boundary.
+  - The cancellation-versus-execution boundary is handled under H.
+  - Lease timing assumes roughly synchronised clocks; all lease times come from the API hosts, not the DB.
+
 *(Remaining C0-B to C0-E entries are added as those milestones complete.)*
