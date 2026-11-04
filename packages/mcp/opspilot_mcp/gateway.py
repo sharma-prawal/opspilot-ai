@@ -20,6 +20,7 @@ from opspilot_shared.config import Settings
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.evidence import ToolCallRecord, ToolCallStatus
 from opspilot_shared.logging import get_logger, log_context
+from opspilot_shared.redaction import redact
 from opspilot_shared.tracing import get_tracer
 
 _log = get_logger(__name__)
@@ -88,7 +89,7 @@ class McpToolGateway:
                 tool=tool,
                 server=self._server,
                 agent=agent,
-                arguments=args,
+                arguments=redact(args),
                 status=status,
                 latency_ms=latency,
                 started_at=started,
@@ -230,7 +231,7 @@ class SupervisedMcpGateway:
             tool=tool,
             server=self.server_label,
             agent=agent,
-            arguments=json.loads(json.dumps(arguments, default=str)),
+            arguments=redact(json.loads(json.dumps(arguments, default=str))),
             status=ToolCallStatus.ERROR,
             latency_ms=0.0,
             started_at=utcnow(),

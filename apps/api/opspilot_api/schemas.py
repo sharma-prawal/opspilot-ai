@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from opspilot_shared.domain.actions import ApprovalDecisionKind
 from opspilot_shared.domain.knowledge import RetrievalFilters, RetrievalMode
+from opspilot_shared.redaction import redact
+
+# Every free-form JSON field that leaves the API passes the central redaction policy (audit finding E).
+RedactedJson = Annotated[dict[str, Any], AfterValidator(redact)]
 
 
 class Dto(BaseModel):
@@ -35,7 +39,7 @@ class InvestigationOut(Dto):
 
 
 class InvestigationDetail(InvestigationOut):
-    result: dict[str, Any] | None
+    result: RedactedJson | None
     executing_in_process: bool = False
 
 
@@ -49,7 +53,7 @@ class EventOut(Dto):
     id: int
     event_type: str
     node: str | None
-    payload: dict[str, Any]
+    payload: RedactedJson
     created_at: datetime
 
 
@@ -58,7 +62,7 @@ class ToolCallOut(Dto):
     tool: str
     server: str
     agent: str
-    arguments: dict[str, Any]
+    arguments: RedactedJson
     status: str
     latency_ms: float
     result_summary: str | None
@@ -84,7 +88,7 @@ class ActionOut(Dto):
     investigation_id: uuid.UUID
     incident_id: uuid.UUID
     action_type: str
-    parameters: dict[str, Any]
+    parameters: RedactedJson
     params_hash: str
     rationale: str
     risk: str

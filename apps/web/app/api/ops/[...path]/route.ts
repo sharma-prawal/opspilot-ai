@@ -9,6 +9,7 @@ import type { NextRequest } from "next/server";
 import {
   AuthError, assertSafeMutation, cookieValue, errorResponse, readSession, type Role, type Session,
 } from "@/lib/server/auth";
+import { redact } from "@/lib/server/redact";
 
 const API = process.env.OPSPILOT_API_URL ?? "http://127.0.0.1:8000";
 const READABLE = /^(api\/v1\/(system|knowledge|incidents|investigations|approvals)(\/[\w\-./]*)?|health\/(live|ready|dependencies))$/;
@@ -43,8 +44,14 @@ async function upstream(req: NextRequest, joined: string, body: string | undefin
   try {
     const res = await fetch(`${API}/${joined}${req.nextUrl.search}`, { method: req.method, headers, body, cache: "no-store" });
     // Only status, content-type and body are relayed; no upstream headers (e.g. cookies) pass through.
-    return new Response(res.body, { status: res.status,
-      headers: { "content-type": res.headers.get("content-type") ?? "application/json", "cache-control": "no-store" } });
+    // JSON bodies pass the shared redaction policy (finding E).
+    const type = res.headers.get("content-type") ?? "application/json";
+    let out: BodyInit | null = res.body;
+    if (type.includes("json")) {
+      const raw = await res.text();
+      try { out = JSON.stringify(redact(JSON.parse(raw))); } catch { out = raw; }
+    }
+    return new Response(out, { status: res.status, headers: { "content-type": type, "cache-control": "no-store" } });
   } catch {
     return Response.json({ error: { class: "unavailable", message: "OpsPilot API unreachable" } }, { status: 502 });
   }

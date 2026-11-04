@@ -106,7 +106,8 @@ async def test_full_investigation_lifecycle(client: httpx.AsyncClient, settings)
     cited = report["result"]["rca"]["hypotheses"][0]["supporting_evidence_ids"]
     assert cited and set(cited) <= ids  # RCA cites only persisted evidence
     assert all(c in report["markdown"] for c in cited)
-    assert "<redacted>" in str(report["result"]["approval"])  # approval token never leaves the backend
+    # The spent approval token is cleared from state after execution and never leaves the backend.
+    assert report["result"]["approval"]["approval_token"] in (None, "[REDACTED]")
     tools = (await client.get(f"/api/v1/investigations/{inv}/tool-calls")).json()
     assert {"get_incident", "search_logs", "list_recent_deployments", "search_runbooks", "execute_remediation"} <= {
         t["tool"] for t in tools

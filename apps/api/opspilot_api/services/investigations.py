@@ -31,23 +31,15 @@ from opspilot_shared.domain.incidents import IncidentStatus
 from opspilot_shared.domain.investigation import InvestigationStatus
 from opspilot_shared.errors import ConflictError, NotFoundError, OpsPilotError
 from opspilot_shared.logging import get_logger, log_context
+from opspilot_shared.redaction import redact
 from opspilot_shared.tracing import get_tracer
 
 _log = get_logger(__name__)
 _tracer = get_tracer(__name__)
-SENSITIVE_STATE_KEYS = ("approval_token",)
 
 
 def thread_config(investigation_id: uuid.UUID) -> dict[str, Any]:
     return {"configurable": {"thread_id": str(investigation_id)}, "recursion_limit": 80}
-
-
-def redact(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {k: ("<redacted>" if k in SENSITIVE_STATE_KEYS else redact(v)) for k, v in value.items()}
-    if isinstance(value, list):
-        return [redact(v) for v in value]
-    return value
 
 
 class InvestigationRunner:

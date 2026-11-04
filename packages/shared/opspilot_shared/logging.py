@@ -14,7 +14,14 @@ from typing import Any
 
 import structlog
 
+from opspilot_shared.redaction import redact
+
 _CONFIGURED = False
+
+
+def redact_event(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    """structlog processor: apply the central redaction policy to every log record (audit finding E)."""
+    return redact(event_dict)  # type: ignore[no-any-return]
 
 
 def configure_logging(level: str = "INFO", fmt: str = "json") -> None:
@@ -28,6 +35,7 @@ def configure_logging(level: str = "INFO", fmt: str = "json") -> None:
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
+        redact_event,
     ]
     renderer: Any = (
         structlog.processors.JSONRenderer()

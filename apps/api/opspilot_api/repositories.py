@@ -19,6 +19,7 @@ from opspilot_shared.db.models import (
     OpsToolInvocation,
     OpsWorkflowEvent,
 )
+from opspilot_shared.redaction import redact
 
 
 async def next_incident_reference(s: AsyncSession, day: datetime) -> str:
@@ -36,7 +37,11 @@ async def add_event(
     node: str | None,
     payload: dict[str, Any] | None = None,
 ) -> None:
-    s.add(OpsWorkflowEvent(investigation_id=investigation_id, event_type=event_type, node=node, payload=payload or {}))
+    s.add(
+        OpsWorkflowEvent(
+            investigation_id=investigation_id, event_type=event_type, node=node, payload=redact(payload or {})
+        )
+    )
 
 
 async def audit(
@@ -83,7 +88,7 @@ async def insert_tool_calls(s: AsyncSession, investigation_id: uuid.UUID, calls:
             "tool": c["tool"],
             "server": c["server"],
             "agent": c["agent"],
-            "arguments": c["arguments"],
+            "arguments": redact(c["arguments"]),
             "status": c["status"],
             "latency_ms": c["latency_ms"],
             "result_summary": c.get("result_summary"),

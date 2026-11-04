@@ -142,4 +142,50 @@ Recorded 2026-11-04 after commits `17ac70d`, `b60a901`, `85ca9d9`, `6bb70f0`:
   - The health semantics table covers the simulator's metrics; new metrics default to the conservative two-sided
     band.
 
-*(C0-B to C0-E entries are added as those milestones complete.)*
+## E — Approval tokens leak through tool-call records (Medium) ✅
+
+- **Reproduction:** reproduced against the development database. Only counts were read; no token values were
+  printed:
+  - 58 `ops.tool_invocations` rows held a verbatim `approval_token` in `arguments`;
+  - `GET /api/v1/investigations/{id}/tool-calls` returned it;
+  - workflow events and investigation results were already redacted (0 rows).
+- **Root cause:** the MCP gateway recorded tool arguments verbatim, and that record was persisted and served
+  as-is. Redaction existed only as a local helper for results and events, keyed on one field name.
+- **Change:**
+  - Central policy `opspilot_shared/redaction.py`:
+    - matches key names case-insensitively (token, password, passphrase, secret, signing_key, authorization,
+      api_key, cookie, credential), with an allowlist for counters such as `prompt_tokens`;
+    - replaces the whole value; never partially masks.
+  - The policy is applied at every boundary:
+    - the gateway's `ToolCallRecord` (before it enters graph state, logs or the database);
+    - tool-call and workflow-event persistence;
+    - REST DTOs (`ToolCallOut.arguments`, `EventOut.payload`, `InvestigationDetail.result`,
+      `ActionOut.parameters`);
+    - a structlog processor on every log record;
+    - the BFF relay of every JSON body, so the UI cannot render a credential even from legacy rows or an older
+      backend.
+  - The spent token is cleared from workflow state once `execute` returns, so the latest checkpoint no
+    longer carries it.
+  - `opspilot sanitize-secrets` for existing records:
+    - dry-run by default, reporting counts only;
+    - `--apply` rewrites only the sensitive values, in one transaction, deleting nothing.
+    - Run here only as a dry run on the development database: it found the same 58 rows and changed nothing.
+      Applying it is left to the owner of that data.
+- **Regression tests:**
+  - `tests/security/test_secret_redaction.py`:
+    - policy unit test;
+    - structured-log test;
+    - end-to-end test: every token the dispatcher mints during a real approval run is captured, then searched
+      for (whole token and signature segment) in every read endpoint and every non-checkpoint table;
+    - sanitiser test: a dry run counts without modifying, `--apply` redacts only the value, and output never
+      contains it.
+    - Verified to fail on the unfixed code (`token leaked via GET …/tool-calls`).
+  - `apps/web/tests/bff-redaction.test.ts` (2).
+- **Remaining risk:**
+  - LangGraph checkpoint history (`langgraph.checkpoint_writes` / `checkpoint_blobs`) retains the resume value
+    of past approval steps. That value contains the short-lived, action-bound token, and the token cannot
+    authorise any other action. The sanitiser counts these entries (dry run: 238 / 161 mentions of the key,
+    including null values) but never rewrites serialized checkpoints, which could corrupt resumable workflows.
+  - Redaction is key-based. A secret embedded in free text (for example an exception message) is not detected.
+
+*(Remaining C0-B to C0-E entries are added as those milestones complete.)*

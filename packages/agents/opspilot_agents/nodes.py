@@ -1178,7 +1178,14 @@ class InvestigationNodes:
         else:
             result = {**res.data}
         record = {**result, "step": action["step"], "action_type": action["action_type"], "role": action.get("role")}
-        return {**calls.update(), "remediation": result, "executions": [*state.get("executions", []), record]}
+        # The token has been spent (or refused); drop it so later checkpoints no longer carry it (finding E).
+        spent = {**approval, "approval_token": None}
+        return {
+            **calls.update(),
+            "approval": spent,
+            "remediation": result,
+            "executions": [*state.get("executions", []), record],
+        }
 
     async def advance(self, state: State) -> Update:
         idx = state.get("plan_index", 0) + 1
