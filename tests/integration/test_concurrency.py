@@ -50,6 +50,9 @@ class NoopRunner:
     def submit(self, investigation_id: uuid.UUID, *_a: Any, **_k: Any) -> None:
         self.submitted.append(investigation_id)
 
+    def admit(self) -> None:
+        return None
+
 
 @pytest.fixture
 async def second_sf(migrated) -> AsyncIterator[async_sessionmaker[AsyncSession]]:  # type: ignore[no-untyped-def]
@@ -192,3 +195,36 @@ async def test_resume_rechecks_the_pause_after_taking_the_lease(session_factory)
     async with session_factory() as s:
         after = await s.get(OpsInvestigation, row.id)
         assert after is not None and after.status == "awaiting_approval" and after.run_owner is None
+
+
+class BlockingGraph(StubGraph):
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = asyncio.Event()
+
+    async def astream(self, *_a: Any, **_k: Any) -> AsyncIterator[Any]:
+        self.runs += 1
+        await self.release.wait()
+        return
+        yield  # pragma: no cover
+
+
+async def test_admission_is_bounded_and_refusal_leaves_no_orphan_row(session_factory) -> None:  # type: ignore[no-untyped-def]
+    """C0 item P: beyond max_pending, work is refused up front (429) instead of queueing without bound."""
+    from opspilot_shared.errors import CapacityError
+
+    graph = BlockingGraph()
+    runner = InvestigationRunner(session_factory, graph, 1, max_pending=2)
+    svc = InvestigationService(session_factory, runner, graph, "m")
+    incidents = [(await make_incident(session_factory))[0] for _ in range(3)]
+    first, second = await svc.start(incidents[0]), await svc.start(incidents[1])  # 1 running + 1 waiting
+    assert runner.pending == 2
+    with pytest.raises(CapacityError):
+        await svc.start(incidents[2])
+    assert await active_count(session_factory, incidents[2]) == 0  # nothing written for the refused start
+    graph.release.set()
+    for inv in (first, second):
+        await runner.wait(inv.id)
+    assert runner.pending == 0
+    third = await svc.start(incidents[2])  # capacity is back
+    await runner.wait(third.id)

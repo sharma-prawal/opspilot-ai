@@ -73,6 +73,7 @@ class AppRuntime:
                     graph,
                     settings.max_concurrent_investigations,
                     lease_seconds=settings.run_lease_seconds,
+                    max_pending=settings.max_pending_investigations,
                 )
                 dispatcher = CommandDispatcher(infra.session_factory, runner, graph, settings)
                 investigations = InvestigationService(infra.session_factory, runner, graph, settings.llm_model)

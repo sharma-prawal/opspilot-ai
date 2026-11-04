@@ -139,6 +139,11 @@ class OllamaEmbedder:
         self._client = client or httpx.AsyncClient(
             base_url=settings.ollama_base_url, timeout=httpx.Timeout(settings.embedding_timeout_seconds)
         )
+        # Bounded like the chat adapter (C0 item P): concurrent retrievals or ingestion cannot pile requests
+        # onto the local model server. ``peak_in_flight`` is kept for measurement.
+        self._semaphore = asyncio.Semaphore(settings.embedding_max_concurrency)
+        self._in_flight = 0
+        self.peak_in_flight = 0
 
     @property
     def model_name(self) -> str:
@@ -160,10 +165,16 @@ class OllamaEmbedder:
                 span.set_attribute("llm.model", self.model_name)
                 span.set_attribute("embed.batch_size", len(batch))
                 try:
-                    resp = await self._client.post(
-                        "/api/embed",
-                        json={"model": self.model_name, "input": batch, "keep_alive": self._s.llm_keep_alive},
-                    )
+                    async with self._semaphore:
+                        self._in_flight += 1
+                        self.peak_in_flight = max(self.peak_in_flight, self._in_flight)
+                        try:
+                            resp = await self._client.post(
+                                "/api/embed",
+                                json={"model": self.model_name, "input": batch, "keep_alive": self._s.llm_keep_alive},
+                            )
+                        finally:
+                            self._in_flight -= 1
                     resp.raise_for_status()
                 except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                     raise EmbeddingError(f"embedding request failed: {exc}") from exc

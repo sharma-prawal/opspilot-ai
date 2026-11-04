@@ -19,6 +19,7 @@ from opspilot_shared.config import Settings, get_settings
 from opspilot_shared.errors import (
     ApprovalError,
     AuthorizationError,
+    CapacityError,
     ConflictError,
     EmbeddingError,
     LLMUnavailableError,
@@ -39,6 +40,7 @@ STATUS_BY_ERROR: dict[type[OpsPilotError], int] = {
     ValidationFailure: 422,
     EmbeddingError: 503,
     LLMUnavailableError: 503,
+    CapacityError: 429,
 }
 
 

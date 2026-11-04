@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(default=1024, ge=32, le=4096)
     embedding_batch_size: int = Field(default=16, ge=1, le=256)
     embedding_timeout_seconds: float = Field(default=60.0, gt=0)
+    embedding_max_concurrency: int = Field(default=2, ge=1, le=16)  # in-flight /api/embed requests per process
 
     # RAG
     knowledge_dir: Path = REPO_ROOT / "datasets/synthetic/knowledge"
@@ -74,6 +75,9 @@ class Settings(BaseSettings):
     rca_confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
     tool_timeout_seconds: float = Field(default=20.0, gt=0)
     max_concurrent_investigations: int = Field(default=1, ge=1, le=8)
+    # Admission bound: graph segments running + waiting for a slot. Beyond it, new work is refused (HTTP 429)
+    # instead of accumulating unbounded waiting tasks (C0 item P).
+    max_pending_investigations: int = Field(default=4, ge=1, le=64)
     langgraph_strict_msgpack: bool = True
 
     # MCP

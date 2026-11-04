@@ -34,7 +34,7 @@ from opspilot_shared.db.models import (
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.incidents import IncidentStatus
 from opspilot_shared.domain.investigation import InvestigationStatus
-from opspilot_shared.errors import ConflictError, NotFoundError, OpsPilotError
+from opspilot_shared.errors import CapacityError, ConflictError, NotFoundError, OpsPilotError
 from opspilot_shared.logging import get_logger, log_context
 from opspilot_shared.redaction import redact
 from opspilot_shared.tracing import get_tracer
@@ -64,6 +64,7 @@ class InvestigationRunner:
         *,
         lease_seconds: float = 60.0,
         owner: str | None = None,
+        max_pending: int | None = None,
     ) -> None:
         self._sf = session_factory
         self._graph = graph
@@ -71,11 +72,22 @@ class InvestigationRunner:
         self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
         self._shutting_down = False
         self._lease = lease_seconds
+        self._max_pending = max_pending if max_pending is not None else max(4, max_concurrency)
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
     def is_active(self, investigation_id: uuid.UUID) -> bool:
         t = self._tasks.get(investigation_id)
         return t is not None and not t.done()
+
+    @property
+    def pending(self) -> int:
+        """Graph segments running or waiting for a concurrency slot in this process."""
+        return sum(1 for t in self._tasks.values() if not t.done())
+
+    def admit(self) -> None:
+        """Raise ``CapacityError`` when the bounded queue is full (C0 item P)."""
+        if self.pending >= self._max_pending:
+            raise CapacityError(f"{self.pending} investigation segment(s) running or queued; retry shortly")
 
     # -- execution ownership lease ----------------------------------------------------
     async def claim(self, investigation_id: uuid.UUID) -> bool:
@@ -143,6 +155,7 @@ class InvestigationRunner:
         that action (closes the window between the dispatcher's check and execution)."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
+        self.admit()
         task = asyncio.create_task(
             self.run(
                 investigation_id,
@@ -518,7 +531,10 @@ class InvestigationService:
 
         The incident row is locked so concurrent starts serialize, and the partial unique index
         ``uq_ops_investigations_one_active_per_incident`` enforces the invariant even for writers that
-        bypass this method. A violation is reported as a conflict, never as a server error."""
+        bypass this method. A violation is reported as a conflict, never as a server error.
+
+        Admission is checked before anything is written, so a refused start leaves no orphan row (C0 item P)."""
+        self.runner.admit()
         try:
             async with self._sf() as s, s.begin():
                 incident = await s.get(OpsIncident, incident_id, with_for_update=True)

@@ -57,6 +57,13 @@ class ToolTransientError(ToolError):
     transient = True
 
 
+class CapacityError(OpsPilotError):
+    """Admission refused: the bounded work queue is full (retry later)."""
+
+    error_class = "capacity"
+    transient = True
+
+
 class BudgetExceededError(OpsPilotError):
     error_class = "budget_exceeded"
 

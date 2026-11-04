@@ -575,4 +575,49 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
   from disk. Closing that needs separate OS users or containers per server. This is recommended before any real
   (non-sandbox) adapter is introduced, and is out of scope for a single-user local deployment.
 
-*(C0-C to C0-E entries are added as those milestones complete.)*
+## P — Resource bounds incomplete under concurrent ingress (suspected risk) ✅
+
+- **Verification:** reproduced both gaps with targeted tests on the unmodified code.
+  - Unbounded embeddings: 12 concurrent `embed_query` calls put **12** requests in flight at once, whereas chat
+    was already bounded.
+  - Unbounded submissions: the runner accepted any number of segments and parked them behind the concurrency
+    semaphore. Memory exhaustion itself was not observed or claimed.
+- **Change:**
+  - **Embedding concurrency bound:** `embedding_max_concurrency`, default 2, applied per process around
+    `/api/embed`. `peak_in_flight` is exposed for measurement.
+  - **Admission bound:** `max_pending_investigations`, default 4, counts segments running or waiting.
+    - Beyond the bound, new work is refused with `CapacityError` → HTTP 429.
+    - `start()` checks admission *before* writing, so a refused start leaves no orphan row.
+    - Refused approval deliveries stay `pending` and are retried by the sweep.
+  - **Measurement suite:** `opspilot-eval resources`, part of `make evaluate`, renders a "Resources on this
+    machine" section of `BASELINE.md`.
+- **Regression tests:**
+  - `tests/unit/test_resource_bounds.py`: a burst of 12 reaches peak 2 in flight;
+  - `tests/integration/test_concurrency.py::test_admission_is_bounded_and_refusal_leaves_no_orphan_row`: two
+    admitted, the third refused with no row written, and capacity returns after completion.
+
+  Both fail on the unfixed code.
+- **Measured on this Mac** (Apple M5 Pro, 24 GB, macOS 27; preliminary run at `3136042`, uncommitted; official
+  numbers in C0-E):
+  - 32 concurrent embeddings: 514 ms wall at bound 2 vs. 527 ms at bound 16 (p95 458 vs. 469 ms). Ollama
+    serialises embedding work itself, so the bound costs no throughput; it only stops request pile-up.
+  - Ollama resident memory: 6.1 GB with both models loaded, 6.7 GB peak during a qwen3:8b structured call
+    (`qwen3:8b` 4.9 GB, `qwen3-embedding:0.6b` 1.0 GB). That leaves headroom on 24 GB with one investigation
+    running.
+- **Remaining risk:**
+  - The bounds are per process: the API and each MCP child have their own embedding semaphore. With the current
+    one-API, two-child topology that means at most 2 + 2 in flight.
+  - Ollama's own `OLLAMA_NUM_PARALLEL` / `OLLAMA_MAX_LOADED_MODELS` remain the final arbiter.
+
+## C0-D gate (findings N, O, P) — passed
+
+| Suite | Result |
+|---|---|
+| Full deterministic Python suite | 179 passed, 3 live skipped |
+| Web unit tests (vitest) | 30 passed |
+| Live-model tests (`--run-live`) | 3 passed (with least-privilege MCP roles) |
+| Isolated E2E (`make e2e`, beside a running dev stack) | 4 passed, 3 screenshot specs skipped; dev-DB row counts unchanged |
+| MCP role verification | children connect as `opspilot_mcp_read` / `opspilot_mcp_actions` (pg_stat_activity) |
+| `make lint` | clean |
+
+*(C0-E: full regression, evaluation and documentation follow.)*
