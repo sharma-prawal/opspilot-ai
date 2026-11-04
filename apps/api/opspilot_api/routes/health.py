@@ -43,7 +43,14 @@ async def _checks(rt: Any) -> dict[str, dict[str, Any]]:
     except Exception as exc:
         out["ollama"] = {"ok": False, "error": str(exc)[:300]}
     for name, gw in (("mcp_read", rt.read_tools), ("mcp_actions", rt.action_tools)):
-        out[name] = {"ok": True, "server": gw.server_name, "tools": sorted(gw.available_tools())}
+        connected = getattr(gw, "connected", True)
+        out[name] = {
+            "ok": bool(connected),
+            "server": gw.server_name,
+            "tools": sorted(gw.available_tools()),
+            "reconnects": getattr(gw, "reconnects", 0),
+            "last_error": getattr(gw, "last_error", None),
+        }
     return out
 
 

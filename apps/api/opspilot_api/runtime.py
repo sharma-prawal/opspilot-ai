@@ -9,17 +9,18 @@ from typing import Any
 
 from opspilot_agents.graph import build_graph
 from opspilot_agents.nodes import AgentDeps, AgentPolicy
+from opspilot_agents.ports import ToolGateway
 from opspilot_api.checkpointing import checkpointer_pool
 from opspilot_api.container import Infrastructure
 from opspilot_api.services.approvals import ApprovalService
 from opspilot_api.services.incidents import IncidentService
 from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
-from opspilot_mcp.gateway import McpToolGateway, Profile, connect_gateway
+from opspilot_mcp.gateway import Profile, connect_gateway
 from opspilot_shared.config import Settings
 from opspilot_shared.logging import get_logger
 
 _log = get_logger(__name__)
-GatewayFactory = Callable[[Profile], AbstractAsyncContextManager[McpToolGateway]]
+GatewayFactory = Callable[[Profile], AbstractAsyncContextManager[ToolGateway]]
 
 
 def policy_from(settings: Settings) -> AgentPolicy:
@@ -35,8 +36,8 @@ def policy_from(settings: Settings) -> AgentPolicy:
 class AppRuntime:
     settings: Settings
     infra: Infrastructure
-    read_tools: McpToolGateway
-    action_tools: McpToolGateway
+    read_tools: ToolGateway
+    action_tools: ToolGateway
     graph: Any
     runner: InvestigationRunner
     incidents: IncidentService
