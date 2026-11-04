@@ -13,9 +13,25 @@ from opspilot_shared.errors import EmbeddingError
 pytestmark = pytest.mark.integration
 
 
-async def test_initial_ingest_dedups_archive_copy(ingested, session_factory) -> None:  # type: ignore[no-untyped-def]
+def expected_counts(settings) -> tuple[int, int]:  # type: ignore[no-untyped-def]
+    """(unique documents, duplicates) derived from the corpus on disk, so tests track corpus changes."""
+    from opspilot_rag.ingest import document_hash
+    from opspilot_rag.parsing import discover, parser_for
+
+    root = settings.knowledge_dir
+    seen: set[str] = set()
+    dups = 0
+    for path in discover(root):
+        doc = parser_for(path).parse(path.relative_to(root).as_posix(), path.read_text())  # type: ignore[union-attr]
+        h = document_hash(doc)
+        dups += h in seen
+        seen.add(h)
+    return len(seen), dups
+
+
+async def test_initial_ingest_dedups_archive_copy(ingested, session_factory, settings) -> None:  # type: ignore[no-untyped-def]
     stats = ingested["stats"]
-    assert stats["failed"] == 0 and stats["created"] == 19 and stats["duplicate"] == 1
+    assert stats["failed"] == 0 and (stats["created"], stats["duplicate"]) == expected_counts(settings)
     async with session_factory() as s:
         dup = (await s.execute(select(KbDocument).where(KbDocument.status == "duplicate"))).scalar_one()
         assert dup.source_uri.startswith("archive/") and dup.chunk_count == 0
@@ -27,7 +43,9 @@ async def test_initial_ingest_dedups_archive_copy(ingested, session_factory) -> 
 
 async def test_reingest_is_incremental(ingested, session_factory, embedder, settings) -> None:  # type: ignore[no-untyped-def]
     report = await IngestionService(session_factory, embedder, settings).ingest_directory()
-    assert report.stats["unchanged"] == 19 and report.stats["duplicate"] == 1 and report.stats["chunks_written"] == 0
+    assert (report.stats["unchanged"], report.stats["duplicate"]) == expected_counts(settings) and report.stats[
+        "chunks_written"
+    ] == 0
 
 
 async def test_changed_document_bumps_version(tmp_path: Path, session_factory, embedder, settings, ingested) -> None:  # type: ignore[no-untyped-def]

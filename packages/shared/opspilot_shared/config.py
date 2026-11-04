@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
 
     # Agent policy
-    agent_max_tool_calls: int = Field(default=40, ge=1, le=500)
+    agent_max_tool_calls: int = Field(default=60, ge=1, le=500)
     agent_max_llm_calls: int = Field(default=6, ge=1, le=50)
     agent_max_rounds: int = Field(default=2, ge=1, le=5)
     rca_confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     operator_token: SecretStr = SecretStr("")
     action_signing_key: SecretStr = SecretStr("")
     approval_token_ttl_seconds: int = Field(default=900, ge=30, le=86400)
+    approval_request_ttl_seconds: int = Field(default=3600, ge=30, le=7 * 86400)
 
     # Observability
     otel_exporter: Literal["none", "console", "otlp"] = "none"

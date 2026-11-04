@@ -38,6 +38,10 @@ class InvestigationState(TypedDict, total=False):
     rounds: int
     rca: dict[str, Any] | None
     proposed_action: dict[str, Any] | None
+    remediation_plan: list[dict[str, Any]]
+    plan_index: int
+    executions: list[dict[str, Any]]
+    outcome: dict[str, Any] | None
     approval: dict[str, Any] | None
     remediation: dict[str, Any] | None
     verification: dict[str, Any] | None

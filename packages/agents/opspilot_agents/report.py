@@ -1,13 +1,79 @@
-"""Deterministic RCA report rendering from structured investigation state.
+"""Deterministic outcome classification and RCA report rendering from structured state.
 
-The narrative summary comes from the RCA model output; everything else (timeline, evidence,
-citations, metrics) is rendered from recorded data, so the report cannot cite evidence that
-was never collected.
+The narrative summary comes from the RCA model output; everything else (outcome, timeline, evidence,
+citations, actions, verification) is derived from recorded data, so the report cannot cite evidence
+that was never collected or claim an action that did not happen.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+OUTCOMES = {
+    "mitigated": "Remediation executed and recovery verified.",
+    "not_recovered": "Remediation executed but recovery was NOT verified.",
+    "remediation_failed": "A remediation step failed to execute.",
+    "remediation_rejected": "The operator rejected the proposed remediation.",
+    "approval_expired": "The approval request expired before a decision.",
+    "proposal_blocked": "Every proposed action was blocked by safety validation.",
+    "escalated": "No automated action; escalated to a human owner.",
+    "inconclusive": "Evidence was insufficient to determine the cause; escalated.",
+    "no_action_required": "Impact has ended and no action is required.",
+    "no_action_proposed": "Impact is ongoing but no catalogue action applies; escalated.",
+    "failed": "The investigation did not complete.",
+}
+ESCALATE = {
+    "not_recovered",
+    "remediation_failed",
+    "remediation_rejected",
+    "approval_expired",
+    "proposal_blocked",
+    "escalated",
+    "inconclusive",
+    "no_action_proposed",
+    "failed",
+}
+
+
+def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) -> dict[str, Any]:
+    rca = state.get("rca") or {}
+    approval = state.get("approval") or {}
+    executions = state.get("executions") or []
+    plan = state.get("remediation_plan") or []
+    esc = rca.get("escalation") or {}
+    hyps = rca.get("hypotheses") or []
+    top = hyps[0]["confidence"] if hyps else 0.0
+    if state.get("status") == "failed":
+        code = "failed"
+    elif approval.get("decision") == "expired":
+        code = "approval_expired"
+    elif approval.get("decision") == "reject":
+        code = "remediation_rejected"
+    elif executions:
+        if executions[-1].get("status") != "succeeded":
+            code = "remediation_failed"
+        else:
+            code = "mitigated" if (state.get("verification") or {}).get("recovered") else "not_recovered"
+    elif rca.get("impact_ongoing") is False:
+        code = "no_action_required"
+    elif rca.get("remediation_plan") and not plan:
+        code = "proposal_blocked"
+    elif esc.get("required"):
+        code = "escalated"
+    elif top < confidence_threshold:
+        code = "inconclusive"
+    else:
+        code = "no_action_proposed"
+    reason = esc.get("reason") or OUTCOMES[code]
+    return {
+        "code": code,
+        "summary": OUTCOMES[code],
+        "escalate": code in ESCALATE,
+        "escalate_to": esc.get("to") or None,
+        "reason": reason,
+        "actions_executed": len(executions),
+        "steps_planned": len(plan),
+    }
 
 
 def _one_line(text: str, limit: int = 220) -> str:
@@ -24,25 +90,37 @@ def render_report(state: dict[str, Any]) -> str:
     rca = state.get("rca") or {}
     ev = state.get("evidence") or {}
     w = state.get("window") or {}
+    outcome = state.get("outcome") or determine_outcome(state)
+    hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
-    status = state.get("status")
     lines += [
+        f"- **Outcome:** `{outcome['code']}` — {outcome['summary']}  ",
         f"- **Service:** {inc.get('service')}  ",
         f"- **Severity:** {inc.get('severity')}  ",
         f"- **Detected:** {_ts(inc.get('detected_at'))}  ",
         f"- **Anomaly onset:** {_ts(w.get('onset'))}  ",
-        f"- **Investigation status:** {status}  ",
-        f"- **Initial triage (alert only):** {(state.get('classification') or {}).get('category')} "
-        f"({(state.get('classification') or {}).get('source')})",
-        "",
+        f"- **Investigation status:** {state.get('status')}  ",
     ]
+    if hyps:
+        lines.append(f"- **Root-cause category (RCA):** {hyps[0]['category']}  ")
+    cls = state.get("classification") or {}
+    lines += [f"- **Initial triage (alert only):** {cls.get('category')} ({cls.get('source')})", ""]
 
-    final_cat = (hyps_top := (rca.get("hypotheses") or [None])[0]) and hyps_top["category"]
-    if final_cat:
-        lines.insert(-1, f"- **Root-cause category (RCA):** {final_cat}")
+    if outcome.get("escalate"):
+        lines += [
+            "## Escalation",
+            "",
+            "**Human follow-up required**"
+            + (f" — owner: {outcome['escalate_to']}" if outcome.get("escalate_to") else "")
+            + ".",
+            "",
+            outcome["reason"],
+            "",
+        ]
     if rca.get("summary"):
         lines += ["## Summary", "", rca["summary"], ""]
-    hyps = rca.get("hypotheses") or []
+        if "impact_ongoing" in rca:
+            lines += [f"Impact ongoing at analysis time: **{'yes' if rca['impact_ongoing'] else 'no'}**.", ""]
     if hyps:
         lines += ["## Ranked hypotheses", ""]
         for h in hyps:
@@ -74,39 +152,57 @@ def render_report(state: dict[str, Any]) -> str:
         timeline.append((inc["detected_at"], "alert fired / incident detected"))
     if timeline:
         lines += ["## Timeline", "", "| Time (UTC) | Event |", "|---|---|"]
-        lines += [f"| {_ts(t)} | {d.replace('|', '/')} |" for t, d in sorted(timeline)]
+        lines += [f"| {_ts(t)} | {_one_line(d, 200)} |" for t, d in sorted(timeline)]
         lines.append("")
 
-    action, approval = state.get("proposed_action"), state.get("approval")
     lines += ["## Remediation", ""]
-    if action:
-        lines += [
-            f"- **Proposed:** `{action['action_type']}` {action['parameters']} (risk {action['risk']})",
-            f"- **Action ID:** `{action['action_id']}` · params hash `{action['params_hash'][:16]}…`",
-            f"- **Rationale:** {action['rationale']}",
-        ]
+    plan = state.get("remediation_plan") or []
+    executions = {x.get("step"): x for x in state.get("executions") or []}
+    approval = state.get("approval") or {}
+    if plan:
+        lines += ["| Step | Action | Role | Parameters | Result |", "|---|---|---|---|---|"]
+        for p in plan:
+            x = executions.get(p["step"])
+            result = (
+                f"{x.get('status')}: {_one_line(str(x.get('message', '')), 90)}"
+                if x
+                else (
+                    f"not executed ({approval.get('decision')})"
+                    if approval.get("decision") in ("reject", "expired")
+                    and p["step"] >= (state.get("plan_index", 0) + 1)
+                    else "not executed"
+                )
+            )
+            lines.append(
+                f"| {p['step']} | `{p['action_type']}` | {p.get('role', '')} | "
+                f"{_one_line(str(p['parameters']), 80)} | {result} |"
+            )
+        lines.append("")
         if approval:
             lines.append(
-                f"- **Decision:** {approval['decision']} by {approval.get('decided_by')} at "
+                f"- **Last decision:** {approval.get('decision')} by {approval.get('decided_by')} at "
                 f"{_ts(approval.get('decided_at'))}"
                 + (f" — “{approval['comment']}”" if approval.get("comment") else "")
             )
-        rem = state.get("remediation")
-        if rem:
-            lines.append(f"- **Execution:** {rem.get('status')} — {rem.get('message')}")
         ver = state.get("verification")
         if ver:
             lines.append(
                 f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'} — {ver.get('notes')}"
             )
     else:
-        lines.append("- No remediation proposed.")
+        lines.append("- No remediation executed or proposed for approval.")
     for r in state.get("rejected_proposals") or []:
-        lines.append(f"- Rejected model proposal {r['proposal'].get('action_type')}: {r['reason']}")
+        lines.append(
+            f"- Blocked model proposal `{r['proposal'].get('action_type')}` "
+            f"({r.get('category') or 'invalid'}): {r['reason']}"
+        )
     lines.append("")
 
     if rca.get("evidence_gaps"):
         lines += ["## Evidence gaps", ""] + [f"- {g}" for g in rca["evidence_gaps"]] + [""]
+    tool_errors = [e for e in ev.values() if e["kind"] == "tool_error"]
+    if tool_errors:
+        lines += ["## Tool failures during the investigation", ""] + [f"- {e['summary']}" for e in tool_errors] + [""]
 
     cited = [e for e in ev.values() if e.get("citation")]
     if cited:
@@ -117,8 +213,10 @@ def render_report(state: dict[str, Any]) -> str:
             if c["chunk_id"] in seen:
                 continue
             seen.add(c["chunk_id"])
+            status = e["data"].get("doc_status")
             lines.append(
-                f"- `{e['id']}` {c['title']} > {c['heading_path']} (`{c['source_uri']}`, chunk `{c['chunk_id'][:8]}`)"
+                f"- `{e['id']}` {c['title']} > {c['heading_path']} (`{c['source_uri']}`, chunk "
+                f"`{c['chunk_id'][:8]}`)" + (f" — **{status}**" if status and status != "current" else "")
             )
         lines.append("")
 

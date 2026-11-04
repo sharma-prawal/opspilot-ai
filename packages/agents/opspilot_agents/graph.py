@@ -13,6 +13,7 @@ from opspilot_agents.nodes import (
     instrumented,
     make_route_after_rca,
     route_after_approval,
+    route_after_execute,
     route_after_followup,
     route_after_intake,
     route_after_propose,
@@ -33,6 +34,7 @@ NODE_NAMES = (
     "propose",
     "await_approval",
     "execute",
+    "advance",
     "verify",
     "report",
     "failed",
@@ -67,7 +69,8 @@ def build_graph(deps: AgentDeps, checkpointer: Any | None = None, *, node_timeou
     g.add_conditional_edges("followup", route_after_followup, ["dispatch", "propose", "report"])
     g.add_conditional_edges("propose", route_after_propose, ["await_approval", "report"])
     g.add_conditional_edges("await_approval", route_after_approval, ["execute", "report"])
-    g.add_edge("execute", "verify")
+    g.add_conditional_edges("execute", route_after_execute, ["advance", "verify"])
+    g.add_edge("advance", "await_approval")
     g.add_edge("verify", "report")
     g.add_edge("report", END)
     g.add_edge("failed", END)

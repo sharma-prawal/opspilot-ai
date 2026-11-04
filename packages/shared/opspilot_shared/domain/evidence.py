@@ -20,6 +20,10 @@ class EvidenceKind(StrEnum):
     DEPENDENCY = "dependency"
     KNOWLEDGE = "knowledge"
     HISTORICAL_INCIDENT = "historical_incident"
+    SERVICE_CONFIG = "service_config"
+    DATASTORE = "datastore"
+    QUEUE = "queue"
+    TOOL_ERROR = "tool_error"
 
 
 class Citation(Contract):

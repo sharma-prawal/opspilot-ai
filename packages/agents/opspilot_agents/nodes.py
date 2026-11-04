@@ -3,7 +3,7 @@
 Each node is ``async (state) -> partial state update``. Nodes only talk to the outside world
 through the ``ChatModel`` and ``ToolGateway`` ports. Nodes up to and including ``await_approval``
 are side-effect free (re-execution on resume is safe); the only state-changing call is in
-``execute``, which runs strictly after a validated approval.
+``execute``, which runs strictly after a validated, action-bound approval — once per plan step.
 """
 
 from __future__ import annotations
@@ -25,13 +25,15 @@ from opspilot_agents.analysis import (
     LogPattern,
     change_correlation,
     cluster_logs,
-    detect_onset,
+    detect_shift,
     has_schema_signals,
+    lexical_overlap_bonus,
     mean,
 )
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages
-from opspilot_agents.report import render_report
+from opspilot_agents.remediation import enforce_plan_shape, validate_step
+from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
 from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
@@ -49,18 +51,32 @@ _tracer = get_tracer(__name__)
 State = InvestigationState
 PRECEDENCE = {"telemetry": 0, "dependencies": 1, "changes": 2, "knowledge": 3}
 Update = dict[str, Any]
+METRIC_PRIORITY = (
+    "http_5xx_ratio",
+    "p95_latency_ms",
+    "events_processed_per_min",
+    "validation_failures_per_min",
+    "dlq_depth",
+    "queue_depth",
+    "db_pool_in_use",
+    "db_pool_wait_ms",
+    "consumer_retries_per_min",
+    "http_requests_per_min",
+)
+MAX_METRICS_PER_SERVICE = 6
 
 
 @dataclass(frozen=True, slots=True)
 class AgentPolicy:
-    max_tool_calls: int = 40
+    max_tool_calls: int = 60
     max_llm_calls: int = 6
     max_rounds: int = 2
     confidence_threshold: float = 0.6
     lookback_hours: float = 3.0
     change_horizon_hours: float = 6.0
     recovery_threshold: float = 0.01
-    max_prompt_evidence: int = 30
+    recovery_position: float = 0.25  # metric must return to within 25% of its excursion from baseline
+    max_prompt_evidence: int = 34
 
 
 @dataclass(slots=True)
@@ -85,12 +101,12 @@ def _hhmm(value: str | datetime) -> str:
     return dt.strftime("%H:%M:%SZ")
 
 
-def _fmt_ratio(v: float) -> str:
-    return f"{v:.2%}"
-
-
-def _fmt_ms(v: float) -> str:
-    return f"{v:.0f} ms"
+def _fmt(unit: str, v: float) -> str:
+    if unit == "ratio":
+        return f"{v:.2%}"
+    if unit == "ms":
+        return f"{v:.0f} ms"
+    return f"{v:.0f} {unit}".strip()
 
 
 def _evidence(**kw: Any) -> tuple[str, dict[str, Any]]:
@@ -162,10 +178,6 @@ def instrumented(name: str) -> Callable[[Callable[[State], Awaitable[Update]]], 
     return deco
 
 
-def _services_seen(state: State) -> set[str]:
-    return {e["service"] for e in state.get("evidence", {}).values() if e.get("service")}
-
-
 def _queued_or_done(state: State, key: str, extra: list[Task] | None = None) -> bool:
     keys = set(state.get("completed_tasks", [])) | {task_key(t) for t in state.get("task_queue", [])}
     keys |= {task_key(t) for t in (extra or [])}
@@ -177,6 +189,27 @@ def _complete(state: State, task: Task | None) -> list[str]:
     if task is not None:
         done.append(task_key(task))
     return done
+
+
+def _enqueue(state: State, new: list[Task], task: Task) -> None:
+    if not _queued_or_done(state, task_key(task), new):
+        new.append(task)
+
+
+def _impact_ongoing(state: State) -> bool:
+    """Deterministic: an unrecovered anomaly on the alerting service means customer impact is ongoing."""
+    svc = state["incident"]["service"]
+    return any(not a["data"].get("recovered") for a in _anomalies(state, {svc}))
+
+
+def _anomalies(state: State, services: set[str] | None = None) -> list[dict[str, Any]]:
+    return [
+        e
+        for e in state.get("evidence", {}).values()
+        if e["kind"] == "metric_anomaly"
+        and e["data"].get("anomaly", True)
+        and (services is None or e.get("service") in services)
+    ]
 
 
 # ----------------------------------------------------------------------------- nodes
@@ -210,6 +243,8 @@ class InvestigationNodes:
             "task_queue": [],
             "completed_tasks": [],
             "rounds": 0,
+            "executions": [],
+            "plan_index": 0,
         }
 
     # -- supervisor: classify + plan -------------------------------------------------
@@ -301,66 +336,88 @@ class InvestigationNodes:
         w = state["window"]
         calls = _Calls(self.d.tools, state, self.p, "telemetry")
         base = {"environment_id": env, "service": svc, "start": w["start"], "end": w["end"]}
-        r5xx, rlat, rlogs, rhealth = await calls.many(
-            [
-                ("query_metrics", {**base, "metric": "http_5xx_ratio"}),
-                ("query_metrics", {**base, "metric": "p95_latency_ms"}),
+        catalog_res = await calls.one("list_service_metrics", {"environment_id": env, "service": svc})
+        catalog = {m["metric"]: m["unit"] for m in ((catalog_res.data or {}).get("metrics", []) if catalog_res else [])}
+        chosen = [m for m in METRIC_PRIORITY if m in catalog][:MAX_METRICS_PER_SERVICE]
+        results = await calls.many(
+            [("query_metrics", {**base, "metric": m}) for m in chosen]
+            + [
                 ("search_logs", {**base, "min_level": "WARN", "limit": 300}),
                 ("get_service_health", {"environment_id": env, "service": svc}),
             ]
         )
+        metric_results, rlogs, rhealth = results[: len(chosen)], results[-2], results[-1]
         evidence: dict[str, dict[str, Any]] = {}
         findings: list[str] = []
+        new_tasks: list[Task] = []
         onset: datetime | None = None
 
-        for res, metric, min_inc, factor in ((r5xx, "http_5xx_ratio", 0.02, 5.0), (rlat, "p95_latency_ms", 100.0, 2.0)):
+        for metric, res in zip(chosen, metric_results, strict=True):
             if not res or not res.ok or not res.data:
                 continue
+            unit = catalog.get(metric, "")
             pts = [(_dt(p["ts"]), float(p["value"])) for p in res.data["points"]]
-            an = detect_onset(pts, min_abs_increase=min_inc, factor=factor)
-            fmt = _fmt_ratio if metric.endswith("ratio") else _fmt_ms
-            if an:
-                onset = an.onset if metric == "http_5xx_ratio" or onset is None else onset
+            sh = detect_shift(pts, metric=metric, unit=unit)
+            if sh:
+                if not sh.recovered and (onset is None or sh.onset < onset):
+                    onset = sh.onset
+                verb = "rose" if sh.direction == "up" else "fell"
+                status = "returned to baseline (recovered)" if sh.recovered else f"currently {_fmt(unit, sh.current)}"
                 eid, ev = _evidence(
-                    id=f"ev-metric-{short_hash(svc, metric, an.onset)}",
+                    id=f"ev-metric-{short_hash(svc, metric, sh.onset)}",
                     kind=EvidenceKind.METRIC_ANOMALY,
                     source_tool="query_metrics",
                     collected_by="telemetry",
                     service=svc,
-                    relevance=0.9,
-                    observed_at=an.onset,
+                    relevance=0.55 if sh.recovered else 0.9,
+                    observed_at=sh.onset,
                     summary=(
-                        f"{svc} {metric} rose from baseline {fmt(an.baseline)} to peak {fmt(an.peak)} "
-                        f"(current {fmt(an.current)}); sustained anomaly onset at {_hhmm(an.onset)}"
+                        f"{svc} {metric} {verb} from baseline {_fmt(unit, sh.baseline)} to "
+                        f"{_fmt(unit, sh.extreme)} starting {_hhmm(sh.onset)}; {status}"
                     ),
                     data={
                         "metric": metric,
-                        "baseline": an.baseline,
-                        "peak": an.peak,
-                        "current": an.current,
-                        "onset": _iso(an.onset),
-                        "threshold": an.threshold,
+                        "unit": unit,
+                        "direction": sh.direction,
+                        "baseline": sh.baseline,
+                        "extreme": sh.extreme,
+                        "peak": sh.extreme,
+                        "current": sh.current,
+                        "onset": _iso(sh.onset),
+                        "recovered": sh.recovered,
                         "points": len(pts),
                     },
                 )
                 evidence[eid] = ev
-                findings.append(f"{metric} anomaly from {_hhmm(an.onset)}")
-            elif pts:
+                findings.append(f"{metric} {verb} from {_hhmm(sh.onset)}{' (recovered)' if sh.recovered else ''}")
+            elif pts and metric in ("http_5xx_ratio", "p95_latency_ms"):
+                avg = mean([v for _, v in pts])
                 eid, ev = _evidence(
                     id=f"ev-metric-{short_hash(svc, metric, 'steady')}",
                     kind=EvidenceKind.METRIC_ANOMALY,
                     source_tool="query_metrics",
                     collected_by="telemetry",
                     service=svc,
-                    relevance=0.35,
-                    summary=f"{svc} {metric} shows no sustained anomaly in the window "
-                    f"(mean {fmt(mean([v for _, v in pts]))})",
-                    data={"metric": metric, "anomaly": False, "mean": mean([v for _, v in pts])},
+                    relevance=0.3,
+                    summary=f"{svc} {metric} shows no sustained anomaly in the window (mean {_fmt(unit, avg)})",
+                    data={"metric": metric, "unit": unit, "anomaly": False, "mean": avg},
                 )
                 evidence[eid] = ev
 
-        new_tasks: list[Task] = []
-        if rlogs and rlogs.ok and rlogs.data:
+        if rlogs and not rlogs.ok:
+            eid, ev = _evidence(
+                id=f"ev-toolerr-{short_hash(svc, 'search_logs')}",
+                kind=EvidenceKind.TOOL_ERROR,
+                source_tool="search_logs",
+                collected_by="telemetry",
+                service=svc,
+                relevance=0.7,
+                summary=f"Logs for {svc} could not be retrieved: {rlogs.error}. Log evidence for {svc} is missing.",
+                data={"tool": "search_logs", "error": rlogs.error},
+            )
+            evidence[eid] = ev
+            findings.append(f"logs unavailable for {svc}")
+        elif rlogs and rlogs.data:
             patterns = cluster_logs(rlogs.data["entries"])
             for p in patterns:
                 eid, ev = _evidence(
@@ -387,15 +444,6 @@ class InvestigationNodes:
                     },
                 )
                 evidence[eid] = ev
-                up = p.upstream
-                if p.level == "ERROR" and up and up != svc:
-                    t: Task = {
-                        "capability": "dependencies",
-                        "service": svc,
-                        "reason": f"error logs on {svc} attribute failures to upstream {up}",
-                    }
-                    if not _queued_or_done(state, task_key(t), new_tasks):
-                        new_tasks.append(t)
             errors = [p for p in patterns if p.level == "ERROR"]
             if errors:
                 findings.append(f"top error: {errors[0].sample[:160]} (x{errors[0].count})")
@@ -408,12 +456,24 @@ class InvestigationNodes:
                 source_tool="get_service_health",
                 collected_by="telemetry",
                 service=svc,
-                relevance=0.6 if h["status"] != "healthy" else 0.3,
+                relevance=0.6 if h["status"] not in ("healthy", "unknown") else 0.3,
                 summary=f"{svc} health {h['status']} at {_hhmm(h['as_of'])}, version {h['version']}; "
                 f"{'; '.join(h['notes'])}",
                 data=h,
             )
             evidence[eid] = ev
+
+        # Evidence-driven routing: any anomalous service gets its dependencies examined.
+        if any(e["kind"] == "metric_anomaly" and e["data"].get("anomaly", True) for e in evidence.values()):
+            _enqueue(
+                state,
+                new_tasks,
+                {
+                    "capability": "dependencies",
+                    "service": svc,
+                    "reason": f"{svc} shows anomalies; examine its dependencies and capacity",
+                },
+            )
 
         window = dict(state["window"])
         if onset and ("onset" not in window or onset < _dt(window["onset"])):
@@ -433,48 +493,148 @@ class InvestigationNodes:
             "completed_tasks": _complete(state, task),
         }
 
-    # -- dependency walk ------------------------------------------------------------
+    # -- dependency, capacity and queue walk ----------------------------------------
     async def dependencies(self, state: State) -> Update:
         task = state.get("active_task")
         svc = (task["service"] if task else None) or state["incident"]["service"]
         env = state["incident"]["environment_id"]
         calls = _Calls(self.d.tools, state, self.p, "dependencies")
-        res = await calls.one("get_service_dependencies", {"environment_id": env, "service": svc})
+        rdeps, rcfg = await calls.many(
+            [
+                ("get_service_dependencies", {"environment_id": env, "service": svc}),
+                ("get_service_config", {"environment_id": env, "service": svc}),
+            ]
+        )
         evidence: dict[str, dict[str, Any]] = {}
         new_tasks: list[Task] = []
         findings: list[str] = []
-        if res and res.ok and res.data:
-            critical = [d for d in res.data["downstream"] if d["critical"] and d["kind"] == "sync_http"]
-            healths = await calls.many(
-                [("get_service_health", {"environment_id": env, "service": d["depends_on"]}) for d in critical]
+        if rcfg and rcfg.ok and rcfg.data:
+            c = rcfg.data
+            shown = ", ".join(f"{k}={v}" for k, v in list(c["config"].items())[:8])
+            eid, ev = _evidence(
+                id=f"ev-config-{short_hash(svc, 'current')}",
+                kind=EvidenceKind.SERVICE_CONFIG,
+                source_tool="get_service_config",
+                collected_by="dependencies",
+                service=svc,
+                relevance=0.5,
+                summary=f"{svc} runtime config: replicas {c['replicas']}, version {c['version']}; {shown}",
+                data=c,
             )
-            for dep, h in zip(critical, healths, strict=True):
+            evidence[eid] = ev
+        upstream_mentions = {
+            e["data"].get("attributes", {}).get("upstream")
+            for e in state.get("evidence", {}).values()
+            if e["kind"] == "log_pattern" and e.get("service") == svc and e["data"]["level"] == "ERROR"
+        }
+        if rdeps and rdeps.ok and rdeps.data:
+            downstream = rdeps.data["downstream"]
+            health_targets = [
+                d
+                for d in downstream
+                if d["kind"] == "sync_http" and (d["critical"] or d["depends_on"] in upstream_mentions)
+            ]
+            ds_targets = [d for d in downstream if d["kind"] == "database"]
+            q_targets = [d for d in downstream if d["kind"] == "async_queue"]
+            results = await calls.many(
+                [("get_service_health", {"environment_id": env, "service": d["depends_on"]}) for d in health_targets]
+                + [("get_datastore_status", {"environment_id": env, "datastore": d["depends_on"]}) for d in ds_targets]
+                + [("inspect_queue", {"environment_id": env, "queue": d["depends_on"]}) for d in q_targets]
+            )
+            h_res = results[: len(health_targets)]
+            ds_res = results[len(health_targets) : len(health_targets) + len(ds_targets)]
+            q_res = results[len(health_targets) + len(ds_targets) :]
+            for dep, h in zip(health_targets, h_res, strict=True):
                 status = h.data["status"] if h and h.ok and h.data else "unknown"
                 notes = "; ".join(h.data["notes"]) if h and h.ok and h.data else (h.error if h else "budget")
                 eid, ev = _evidence(
                     id=f"ev-dep-{short_hash(svc, dep['depends_on'], status)}",
                     kind=EvidenceKind.DEPENDENCY,
-                    source_tool="get_service_dependencies",
+                    source_tool="get_service_health",
                     collected_by="dependencies",
                     service=dep["depends_on"],
                     relevance=0.75 if status in ("unhealthy", "degraded") else 0.3,
-                    summary=f"{svc} → {dep['depends_on']} (critical {dep['kind']}): "
-                    f"{dep['depends_on']} is {status}; {notes}",
+                    summary=(
+                        f"{svc} -> {dep['depends_on']} ({'critical' if dep['critical'] else 'non-critical'} "
+                        f"{dep['kind']}): {dep['depends_on']} is {status}; {notes}"
+                    ),
                     data={"edge": dep, "health": h.data if h and h.ok else None},
                 )
                 evidence[eid] = ev
                 findings.append(f"{dep['depends_on']} {status}")
-                t: Task = {
-                    "capability": "telemetry",
-                    "service": dep["depends_on"],
-                    "reason": f"critical downstream {dep['depends_on']} of {svc} is {status}",
-                }
-                if status in ("unhealthy", "degraded") and not _queued_or_done(state, task_key(t), new_tasks):
-                    new_tasks.append(t)
+                if status in ("unhealthy", "degraded"):
+                    _enqueue(
+                        state,
+                        new_tasks,
+                        {
+                            "capability": "telemetry",
+                            "service": dep["depends_on"],
+                            "reason": f"downstream {dep['depends_on']} of {svc} is {status}",
+                        },
+                    )
+            for dep, r in zip(ds_targets, ds_res, strict=True):
+                if not r or not r.ok or not r.data:
+                    continue
+                d = r.data
+                usable = d["max_connections"] - d.get("reserved_superuser_connections", 0)
+                util = d["connections_active"] / max(usable, 1)
+                lrq = d.get("long_running_queries") or []
+                lrq_txt = (
+                    "; ".join(
+                        f"{q['sessions']} sessions of '{q['fingerprint'][:140]}' mean {q['mean_ms']} ms ({q['plan']})"
+                        for q in lrq[:2]
+                    )
+                    or "no long-running queries"
+                )
+                eid, ev = _evidence(
+                    id=f"ev-ds-{short_hash(dep['depends_on'], d['as_of'])}",
+                    kind=EvidenceKind.DATASTORE,
+                    source_tool="get_datastore_status",
+                    collected_by="dependencies",
+                    service=dep["depends_on"],
+                    relevance=0.85 if (util > 0.8 or lrq) else 0.35,
+                    summary=(
+                        f"{dep['depends_on']} connections {d['connections_active']}/{d['max_connections']} "
+                        f"({util:.0%} of usable {usable}); by client {d['connections_by_client']}; pool limits "
+                        f"{d['client_pool_limits']}; {lrq_txt}"
+                    ),
+                    data=d,
+                )
+                evidence[eid] = ev
+                findings.append(f"{dep['depends_on']} at {util:.0%} connection capacity")
+            for _dep, r in zip(q_targets, q_res, strict=True):
+                if not r or not r.ok or not r.data:
+                    continue
+                q = r.data
+                fails = (
+                    "; ".join(
+                        f"{f['error_code']} x{f['count']} from producer {f['producer_version']} "
+                        f"schema {f['schema_version']} ({f['error']})"
+                        for f in q["failures"][:3]
+                    )
+                    or "none"
+                )
+                eid, ev = _evidence(
+                    id=f"ev-queue-{short_hash(q['queue'], q['as_of'], q['pending'], q['dead_lettered'])}",
+                    kind=EvidenceKind.QUEUE,
+                    source_tool="inspect_queue",
+                    collected_by="dependencies",
+                    service=(q.get("consumer") or {}).get("service"),
+                    relevance=0.85 if (q["failures"] or q["dead_lettered"]) else 0.3,
+                    summary=(
+                        f"queue {q['queue']} (expects {q['expected_schema']}): consumer "
+                        f"{q['consumer'].get('service')} {q['consumer'].get('state')}; pending {q['pending']}, "
+                        f"dead-lettered {q['dead_lettered']}, quarantined {q['quarantined']}; producers "
+                        f"{q['producers']}; failures: {fails}"
+                    ),
+                    data=q,
+                )
+                evidence[eid] = ev
+                findings.append(f"{q['queue']}: {q['dead_lettered']} dead-lettered")
         obs = {
             "agent": "dependencies",
             "service": svc,
-            "finding": f"critical downstreams of {svc}: {', '.join(findings) or 'none'}",
+            "finding": f"{svc} dependencies: {', '.join(findings) or 'none'}",
             "evidence_ids": list(evidence),
         }
         return {
@@ -499,13 +659,16 @@ class InvestigationNodes:
                 ("get_config_changes", {"environment_id": env, "start": start, "end": w["end"]}),
             ]
         )
-        ev_all = state.get("evidence", {}).values()
-        affected = {
+        ev_all = list(state.get("evidence", {}).values())
+        affected = {e["service"] for e in _anomalies(state) if e.get("service")}
+        related = {
             e["service"]
             for e in ev_all
-            if e["kind"] == "metric_anomaly" and e["data"].get("anomaly", True) and e.get("service")
-        }
-        related = {e["service"] for e in ev_all if e["kind"] == "dependency"} | {state["incident"]["service"]}
+            if e["kind"] in ("dependency", "datastore", "service_config") and e.get("service")
+        } | {state["incident"]["service"]}
+        for e in ev_all:
+            if e["kind"] == "queue":
+                related |= set(e["data"].get("producers", []))
         patterns = [
             LogPattern(
                 e["data"]["signature"],
@@ -519,11 +682,26 @@ class InvestigationNodes:
             if e["kind"] == "log_pattern"
         ]
         schema_signals = has_schema_signals(patterns)
+        signals = [
+            f"{e['data']['sample']} {e['data'].get('attributes', {})}"
+            for e in ev_all
+            if e["kind"] == "log_pattern" and e["data"]["level"] in ("ERROR", "WARN")
+        ]
+        signals += [f["error"] or "" for e in ev_all if e["kind"] == "queue" for f in e["data"].get("failures", [])]
+        signals += [
+            f"{f['schema_version']}" for e in ev_all if e["kind"] == "queue" for f in e["data"].get("failures", [])
+        ]
+        signals += [
+            q["fingerprint"]
+            for e in ev_all
+            if e["kind"] == "datastore"
+            for q in e["data"].get("long_running_queries", [])
+        ]
         evidence: dict[str, dict[str, Any]] = {}
         scored: list[tuple[float, str, str]] = []
         for d in (rdep.data or {}).get("deployments", []) if rdep and rdep.ok else []:
             effective = _dt(d["finished_at"] or d["started_at"])
-            score = change_correlation(
+            base = change_correlation(
                 effective,
                 onset,
                 change_service=d["service"],
@@ -532,6 +710,8 @@ class InvestigationNodes:
                 schema_change=d["kind"] == "schema_migration",
                 schema_signals=schema_signals,
             )
+            bonus, shared = lexical_overlap_bonus(f"{d['change_summary']} {d.get('metadata', {})}", signals)
+            score = round(min(1.0, base + bonus), 4) if base > 0 else 0.0
             delta = round((onset - effective).total_seconds() / 60, 1)
             rel = "before" if delta >= 0 else "after"
             eid, ev = _evidence(
@@ -546,14 +726,15 @@ class InvestigationNodes:
                     f"{d['service']} {d['kind']} {d['version']} (id {d['id']}, previous {d['previous_version']}) "
                     f"finished {_hhmm(effective)}, {abs(delta)} min {rel} anomaly onset; status {d['status']}; "
                     f'"{d["change_summary"]}"; correlation {score:.2f}'
+                    + (f" (shares terms with failures: {', '.join(shared)})" if shared and base > 0 else "")
                 ),
-                data={**d, "minutes_before_onset": delta, "correlation": score},
+                data={**d, "minutes_before_onset": delta, "correlation": score, "shared_terms": shared},
             )
             evidence[eid] = ev
             scored.append((score, d["service"], eid))
         for c in (rcfg.data or {}).get("changes", []) if rcfg and rcfg.ok else []:
             changed = _dt(c["changed_at"])
-            score = change_correlation(
+            base = change_correlation(
                 changed,
                 onset,
                 change_service=c["service"],
@@ -562,9 +743,11 @@ class InvestigationNodes:
                 schema_change=False,
                 schema_signals=False,
             )
+            bonus, shared = lexical_overlap_bonus(f"{c['key']} {c['old_value']} {c['new_value']}", signals)
+            score = round(min(1.0, base + bonus), 4) if base > 0 else 0.0
             delta = round((onset - changed).total_seconds() / 60, 1)
             eid, ev = _evidence(
-                id=f"ev-config-{short_hash(c['id'])}",
+                id=f"ev-cfgchg-{short_hash(c['id'])}",
                 kind=EvidenceKind.CONFIG_CHANGE,
                 source_tool="get_config_changes",
                 collected_by="changes",
@@ -572,7 +755,7 @@ class InvestigationNodes:
                 relevance=max(score, 0.05),
                 observed_at=changed,
                 summary=(
-                    f"{c['service']} config {c['key']} {c['old_value']} → {c['new_value']} (id {c['id']}) at "
+                    f"{c['service']} config {c['key']} {c['old_value']} -> {c['new_value']} (id {c['id']}) at "
                     f"{_hhmm(changed)}, {delta} min before onset; correlation {score:.2f}"
                 ),
                 data={**c, "minutes_before_onset": delta, "correlation": score},
@@ -582,13 +765,15 @@ class InvestigationNodes:
         scored.sort(reverse=True)
         new_tasks: list[Task] = []
         if scored and scored[0][0] >= 0.5:
-            t: Task = {
-                "capability": "telemetry",
-                "service": scored[0][1],
-                "reason": f"strongly correlated change on {scored[0][1]} ({scored[0][2]})",
-            }
-            if not _queued_or_done(state, task_key(t)):
-                new_tasks.append(t)
+            _enqueue(
+                state,
+                new_tasks,
+                {
+                    "capability": "telemetry",
+                    "service": scored[0][1],
+                    "reason": f"strongly correlated change on {scored[0][1]} ({scored[0][2]})",
+                },
+            )
         top = evidence[scored[0][2]]["summary"] if scored else "no changes in window"
         obs = {
             "agent": "changes",
@@ -609,11 +794,16 @@ class InvestigationNodes:
         task = state.get("active_task")
         ev = list(state.get("evidence", {}).values())
         errors = sorted(
-            (e for e in ev if e["kind"] == "log_pattern" and e["data"]["level"] == "ERROR"),
-            key=lambda e: -e["data"]["count"],
+            (e for e in ev if e["kind"] == "log_pattern" and e["data"]["level"] in ("ERROR", "WARN")),
+            key=lambda e: (e["data"]["level"] != "ERROR", -e["data"]["count"]),
         )
         changes = sorted((e for e in ev if e["kind"] in ("deployment", "config_change")), key=lambda e: -e["relevance"])
         parts = [e["data"]["signature"].replace("<uuid>", "").replace("<n>", "")[:160] for e in errors[:2]]
+        parts += [
+            e["summary"][:160]
+            for e in ev
+            if e["kind"] in ("datastore", "queue", "tool_error") and e["relevance"] >= 0.7
+        ][:1]
         if changes and changes[0]["relevance"] >= 0.3:
             c = changes[0]["data"]
             parts.append(f"{c.get('kind', 'config change')} {c.get('change_summary') or c.get('key', '')}")
@@ -626,7 +816,7 @@ class InvestigationNodes:
         calls = _Calls(self.d.tools, state, self.p, "knowledge")
         rrun, rinc = await calls.many(
             [
-                ("search_runbooks", {"query": query, "top_k": 4}),
+                ("search_runbooks", {"query": query, "top_k": 5}),
                 ("get_historical_incidents", {"query": query, "top_k": 3}),
             ]
         )
@@ -635,13 +825,15 @@ class InvestigationNodes:
             if not res or not res.ok or not res.data:
                 continue
             for rank, hit in enumerate(res.data["results"], start=1):
+                status = (hit.get("metadata") or {}).get("status")
+                marker = f"[{status.upper()}] " if status and status != "current" else ""
                 eid, item = _evidence(
                     id=f"ev-kb-{hit['chunk_id'].replace('-', '')[:12]}",
                     kind=kind,
                     source_tool=res.tool,
                     collected_by="knowledge",
-                    relevance=round(max(0.2, 0.8 - 0.1 * rank), 2),
-                    summary=f"[{hit['title']} > {hit['heading_path']}] {hit['snippet'][:420]}",
+                    relevance=round(max(0.2, 0.8 - 0.1 * rank) * (0.5 if marker else 1), 2),
+                    summary=f"{marker}[{hit['title']} > {hit['heading_path']}] {hit['snippet'][:420]}",
                     citation=Citation(
                         document_id=hit["document_id"],
                         chunk_id=hit["chunk_id"],
@@ -654,15 +846,18 @@ class InvestigationNodes:
                         "score": hit["score"],
                         "query_id": res.data["query_id"],
                         "doc_type": hit["doc_type"],
+                        "doc_status": status,
                         "vector_rank": hit.get("vector_rank"),
                         "keyword_rank": hit.get("keyword_rank"),
                     },
                 )
                 evidence[eid] = item
+        warnings = [w for r in (rrun, rinc) if r and r.ok and r.data for w in r.data.get("warnings", [])]
         obs = {
             "agent": "knowledge",
             "service": None,
-            "finding": f"retrieved {len(evidence)} cited passages for query: {query[:200]}",
+            "finding": f"retrieved {len(evidence)} cited passages for query: {query[:200]}"
+            + (f" (retrieval degraded: {warnings[0]})" if warnings else ""),
             "evidence_ids": list(evidence),
         }
         return {
@@ -739,7 +934,10 @@ class InvestigationNodes:
                 "hypotheses": hyps,
                 "evidence_gaps": value.evidence_gaps,
                 "followups": list(dict.fromkeys(value.followups)),
-                "remediation": value.remediation.model_dump(),
+                "impact_ongoing": _impact_ongoing(state),
+                "impact_ongoing_model": value.impact_ongoing,
+                "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
+                "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
                 "round": round_no,
                 "model": self.d.chat.model_name,
@@ -770,68 +968,118 @@ class InvestigationNodes:
                         tasks.append(t)
         return {"rounds": state.get("rounds", 0) + 1, "task_queue": tasks, "completed_tasks": completed}
 
-    # -- remediation proposal (validated against catalogue + evidence) ---------------
+    # -- remediation plan (validated against catalogue + evidence) -------------------
     async def propose(self, state: State) -> Update:
         rca = state["rca"] or {}
-        rem = rca.get("remediation") or {}
         evidence = state.get("evidence", {})
-        deployments = {e["data"]["id"]: e for e in evidence.values() if e["kind"] == "deployment"}
-        known_services = _services_seen(state) | {state["incident"]["service"]}
-
-        def reject(reason: str) -> Update:
-            _log.warning("remediation_rejected", reason=reason, proposal=rem)
-            return {
-                "proposed_action": None,
-                "rejected_proposals": [{"proposal": rem, "reason": reason, "at": _iso(utcnow())}],
-            }
-
-        try:
-            action_type = ActionType(str(rem.get("action_type")))
-        except ValueError:
-            return reject(f"action type {rem.get('action_type')!r} is not in the remediation catalogue")
-        spec = REMEDIATION_CATALOG[action_type]
-        if not spec.implemented:
-            return reject(f"{action_type.value} is not available in the sandbox")
-        params: dict[str, Any]
-        if action_type is ActionType.ROLLBACK_DEPLOYMENT:
-            dep = deployments.get(rem.get("deployment_id") or "")
-            if dep is None:
-                return reject(f"deployment {rem.get('deployment_id')!r} does not appear in collected evidence")
-            if dep["data"]["kind"] == "rollback" or dep["data"]["status"] == "rolled_back":
-                return reject("deployment is already a rollback / rolled back")
-            params = {"service": dep["data"]["service"], "deployment_id": dep["data"]["id"]}
-        elif action_type is ActionType.RESTART_SERVICE:
-            if rem.get("service") not in known_services:
-                return reject(f"service {rem.get('service')!r} not observed in this investigation")
-            params = {"service": rem["service"]}
-        else:  # pragma: no cover - unimplemented types rejected above
-            return reject("unsupported")
-        params_hash = action_params_hash(action_type.value, params)
-        action_id = stable_uuid("action", state["investigation_id"], params_hash)
-        proposed = {
-            "action_id": str(action_id),
-            "action_type": action_type.value,
-            "parameters": params,
-            "params_hash": params_hash,
-            "rationale": rem.get("rationale", ""),
-            "risk": spec.risk.value,
-            "hypothesis_rank": 1,
-            "proposed_at": _iso(utcnow()),
+        plan: list[dict[str, Any]] = []
+        rejected: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for step in rca.get("remediation_plan", []):
+            check = validate_step(step, evidence, state["incident"]["service"])
+            if not check.ok or check.params is None:
+                rejected.append(
+                    {
+                        "proposal": step,
+                        "reason": check.reason,
+                        "category": check.category,
+                        "details": check.details,
+                        "at": _iso(utcnow()),
+                    }
+                )
+                _log.warning("remediation_rejected", reason=check.reason, category=check.category, proposal=step)
+                continue
+            params_hash = action_params_hash(check.action_type, check.params)
+            if params_hash in seen:
+                continue
+            seen.add(params_hash)
+            spec = REMEDIATION_CATALOG[ActionType(check.action_type)]
+            plan.append(
+                {
+                    "action_id": str(stable_uuid("action", state["investigation_id"], len(plan), params_hash)),
+                    "action_type": check.action_type,
+                    "parameters": check.params,
+                    "params_hash": params_hash,
+                    "rationale": str(step.get("rationale", "")),
+                    "risk": spec.risk.value,
+                    "role": spec.role.value,
+                    "step": len(plan) + 1,
+                    "hypothesis_rank": 1,
+                    "proposed_at": _iso(utcnow()),
+                    "validation": check.details,
+                }
+            )
+        if plan and not _impact_ongoing(state):
+            rejected += [
+                {
+                    "proposal": {k: p[k] for k in ("action_type", "parameters")},
+                    "category": "unwarranted",
+                    "reason": "impact has already ended on the alerting service; no remediation is warranted",
+                    "at": _iso(utcnow()),
+                }
+                for p in plan
+            ]
+            plan = []
+        plan, dropped = enforce_plan_shape(plan)
+        rejected += [{**d, "at": _iso(utcnow())} for d in dropped]
+        # Completeness: a containment that halts processing must be undone by the plan itself.
+        paused = [p["parameters"]["service"] for p in plan if p["action_type"] == "pause_consumer"]
+        resumed = {p["parameters"]["service"] for p in plan if p["action_type"] == "resume_consumer"}
+        for svc_name in paused:
+            if svc_name in resumed:
+                continue
+            check = validate_step(
+                {"action_type": "resume_consumer", "service": svc_name}, evidence, state["incident"]["service"]
+            )
+            if check.ok and check.params is not None:
+                ph = action_params_hash(check.action_type, check.params)
+                spec = REMEDIATION_CATALOG[ActionType.RESUME_CONSUMER]
+                plan.append(
+                    {
+                        "action_id": "",
+                        "action_type": check.action_type,
+                        "parameters": check.params,
+                        "params_hash": ph,
+                        "risk": spec.risk.value,
+                        "role": spec.role.value,
+                        "added_by": "policy",
+                        "rationale": "policy: a paused consumer must be resumed once the cause is resolved",
+                        "hypothesis_rank": 1,
+                        "proposed_at": _iso(utcnow()),
+                        "validation": None,
+                    }
+                )
+        for i, p in enumerate(plan):
+            p["step"], p["plan_size"] = i + 1, len(plan)
+            p["action_id"] = str(stable_uuid("action", state["investigation_id"], i, p["params_hash"]))
+        return {
+            "remediation_plan": plan,
+            "plan_index": 0,
+            "proposed_action": plan[0] if plan else None,
+            "rejected_proposals": rejected,
         }
-        return {"proposed_action": proposed}
 
     # -- human-in-the-loop ----------------------------------------------------------
     async def await_approval(self, state: State) -> Update:
         action = state["proposed_action"]
         assert action is not None
-        decision = interrupt({"type": "approval_required", "action": action})
+        decision = interrupt(
+            {
+                "type": "approval_required",
+                "action": action,
+                "plan": [
+                    {k: p[k] for k in ("step", "action_type", "parameters", "role")}
+                    for p in state.get("remediation_plan", [])
+                ],
+            }
+        )
         if not isinstance(decision, dict):
             raise ApprovalError("resume payload must be an object")
         if decision.get("action_id") != action["action_id"] or decision.get("params_hash") != action["params_hash"]:
             raise ApprovalError("resume payload does not match the pending action")
         kind = decision.get("decision")
-        if kind not in ("approve", "reject"):
-            raise ApprovalError("decision must be approve or reject")
+        if kind not in ("approve", "reject", "expired"):
+            raise ApprovalError("decision must be approve, reject or expired")
         if kind == "approve" and not decision.get("approval_token"):
             raise ApprovalError("approval requires a signed approval token")
         return {
@@ -849,90 +1097,156 @@ class InvestigationNodes:
             }
         }
 
-    # -- sandbox execution ----------------------------------------------------------
+    # -- sandbox execution (one plan step) ------------------------------------------
     async def execute(self, state: State) -> Update:
         action, approval = state["proposed_action"], state["approval"]
         assert action is not None and approval is not None and approval["decision"] == "approve"
         if self.d.actions is None:
-            return {"remediation": {"status": "failed", "message": "no action gateway configured"}}
+            result: dict[str, Any] = {"status": "failed", "message": "no action gateway configured"}
+            return {
+                "remediation": result,
+                "executions": [*state.get("executions", []), {**result, "step": action["step"]}],
+            }
         calls = _Calls(self.d.actions, state, self.p, "remediation")
         res = await calls.one(
             "execute_remediation", {"action_id": action["action_id"], "approval_token": approval["approval_token"]}
         )
         if res is None or not res.ok or res.data is None:
-            remediation = {"status": "failed", "message": (res.error if res else "tool budget exhausted")}
+            result = {
+                "action_id": action["action_id"],
+                "status": "failed",
+                "message": (res.error if res else "tool budget exhausted"),
+            }
         else:
-            remediation = {**res.data}
-        return {**calls.update(), "remediation": remediation}
+            result = {**res.data}
+        record = {**result, "step": action["step"], "action_type": action["action_type"], "role": action.get("role")}
+        return {**calls.update(), "remediation": result, "executions": [*state.get("executions", []), record]}
+
+    async def advance(self, state: State) -> Update:
+        idx = state.get("plan_index", 0) + 1
+        return {"plan_index": idx, "proposed_action": state["remediation_plan"][idx], "approval": None}
 
     async def verify(self, state: State) -> Update:
-        rem = state.get("remediation") or {}
+        executions = state.get("executions", [])
+        last = executions[-1] if executions else {}
         svc = state["incident"]["service"]
-        if rem.get("status") != "succeeded":
+        if last.get("status") != "succeeded":
             return {
                 "verification": {
                     "recovered": False,
                     "service": svc,
-                    "notes": f"remediation did not succeed: {rem.get('message')}",
+                    "checks": [],
+                    "notes": f"remediation step did not succeed: {last.get('message')}",
                 }
             }
-        details = rem.get("details") or {}
+        details = last.get("details") or {}
         start, end = details.get("executed_at_sim"), details.get("sim_now_after")
+        top = ((state.get("rca") or {}).get("hypotheses") or [{}])[0]
+        culprits = {
+            state["evidence"][i]["service"]
+            for i in top.get("supporting_evidence_ids", [])
+            if state["evidence"].get(i, {}).get("service")
+        }
+        targets = [a for a in _anomalies(state, {svc} | culprits) if not a["data"].get("recovered")][:4]
         calls = _Calls(self.d.tools, state, self.p, "verify")
-        res = await calls.one(
-            "query_metrics",
-            {
-                "environment_id": state["incident"]["environment_id"],
-                "service": svc,
-                "metric": "http_5xx_ratio",
-                "start": start,
-                "end": end,
-            },
+        env = state["incident"]["environment_id"]
+        if not targets:
+            targets = [
+                {
+                    "service": svc,
+                    "data": {
+                        "metric": "http_5xx_ratio",
+                        "unit": "ratio",
+                        "baseline": 0.0,
+                        "extreme": self.p.recovery_threshold / self.p.recovery_position,
+                    },
+                }
+            ]
+        results = await calls.many(
+            [
+                (
+                    "query_metrics",
+                    {
+                        "environment_id": env,
+                        "service": t["service"],
+                        "metric": t["data"]["metric"],
+                        "start": start,
+                        "end": end,
+                    },
+                )
+                for t in targets
+            ]
         )
-        before = max(
-            (
-                e["data"].get("current", 0.0)
-                for e in state["evidence"].values()
-                if e["kind"] == "metric_anomaly"
-                and e.get("service") == svc
-                and e["data"].get("metric") == "http_5xx_ratio"
-            ),
-            default=0.0,
+        checks = []
+        for t, r in zip(targets, results, strict=True):
+            d = t["data"]
+            if not r or not r.ok or not r.data or len(r.data["points"]) < 3:
+                checks.append(
+                    {
+                        "service": t["service"],
+                        "metric": d["metric"],
+                        "recovered": False,
+                        "note": "insufficient post-remediation data",
+                    }
+                )
+                continue
+            after = mean([float(p["value"]) for p in r.data["points"]][-3:])
+            span = (d["extreme"] - d["baseline"]) or 1e-9
+            position = (after - d["baseline"]) / span
+            checks.append(
+                {
+                    "service": t["service"],
+                    "metric": d["metric"],
+                    "baseline": round(d["baseline"], 5),
+                    "anomalous": round(d["extreme"], 5),
+                    "after": round(after, 5),
+                    "position": round(position, 3),
+                    "recovered": position < self.p.recovery_position,
+                }
+            )
+        recovered = bool(checks) and all(c["recovered"] for c in checks)
+        notes = "; ".join(
+            f"{c['service']} {c['metric']}: "
+            + (
+                f"{c.get('after')} (baseline {c.get('baseline')}, was {c.get('anomalous')})"
+                if "after" in c
+                else c["note"]
+            )
+            for c in checks
         )
-        if not res or not res.ok or not res.data or len(res.data["points"]) < 3:
-            return {
-                **calls.update(),
-                "verification": {"recovered": False, "service": svc, "notes": "insufficient post-remediation data"},
-            }
-        tail = [float(p["value"]) for p in res.data["points"]][-5:]
-        after = mean(tail)
-        recovered = after < self.p.recovery_threshold
         return {
             **calls.update(),
             "verification": {
                 "recovered": recovered,
                 "service": svc,
-                "metric": "http_5xx_ratio",
-                "threshold": self.p.recovery_threshold,
-                "observed_before": round(before, 5),
-                "observed_after": round(after, 5),
+                "checks": checks,
                 "window_start": start,
                 "window_end": end,
-                "notes": (
-                    f"5xx ratio {after:.2%} over the last {len(tail)} min after remediation "
-                    f"(before {before:.2%}); threshold {self.p.recovery_threshold:.0%}"
-                ),
+                "criterion": f"each anomalous metric back within {self.p.recovery_position:.0%} of its excursion",
+                "notes": notes,
             },
         }
 
     # -- report / terminal ----------------------------------------------------------
     async def report(self, state: State) -> Update:
         final = {**state, "status": "completed"}
-        return {"report": {"markdown": render_report(final), "generated_at": _iso(utcnow())}, "status": "completed"}
+        outcome = determine_outcome(final, self.p.confidence_threshold)
+        final["outcome"] = outcome
+        return {
+            "report": {"markdown": render_report(final), "generated_at": _iso(utcnow())},
+            "status": "completed",
+            "outcome": outcome,
+        }
 
     async def failed(self, state: State) -> Update:
         final = {**state, "status": "failed"}
-        return {"status": "failed", "report": {"markdown": render_report(final), "generated_at": _iso(utcnow())}}
+        outcome = determine_outcome(final, self.p.confidence_threshold)
+        final["outcome"] = outcome
+        return {
+            "status": "failed",
+            "outcome": outcome,
+            "report": {"markdown": render_report(final), "generated_at": _iso(utcnow())},
+        }
 
 
 # ----------------------------------------------------------------------------- routing
@@ -964,8 +1278,7 @@ def make_route_after_rca(policy: AgentPolicy) -> Callable[[State], str]:
 
 
 def _decide(state: State) -> str:
-    rem = (state.get("rca") or {}).get("remediation") or {}
-    return "propose" if rem.get("action_type") not in (None, "none") else "report"
+    return "propose" if (state.get("rca") or {}).get("remediation_plan") else "report"
 
 
 def route_after_followup(state: State) -> str:
@@ -978,3 +1291,9 @@ def route_after_propose(state: State) -> str:
 
 def route_after_approval(state: State) -> str:
     return "execute" if (state.get("approval") or {}).get("decision") == "approve" else "report"
+
+
+def route_after_execute(state: State) -> str:
+    succeeded = (state.get("remediation") or {}).get("status") == "succeeded"
+    more = state.get("plan_index", 0) + 1 < len(state.get("remediation_plan") or [])
+    return "advance" if succeeded and more else "verify"

@@ -294,6 +294,8 @@ class InvestigationRunner:
                                 "plan",
                                 "rca",
                                 "proposed_action",
+                                "remediation_plan",
+                                "executions",
                                 "window",
                                 "rejected_proposals",
                                 "errors",
@@ -314,16 +316,20 @@ class InvestigationRunner:
                     "proposed_action",
                     "approval",
                     "remediation",
+                    "remediation_plan",
+                    "executions",
                     "verification",
+                    "outcome",
                     "rejected_proposals",
                     "window",
                     "errors",
                 )
             }
         )
-        incident_status = IncidentStatus.OPEN
-        if (values.get("verification") or {}).get("recovered"):
-            incident_status = IncidentStatus.MITIGATED
+        outcome = (values.get("outcome") or {}).get("code")
+        incident_status = {"mitigated": IncidentStatus.MITIGATED, "no_action_required": IncidentStatus.RESOLVED}.get(
+            outcome or "", IncidentStatus.OPEN
+        )
         errs = values.get("errors") or []
         async with self._sf() as s, s.begin():
             await repo.set_investigation(
@@ -339,7 +345,11 @@ class InvestigationRunner:
             )
             await repo.set_incident_status(s, incident_id, incident_status.value)
             await repo.add_event(
-                s, investigation_id, "run_" + final.value, None, {"incident_status": incident_status.value}
+                s,
+                investigation_id,
+                "run_" + final.value,
+                None,
+                {"incident_status": incident_status.value, "outcome": outcome},
             )
 
 

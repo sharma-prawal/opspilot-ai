@@ -67,6 +67,9 @@ class ApprovalService:
         row = await self.get(action_id)
         if row.status != "pending":
             raise ConflictError(f"action is {row.status}; only pending actions can be decided")
+        if self._is_stale(row):
+            await self.expire(row, reason="approval request expired before a decision")
+            raise ConflictError("approval request has expired; the investigation was closed as approval_expired")
         if params_hash != row.params_hash or row.params_hash != action_params_hash(row.action_type, row.parameters):
             await self._audit(decided_by, "action.decision_rejected", action_id, {"reason": "params_hash mismatch"})
             raise ApprovalError("params_hash does not match the proposed action; refresh and review again")
@@ -131,6 +134,61 @@ class ApprovalService:
         self._runner.submit(row.investigation_id, Command(resume=resume))
         _log.info("approval_decided", action_id=str(action_id), decision=decision.value, decided_by=decided_by)
         return await self.get(action_id)
+
+    def _is_stale(self, row: OpsActionRequest) -> bool:
+        return (utcnow() - row.requested_at).total_seconds() > self._s.approval_request_ttl_seconds
+
+    async def expire(self, row: OpsActionRequest, *, reason: str) -> bool:
+        """pending -> expired (compare-and-set), then resume the workflow so it ends with an accurate report."""
+        async with self._sf() as s, s.begin():
+            if not await repo.transition_action(
+                s,
+                row.id,
+                ("pending",),
+                status="expired",
+                decided_at=utcnow(),
+                decided_by="system",
+                decision_comment=reason,
+            ):
+                return False
+            await repo.audit(
+                s,
+                actor="system",
+                action="action.expired",
+                entity_type="action_request",
+                entity_id=str(row.id),
+                details={"reason": reason},
+            )
+            await repo.add_event(
+                s,
+                row.investigation_id,
+                "approval_expired",
+                "await_approval",
+                {"action_id": str(row.id), "reason": reason},
+            )
+        if not self._runner.is_active(row.investigation_id):
+            self._runner.submit(
+                row.investigation_id,
+                Command(
+                    resume={
+                        "action_id": str(row.id),
+                        "params_hash": row.params_hash,
+                        "decision": "expired",
+                        "decided_by": "system",
+                        "comment": reason,
+                        "decided_at": utcnow().isoformat(),
+                    }
+                ),
+            )
+        return True
+
+    async def expire_stale(self) -> int:
+        """Sweep pending requests older than APPROVAL_REQUEST_TTL_SECONDS (called periodically by the API)."""
+        expired = 0
+        for row in await self.list("pending"):
+            if self._is_stale(row) and await self.expire(row, reason="approval request expired before a decision"):
+                expired += 1
+        return expired
 
     async def _audit(self, actor: str, action: str, action_id: uuid.UUID, details: dict[str, Any]) -> None:
         async with self._sf() as s, s.begin():

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from statistics import median
+from statistics import median, pstdev
 from typing import Any
 
 _UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
@@ -133,3 +134,94 @@ def has_schema_signals(patterns: list[LogPattern]) -> bool:
 
 def mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class Shift:
+    metric: str
+    direction: str  # up | down
+    baseline: float
+    extreme: float
+    current: float
+    onset: datetime
+    recovered: bool
+
+
+def _min_abs_change(unit: str) -> float:
+    return {"ratio": 0.02, "ms": 100.0}.get(unit, 0.0)
+
+
+def detect_shift(
+    points: list[tuple[datetime, float]], *, metric: str, unit: str, sustain: int = 3, baseline_fraction: float = 0.5
+) -> Shift | None:
+    """First sustained departure from baseline in either direction, unit-aware.
+
+    Up: value > max(baseline*factor, baseline+min_abs) with factor 5 for ratios, 2 otherwise.
+    Down: value < baseline*0.5 (only meaningful for non-ratio throughput/size metrics).
+    ``recovered`` is true when the last ``sustain`` points are back inside the threshold.
+    """
+    if len(points) < sustain + 10:
+        return None
+    head = [v for _, v in points[: max(10, int(len(points) * baseline_fraction))]]
+    baseline = median(head)
+    noise = pstdev(head)
+    factor = 5.0 if unit == "ratio" else 2.0
+    # Count-like metrics often have a baseline median of 0; require a material absolute change too, so
+    # ordinary noise (0,1,2 per minute) never registers as an onset.
+    min_abs = _min_abs_change(unit) or max(5.0, 0.1 * baseline)
+    up_thr = max(baseline * factor, baseline + min_abs, baseline + 4 * noise)
+    down_thr = min(baseline * 0.5, baseline - 4 * noise) if unit != "ratio" and baseline > 0 else None
+    values = [v for _, v in points]
+
+    def above(v: float) -> bool:
+        return v > up_thr
+
+    def below(v: float) -> bool:
+        return down_thr is not None and v < down_thr
+
+    checks: tuple[tuple[str, Callable[[float], bool]], ...] = (("up", above), ("down", below))
+    for direction, beyond in checks:
+        for i in range(len(values) - sustain + 1):
+            if all(beyond(v) for v in values[i : i + sustain]):
+                tail = values[i:]
+                extreme = max(tail) if direction == "up" else min(tail)
+                recovered = not any(beyond(v) for v in values[-sustain:])
+                return Shift(metric, direction, baseline, extreme, values[-1], points[i][0], recovered)
+    return None
+
+
+_STOP = {
+    "with",
+    "from",
+    "that",
+    "this",
+    "into",
+    "when",
+    "after",
+    "before",
+    "failed",
+    "error",
+    "errors",
+    "service",
+    "returned",
+    "upstream",
+    "request",
+    "requests",
+    "change",
+    "update",
+    "add",
+    "adds",
+    "message",
+}
+
+
+def informative_tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z][a-z0-9_]{3,}", text.lower()) if t not in _STOP}
+
+
+def lexical_overlap_bonus(change_text: str, signals: list[str]) -> tuple[float, list[str]]:
+    """Bonus when a change description shares specific vocabulary with observed failures (generic)."""
+    shared = sorted(
+        informative_tokens(change_text) & set().union(*(informative_tokens(s) for s in signals)) if signals else set()
+    )
+    return (0.2 if len(shared) >= 2 else 0.1 if shared else 0.0), shared[:6]

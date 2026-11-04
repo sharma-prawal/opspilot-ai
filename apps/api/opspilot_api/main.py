@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -59,7 +60,21 @@ def create_app(
             if orphans:
                 _log.warning("orphaned_investigations_marked_interrupted", count=orphans)
             app.state.runtime = rt
-            yield
+
+            async def sweep() -> None:  # bounded background maintenance: expire stale approval requests
+                while True:
+                    try:
+                        if n := await rt.approvals.expire_stale():
+                            _log.warning("approval_requests_expired", count=n)
+                    except Exception:
+                        _log.exception("approval_sweep_failed")
+                    await asyncio.sleep(60)
+
+            sweeper = asyncio.create_task(sweep(), name="approval-sweeper")
+            try:
+                yield
+            finally:
+                sweeper.cancel()
 
     app = FastAPI(
         title="OpsPilot AI",

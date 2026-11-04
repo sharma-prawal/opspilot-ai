@@ -130,7 +130,8 @@ async def test_cancel_pending_investigation(client: httpx.AsyncClient, settings)
 
 async def test_knowledge_endpoints(client: httpx.AsyncClient) -> None:
     docs = (await client.get("/api/v1/knowledge/documents")).json()
-    assert len([d for d in docs if d["status"] == "active"]) == 19
+    active = [d for d in docs if d["status"] == "active"]
+    assert len(active) >= 19 and {"runbooks/high-5xx-error-rate.md"} <= {d["source_uri"] for d in active}
     res = (await client.post("/api/v1/knowledge/search", json={"query": "LEDGER_WRITE_FAILED", "top_k": 3})).json()
     assert res["results"] and res["results"][0]["source_uri"]
     trace = (await client.get(f"/api/v1/knowledge/queries/{res['query_id']}")).json()

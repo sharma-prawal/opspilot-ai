@@ -19,7 +19,21 @@ DEP = {
     "service": "ledger-service",
     "relevance": 0.9,
     "summary": "s",
-    "data": {"id": "dep-ls-0042", "service": "ledger-service", "kind": "schema_migration", "status": "succeeded"},
+    "data": {
+        "id": "dep-ls-0042",
+        "service": "ledger-service",
+        "kind": "schema_migration",
+        "status": "succeeded",
+        "correlation": 0.9,
+    },
+}
+ANOM = {
+    "id": "ev-metric-1",
+    "kind": "metric_anomaly",
+    "service": "transaction-api",
+    "relevance": 0.9,
+    "summary": "s",
+    "data": {"metric": "http_5xx_ratio", "recovered": False, "baseline": 0.002, "extreme": 0.4},
 }
 
 
@@ -27,8 +41,8 @@ def state(remediation: dict[str, Any], **extra: Any) -> dict[str, Any]:
     return {
         "investigation_id": "00000000-0000-0000-0000-000000000001",
         "incident": {"service": "transaction-api"},
-        "evidence": {DEP["id"]: DEP},
-        "rca": {"hypotheses": [{"confidence": 0.9}], "remediation": remediation},
+        "evidence": {DEP["id"]: DEP, ANOM["id"]: ANOM},
+        "rca": {"hypotheses": [{"confidence": 0.9}], "remediation_plan": [remediation] if remediation else []},
         **extra,
     }
 
@@ -62,7 +76,16 @@ async def test_valid_rollback_uses_evidence_parameters() -> None:
     [
         ({"action_type": "rollback_deployment", "deployment_id": "dep-fabricated", "rationale": ""}, "does not appear"),
         ({"action_type": "restart_service", "service": "settlement-worker", "rationale": ""}, "not observed"),
-        ({"action_type": "scale_connection_pool", "service": "ledger-service", "rationale": ""}, "not available"),
+        (
+            {
+                "action_type": "scale_connection_pool",
+                "service": "ledger-service",
+                "max_connections": 60,
+                "rationale": "",
+            },
+            "cannot be verified",
+        ),
+        ({"action_type": "pause_consumer", "service": "ledger-service", "rationale": ""}, "as a consumer"),
         ({"action_type": "drop_database", "rationale": ""}, "not in the remediation catalogue"),
     ],
 )
@@ -108,7 +131,7 @@ def test_low_confidence_triggers_bounded_followup() -> None:
         "rca": {
             "hypotheses": [{"confidence": 0.4}],
             "followups": ["knowledge"],
-            "remediation": {"action_type": "none"},
+            "remediation_plan": [],
         },
         "rounds": 0,
         "llm_calls": [],
@@ -121,7 +144,7 @@ def test_low_confidence_triggers_bounded_followup() -> None:
         "rca": {
             **low["rca"],
             "hypotheses": [{"confidence": 0.9}],
-            "remediation": {"action_type": "rollback_deployment"},
+            "remediation_plan": [{"action_type": "rollback_deployment"}],
         },
     }
     assert route(high) == "propose"
@@ -129,7 +152,7 @@ def test_low_confidence_triggers_bounded_followup() -> None:
 
 
 def test_followup_with_nothing_new_skips_to_decision() -> None:
-    assert route_after_followup({"task_queue": [], "rca": {"remediation": {"action_type": "none"}}}) == "report"
+    assert route_after_followup({"task_queue": [], "rca": {"remediation_plan": []}}) == "report"
 
 
 async def test_approval_payload_must_match_pending_action() -> None:

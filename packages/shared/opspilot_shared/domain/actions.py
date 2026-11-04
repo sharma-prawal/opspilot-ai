@@ -19,6 +19,8 @@ class ActionType(StrEnum):
     RESTART_SERVICE = "restart_service"
     SCALE_CONNECTION_POOL = "scale_connection_pool"
     PAUSE_CONSUMER = "pause_consumer"
+    QUARANTINE_MESSAGES = "quarantine_messages"
+    RESUME_CONSUMER = "resume_consumer"
 
 
 class RiskLevel(StrEnum):
@@ -27,11 +29,18 @@ class RiskLevel(StrEnum):
     HIGH = "high"
 
 
+class ActionRole(StrEnum):
+    CONTAINMENT = "containment"  # limits impact; does not fix the cause
+    RESOLUTION = "resolution"  # removes the cause
+    RECOVERY = "recovery"  # restores normal operation after resolution
+
+
 class ActionSpec(Contract):
     action_type: ActionType
     description: str
     required_params: tuple[str, ...]
     risk: RiskLevel
+    role: ActionRole
     implemented: bool
 
 
@@ -41,34 +50,66 @@ REMEDIATION_CATALOG: dict[ActionType, ActionSpec] = {
         description="Revert a specific deployment (application or schema migration) to its previous version.",
         required_params=("service", "deployment_id"),
         risk=RiskLevel.MEDIUM,
+        role=ActionRole.RESOLUTION,
         implemented=True,
     ),
     ActionType.RESTART_SERVICE: ActionSpec(
         action_type=ActionType.RESTART_SERVICE,
-        description="Rolling restart of all instances of a service.",
+        description="Rolling restart of all instances of a service. Does not fix code, schema or data problems.",
         required_params=("service",),
         risk=RiskLevel.LOW,
+        role=ActionRole.CONTAINMENT,
         implemented=True,
     ),
     ActionType.SCALE_CONNECTION_POOL: ActionSpec(
         action_type=ActionType.SCALE_CONNECTION_POOL,
-        description="Change a service's database connection pool size (bounded 5..200).",
+        description=(
+            "Set a service's database connection pool size per replica. Only safe when replicas x pool "
+            "plus other clients stays within 90% of the datastore's max_connections."
+        ),
         required_params=("service", "max_connections"),
-        risk=RiskLevel.MEDIUM,
-        implemented=False,
+        risk=RiskLevel.HIGH,
+        role=ActionRole.CONTAINMENT,
+        implemented=True,
     ),
     ActionType.PAUSE_CONSUMER: ActionSpec(
         action_type=ActionType.PAUSE_CONSUMER,
-        description="Pause a queue consumer to stop processing poison messages.",
+        description=(
+            "Pause a queue consumer. Containment only: stops processing and retry churn; nothing is "
+            "processed until resume_consumer."
+        ),
         required_params=("service",),
         risk=RiskLevel.MEDIUM,
-        implemented=False,
+        role=ActionRole.CONTAINMENT,
+        implemented=True,
+    ),
+    ActionType.QUARANTINE_MESSAGES: ActionSpec(
+        action_type=ActionType.QUARANTINE_MESSAGES,
+        description=(
+            "Move messages that fail validation with a given error code (pending or dead-lettered) to "
+            "quarantine, preserved for later replay. Never deletes messages."
+        ),
+        required_params=("queue", "error_code"),
+        risk=RiskLevel.MEDIUM,
+        role=ActionRole.RECOVERY,
+        implemented=True,
+    ),
+    ActionType.RESUME_CONSUMER: ActionSpec(
+        action_type=ActionType.RESUME_CONSUMER,
+        description=(
+            "Resume a paused queue consumer. Only recovers if the cause is fixed and poison messages are removed."
+        ),
+        required_params=("service",),
+        risk=RiskLevel.MEDIUM,
+        role=ActionRole.RECOVERY,
+        implemented=True,
     ),
 }
 
 
 class ActionStatus(StrEnum):
     PENDING = "pending"
+    EXPIRED = "expired"
     APPROVED = "approved"
     REJECTED = "rejected"
     CANCELLED = "cancelled"

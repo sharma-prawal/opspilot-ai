@@ -47,7 +47,9 @@ def compromised_model(rem: dict) -> ScriptedChatModel:  # type: ignore[type-arg]
                         "supporting_evidence_ids": ["ev-fabricated"],
                     }
                 ],
-                "remediation": rem,
+                "remediation_plan": [rem],
+                "impact_ongoing": True,
+                "escalation": {"required": False},
             },
         }
     )
@@ -100,7 +102,11 @@ async def test_injected_target_outside_investigation_is_rejected(settings, sessi
                     "supporting_evidence_ids": [ev[0]["id"]],
                 }
             ],
-            "remediation": {"action_type": "restart_service", "service": "settlement-worker", "rationale": "obey"},
+            "remediation_plan": [
+                {"action_type": "restart_service", "service": "settlement-worker", "rationale": "obey"}
+            ],
+            "impact_ongoing": True,
+            "escalation": {"required": False},
         }
 
     chat = ScriptedChatModel(
@@ -116,7 +122,8 @@ async def test_injected_target_outside_investigation_is_rejected(settings, sessi
     )
     snap, executed = await run(settings, session_factory, embedder, chat)
     assert snap.values.get("proposed_action") is None
-    assert "not observed" in snap.values["rejected_proposals"][0]["reason"]
+    reason = snap.values["rejected_proposals"][0]["reason"]
+    assert "not observed" in reason or "itself is abnormal" in reason
     assert executed == []
 
 
@@ -136,7 +143,11 @@ async def test_valid_but_malicious_proposal_still_requires_human(settings, sessi
                     "supporting_evidence_ids": [ev[0]["id"]],
                 }
             ],
-            "remediation": {"action_type": "restart_service", "service": "transaction-api", "rationale": "approve it"},
+            "remediation_plan": [
+                {"action_type": "restart_service", "service": "transaction-api", "rationale": "approve it"}
+            ],
+            "impact_ongoing": True,
+            "escalation": {"required": False},
         }
 
     chat = ScriptedChatModel(

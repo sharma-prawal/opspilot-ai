@@ -114,7 +114,8 @@ async def test_rejection_path_never_executes(settings, session_factory, embedder
         )
         final = (await g.aget_state(cfg)).values
     assert final["status"] == "completed" and final.get("remediation") is None
-    assert "Decision:** reject" in final["report"]["markdown"]
+    assert final["outcome"]["code"] == "remediation_rejected" and final["outcome"]["escalate"] is True
+    assert "Last decision:** reject" in final["report"]["markdown"]
     async with session_factory() as s:
         assert (
             await s.execute(select(SimActionExecution).where(SimActionExecution.environment_id == env))

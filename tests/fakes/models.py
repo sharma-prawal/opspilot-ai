@@ -59,7 +59,8 @@ def heuristic_rca(messages: list[ChatMessage]) -> dict[str, Any]:
     deploys = [e for e in ev if e["kind"] == "deployment"]
     errors = [e for e in ev if e["kind"] == "log_pattern" and "ERROR" in e["summary"]]
     top = max(deploys, key=lambda e: e["relevance"]) if deploys else None
-    dep_id = re.search(r"id (dep-[a-z0-9-]+)", top["summary"]).group(1) if top else None
+    m = re.search(r"id (dep-[a-z0-9-]+)", top["summary"]) if top else None
+    dep_id = m.group(1) if m else None
     svc = top["service"] if top else None
     return {
         "summary": "Most correlated change caused the errors.",
@@ -74,12 +75,18 @@ def heuristic_rca(messages: list[ChatMessage]) -> dict[str, Any]:
         ],
         "evidence_gaps": [],
         "followups": [],
-        "remediation": {
-            "action_type": "rollback_deployment" if dep_id else "none",
-            "service": svc,
-            "deployment_id": dep_id,
-            "rationale": "revert the correlated change",
-        },
+        "impact_ongoing": True,
+        "remediation_plan": [
+            {
+                "action_type": "rollback_deployment",
+                "service": svc,
+                "deployment_id": dep_id,
+                "rationale": "revert the correlated change",
+            }
+        ]
+        if dep_id
+        else [],
+        "escalation": {"required": False, "reason": "", "to": ""},
     }
 
 

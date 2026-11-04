@@ -43,12 +43,29 @@ class HypothesisOut(BaseModel):
     contradicting_evidence_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
-class RemediationOut(BaseModel):
+class RemediationStep(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    action_type: Literal["rollback_deployment", "restart_service", "scale_connection_pool", "pause_consumer", "none"]
+    action_type: Literal[
+        "rollback_deployment",
+        "restart_service",
+        "scale_connection_pool",
+        "pause_consumer",
+        "quarantine_messages",
+        "resume_consumer",
+    ]
     service: str | None = None
     deployment_id: str | None = None
-    rationale: str = Field(max_length=800)
+    max_connections: int | None = Field(default=None, ge=1, le=1000)
+    queue: str | None = None
+    error_code: str | None = None
+    rationale: str = Field(max_length=600)
+
+
+class Escalation(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    required: bool
+    reason: str = Field(default="", max_length=600)
+    to: str = Field(default="", max_length=100, description="team or owner to escalate to")
 
 
 class RcaOutput(BaseModel):
@@ -57,7 +74,9 @@ class RcaOutput(BaseModel):
     hypotheses: list[HypothesisOut] = Field(min_length=1, max_length=4)
     evidence_gaps: list[str] = Field(default_factory=list, max_length=6)
     followups: list[Capability] = Field(default_factory=list, max_length=4)
-    remediation: RemediationOut
+    impact_ongoing: bool = Field(description="is customer impact still ongoing according to the latest evidence")
+    remediation_plan: list[RemediationStep] = Field(default_factory=list, max_length=4)
+    escalation: Escalation
 
 
 CATEGORY_GUIDE = (
@@ -118,10 +137,18 @@ def rca_messages(
         "suspects. If evidence is insufficient, lower confidence and list follow-up capabilities.\n"
         + CATEGORY_GUIDE
         + "\n"
-        "Recommend at most one remediation from this catalogue, or 'none':\n"
+        "Remediation: propose an ordered plan of 0-4 steps from this catalogue (an empty plan is valid):\n"
         + catalog
-        + "\nFor rollback_deployment use the exact deployment id from the evidence and that deployment's "
-        "service. Prefer reverting the change that caused the fault over restarts.\n"
+        + "\nRules for the plan: propose the MINIMAL plan, usually a single resolution step. Add containment only "
+        "before the resolution when impact must be limited while it is applied, and recovery steps only when the "
+        "resolution leaves residue (e.g. invalid messages still queued). Never add speculative or just-in-case steps. "
+        "Only propose actions that address the most likely cause and that evidence supports. "
+        "Use exact IDs/values from the evidence (deployment id, queue name, error code). Prefer reverting "
+        "the change that caused the fault over restarts or capacity increases. Containment steps limit impact but "
+        "do not fix the cause; pair them with resolution and recovery steps, or escalate. Capacity changes must fit "
+        "the capacity shown in the evidence. If impact has already ended, or the cause is outside our control "
+        "(e.g. an external provider), or the evidence is insufficient to identify the cause, propose no steps and "
+        "set escalation accordingly. Documents marked superseded must not be followed.\n"
         + UNTRUSTED_RULES
         + "\nReturn JSON only."
     )

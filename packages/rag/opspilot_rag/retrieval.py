@@ -134,7 +134,13 @@ class HybridRetriever:
             score=round(score, 6),
             vector_rank=vrank,
             keyword_rank=krank,
-            metadata={"services": d.services, "tags": d.tags, "ordinal": c.ordinal},
+            metadata={
+                "services": d.services,
+                "tags": d.tags,
+                "ordinal": c.ordinal,
+                "status": str(d.metadata_.get("status", "current")),
+                "doc_version": d.metadata_.get("version"),
+            },
         )
 
     async def search(
