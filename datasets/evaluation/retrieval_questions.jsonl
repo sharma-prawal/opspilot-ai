@@ -1,0 +1,30 @@
+{"id": "q01", "query": "column \"amount\" of relation \"ledger_entries\" does not exist", "style": "exact", "relevant": ["troubleshooting/postgres-troubleshooting.md", "runbooks/schema-migration-rollback.md", "architecture/ledger-service.md"]}
+{"id": "q02", "query": "LEDGER_WRITE_FAILED", "style": "exact", "relevant": ["errors/error-codes.json", "architecture/transaction-api.md", "architecture/ledger-service.md"]}
+{"id": "q03", "query": "how do I undo a database migration that broke the ledger", "style": "paraphrase", "relevant": ["runbooks/schema-migration-rollback.md", "deployment/database-migration-policy.md"]}
+{"id": "q04", "query": "payments failing with 500 right after a deploy", "style": "paraphrase", "relevant": ["runbooks/high-5xx-error-rate.md", "incidents/2025-08-14-ledger-column-drop.md"]}
+{"id": "q05", "query": "PoolTimeout couldn't get a connection after 5.00 sec", "style": "exact", "relevant": ["runbooks/db-connection-pool-exhaustion.md", "architecture/ledger-service.md", "incidents/2026-02-03-connection-pool-exhaustion.md"]}
+{"id": "q06", "query": "ledger latency is climbing and the database pool is saturated", "style": "paraphrase", "relevant": ["runbooks/db-connection-pool-exhaustion.md", "incidents/2026-02-03-connection-pool-exhaustion.md"]}
+{"id": "q07", "query": "SETTLEMENT_SCHEMA_INVALID dead letter queue", "style": "exact", "relevant": ["runbooks/settlement-invalid-payloads.md", "errors/error-codes.json", "incidents/2026-05-21-settlement-poison-messages.md"]}
+{"id": "q08", "query": "settlement events are being rejected by the consumer because their shape changed", "style": "paraphrase", "relevant": ["runbooks/settlement-invalid-payloads.md", "incidents/2026-05-21-settlement-poison-messages.md", "architecture/settlement-worker.md"]}
+{"id": "q09", "query": "PAYMENT_TIMEOUT fx-rates-provider", "style": "exact", "relevant": ["runbooks/downstream-timeouts.md", "incidents/2026-07-09-fx-provider-latency.md", "errors/error-codes.json"]}
+{"id": "q10", "query": "a third-party currency rate service got slow and checkout requests time out", "style": "paraphrase", "relevant": ["runbooks/downstream-timeouts.md", "incidents/2026-07-09-fx-provider-latency.md"]}
+{"id": "q11", "query": "settlement-events queue_depth growing consumer lag", "style": "exact", "relevant": ["runbooks/queue-backlog.md", "architecture/settlement-worker.md"]}
+{"id": "q12", "query": "settlement is running behind and messages are piling up", "style": "paraphrase", "relevant": ["runbooks/queue-backlog.md", "architecture/settlement-worker.md"]}
+{"id": "q13", "query": "expand/contract rename column", "style": "exact", "relevant": ["deployment/database-migration-policy.md", "architecture/ledger-service.md", "runbooks/schema-migration-rollback.md"]}
+{"id": "q14", "query": "what are the rules for changing table structure safely while old versions run", "style": "paraphrase", "relevant": ["deployment/database-migration-policy.md"]}
+{"id": "q15", "query": "rollback_deployment by deployment ID", "style": "exact", "relevant": ["deployment/deployment-procedure.md", "runbooks/schema-migration-rollback.md"]}
+{"id": "q16", "query": "how do we revert a release during an incident", "style": "paraphrase", "relevant": ["deployment/deployment-procedure.md", "runbooks/high-5xx-error-rate.md"]}
+{"id": "q17", "query": "which services does transaction-api call synchronously", "style": "paraphrase", "relevant": ["architecture/transaction-api.md", "architecture/service-dependency-map.md", "architecture/payment-platform-overview.md"]}
+{"id": "q18", "query": "critical downstream dependency map sync_http", "style": "exact", "relevant": ["architecture/service-dependency-map.md"]}
+{"id": "q19", "query": "should I restart the API when the ledger is failing", "style": "paraphrase", "relevant": ["runbooks/high-5xx-error-rate.md", "architecture/transaction-api.md", "incidents/2025-08-14-ledger-column-drop.md"]}
+{"id": "q20", "query": "TransactionApi5xxRatioHigh alert", "style": "exact", "relevant": ["runbooks/high-5xx-error-rate.md"]}
+{"id": "q21", "query": "SQLSTATE 42703", "style": "exact", "relevant": ["troubleshooting/postgres-troubleshooting.md"]}
+{"id": "q22", "query": "past outage where a dropped column caused failed payments", "style": "paraphrase", "relevant": ["incidents/2025-08-14-ledger-column-drop.md"]}
+{"id": "q23", "query": "only POST requests fail while GET endpoints still work", "style": "paraphrase", "relevant": ["runbooks/high-5xx-error-rate.md", "architecture/transaction-api.md", "architecture/payment-platform-overview.md"]}
+{"id": "q24", "query": "LockNotAvailable during ALTER TABLE", "style": "exact", "relevant": ["troubleshooting/postgres-troubleshooting.md"]}
+{"id": "q25", "query": "missing index caused slow merchant statement queries", "style": "paraphrase", "relevant": ["incidents/2026-02-03-connection-pool-exhaustion.md"]}
+{"id": "q26", "query": "raising http.client.timeout_ms as a mitigation", "style": "exact", "relevant": ["runbooks/downstream-timeouts.md", "incidents/2026-07-09-fx-provider-latency.md"]}
+{"id": "q27", "query": "who owns ledger-db and can other services connect to it", "style": "paraphrase", "relevant": ["architecture/payment-platform-overview.md", "architecture/ledger-service.md"]}
+{"id": "q28", "query": "IDEMPOTENCY_CONFLICT 409", "style": "exact", "relevant": ["errors/error-codes.json"]}
+{"id": "q29", "query": "pause_consumer poison messages replay DLQ", "style": "exact", "relevant": ["runbooks/settlement-invalid-payloads.md"]}
+{"id": "q30", "query": "availability and latency targets for each service", "style": "paraphrase", "relevant": ["architecture/payment-platform-overview.md"]}

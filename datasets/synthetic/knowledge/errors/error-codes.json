@@ -1,0 +1,27 @@
+{
+  "title": "Northwind Pay Error Code Catalogue",
+  "doc_type": "error_catalog",
+  "services": ["transaction-api", "ledger-service", "settlement-worker"],
+  "tags": ["errors", "codes", "catalogue"],
+  "version": 9,
+  "codes": [
+    {"code": "LEDGER_WRITE_FAILED", "http_status": 500, "service": "transaction-api",
+     "meaning": "The synchronous ledger-service write failed. The underlying cause is in ledger-service logs.",
+     "first_steps": "Check ledger-service error logs and recent ledger-service deployments or schema migrations."},
+    {"code": "PAYMENT_TIMEOUT", "http_status": 504, "service": "transaction-api",
+     "meaning": "A downstream call exceeded http.client.timeout_ms.",
+     "first_steps": "Identify the slow dependency from upstream= log fields."},
+    {"code": "FX_UNAVAILABLE", "http_status": 503, "service": "transaction-api",
+     "meaning": "fx-rates-provider unavailable and cache expired.",
+     "first_steps": "Check fx-rates-provider status; confirm circuit breaker state."},
+    {"code": "IDEMPOTENCY_CONFLICT", "http_status": 409, "service": "transaction-api",
+     "meaning": "Same Idempotency-Key reused with a different payload. Client error.",
+     "first_steps": "No action; client-side issue."},
+    {"code": "LEDGER_POOL_TIMEOUT", "http_status": 503, "service": "ledger-service",
+     "meaning": "No database connection available within 5 s.",
+     "first_steps": "See connection pool exhaustion runbook."},
+    {"code": "SETTLEMENT_SCHEMA_INVALID", "http_status": null, "service": "settlement-worker",
+     "meaning": "A settlement event failed settlement-event.v3 schema validation and was dead-lettered.",
+     "first_steps": "Inspect DLQ sample; correlate with producer deployments."}
+  ]
+}

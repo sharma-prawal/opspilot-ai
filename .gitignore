@@ -1,0 +1,42 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/test-results/
+apps/web/playwright-report/
+*.tsbuildinfo
+
+# Runtime artefacts
+.run/
+*.log
+datasets/evaluation/results/*.tmp.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+graphify-out/
+.claude/settings.local.json
+
+# Evaluation history: only *_latest.json (backing docs/evaluation/BASELINE.md) is committed
+datasets/evaluation/results/*_2*.json

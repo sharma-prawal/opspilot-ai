@@ -1,0 +1,92 @@
+# API Contracts
+
+FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema at `/openapi.json`
+(the authoritative contract; this page summarises it). All bodies are JSON.
+
+## Conventions
+
+- **Long-running work** returns `202 Accepted` with an operation ID (`investigation_id`) and a
+  `status_url` to poll. Investigations run in a bounded background runner.
+- **Errors** from domain logic: `{"error": {"class": "<error_class>", "message": "..."}}`.
+  Request validation errors use FastAPI's standard `422` `{"detail": [...]}` with locations.
+- **Status codes**: `200/201/202` success · `401` missing/invalid operator token · `404` not found ·
+  `409` state conflict (wrong status, params-hash mismatch, already running, replay) · `422` validation · `503` not ready.
+- **Correlation**: send `X-Request-ID` (optional); it is echoed back and bound to every log line.
+- **Auth**: endpoints marked 🔒 require `Authorization: Bearer <OPERATOR_TOKEN>`. The web UI never holds the
+  token: its same-origin BFF (`/api/ops/*`) injects it server-side for POSTs.
+- **CORS**: allowlist from `CORS_ALLOWED_ORIGINS` (default: localhost:3000), methods GET/POST only.
+
+## Health
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health/live` | process is up |
+| GET | `/health/ready` | `200` when Postgres, Ollama (+ models) and both MCP sessions are OK, else `503` |
+| GET | `/health/dependencies` | detailed checks (pgvector version, migration head, KB size, missing models, MCP tool lists) + config |
+
+## System
+
+| GET | `/api/v1/system/overview` | counts by status (incidents, investigations, actions), KB size, model + budget config |
+|---|---|---|
+
+## Knowledge
+
+| Method | Path | Description |
+|---|---|---|
+| POST 🔒 | `/api/v1/knowledge/ingest` | `{"reindex": false}` → ingestion report (per-file outcome: created/updated/unchanged/duplicate/failed) |
+| GET | `/api/v1/knowledge/documents` | documents with version, status, duplicate_of, chunk count, hash |
+| GET | `/api/v1/knowledge/ingestion-runs` | recent runs with stats |
+| POST | `/api/v1/knowledge/search` | `{"query", "mode": "hybrid"\|"vector"\|"keyword", "top_k", "filters": {"doc_types", "services", "tags"}}` → `SearchResponse` |
+| GET | `/api/v1/knowledge/queries/{query_id}` | retrieval trace: filters, ranked chunk IDs with vector/keyword ranks, latency, caller |
+
+`RetrievedChunk`: `chunk_id, document_id, document_version, source_uri, title, doc_type, heading_path, snippet, score, vector_rank, keyword_rank, metadata`.
+
+## Incidents
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/incidents?status=` | list |
+| GET | `/api/v1/incidents/scenarios` | available simulator scenarios |
+| POST | `/api/v1/incidents/simulate` | `{"scenario": "INC-001"}` → `201` new environment + incident |
+| GET | `/api/v1/incidents/{id}` | incident |
+| GET | `/api/v1/incidents/{id}/investigations` | investigations for the incident |
+| POST | `/api/v1/incidents/{id}/investigations` | start → `202 {"investigation_id", "status", "status_url"}`; `409` if one is already active |
+
+## Investigations
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/investigations/{id}` | status, current step, result (classification, plan, rca, proposed_action, …), `executing_in_process` |
+| GET | `/api/v1/investigations/{id}/events?after=` | ordered workflow events (node started/completed with tool + LLM call summaries, approvals, run lifecycle) |
+| GET | `/api/v1/investigations/{id}/tool-calls` | every MCP tool invocation: arguments, status, latency, summary/error |
+| GET | `/api/v1/investigations/{id}/evidence` | evidence items (kind, source tool, summary, data, citation, relevance) |
+| GET | `/api/v1/investigations/{id}/actions` | action requests for this investigation |
+| GET | `/api/v1/investigations/{id}/report` | `{"markdown", "status", "result"}`; `404` until finished |
+| GET | `/api/v1/investigations/{id}/workflow` | live checkpoint view: `next` nodes, pending interrupts, queue, counts |
+| POST | `/api/v1/investigations/{id}/resume` | continue an `interrupted`/stalled run from its last checkpoint (`409` while awaiting approval — use approvals) |
+| POST 🔒 | `/api/v1/investigations/{id}/cancel` | `{"actor"}`; cancels running work and pending actions |
+
+Investigation status: `queued → running → awaiting_approval → running → completed | failed | cancelled`;
+`interrupted` marks runs whose process died (resumable).
+
+## Approvals
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/approvals?status=pending\|approved\|rejected\|cancelled\|succeeded\|failed\|all` | action requests |
+| GET | `/api/v1/approvals/{action_id}` | one action request incl. execution result and verification |
+| POST 🔒 | `/api/v1/approvals/{action_id}/decision` | `{"decision": "approve"\|"reject", "params_hash": "<64 hex>", "decided_by", "comment"}` |
+
+Decision validation (all server-side): action is `pending`; `params_hash` equals the stored hash and the
+hash recomputed from stored parameters; the workflow is paused on this action; not currently executing;
+compare-and-set `pending → approved|rejected`. Approve issues an HMAC token (TTL `APPROVAL_TOKEN_TTL_SECONDS`)
+bound to `(action_id, params_hash)` which the MCP action server verifies again before executing.
+
+## MCP tools (internal contract)
+
+Read server `opspilot-ops-read` (all `readOnlyHint=true`): `get_incident`, `search_logs`, `query_metrics`,
+`get_service_health`, `list_recent_deployments`, `get_config_changes`, `get_service_dependencies`,
+`search_runbooks`, `get_historical_incidents`.
+Action server `opspilot-ops-actions`: `execute_remediation(action_id, approval_token)` (`destructiveHint=true`;
+no parameter arguments — parameters come from the persisted request), `get_action_execution(action_id)`.
+Bounds: service names `^[a-z][a-z0-9-]{1,62}$`, windows ≤ 24 h, `limit ≤ 500`, `top_k ≤ 10`, query ≤ 500 chars.

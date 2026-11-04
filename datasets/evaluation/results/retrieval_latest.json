@@ -1,0 +1,1355 @@
+{
+  "meta": {
+    "run_at": "2026-11-04T06:35:51+00:00",
+    "git": "uncommitted",
+    "llm_model": "qwen3:8b",
+    "embedding_model": "qwen3-embedding:0.6b",
+    "machine": "Darwin arm64",
+    "python": "3.13.13",
+    "temperature": 0.0,
+    "num_ctx": 8192
+  },
+  "questions": 30,
+  "chunk_depth": 30,
+  "modes": {
+    "vector": {
+      "overall": {
+        "recall@5": 0.9556,
+        "recall@10": 1.0,
+        "mrr@10": 0.95,
+        "ndcg@10": 0.932
+      },
+      "by_style": {
+        "exact": {
+          "recall@5": 0.9556,
+          "recall@10": 1.0,
+          "mrr@10": 0.9667,
+          "ndcg@10": 0.9462
+        },
+        "paraphrase": {
+          "recall@5": 0.9556,
+          "recall@10": 1.0,
+          "mrr@10": 0.9333,
+          "ndcg@10": 0.9177
+        }
+      },
+      "latency": {
+        "p50_ms": 30.84,
+        "p95_ms": 36.56
+      },
+      "per_question": [
+        {
+          "id": "q01",
+          "style": "exact",
+          "recall@5": 0.3333333333333333,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.5797748398812457,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "architecture/ledger-service.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 32.68
+        },
+        {
+          "id": "q02",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8529278650606567,
+          "top3": [
+            "errors/error-codes.json",
+            "architecture/payment-platform-overview.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 30.88
+        },
+        {
+          "id": "q03",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "runbooks/schema-migration-rollback.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "deployment/database-migration-policy.md"
+          ],
+          "latency_ms": 30.74
+        },
+        {
+          "id": "q04",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 30.82
+        },
+        {
+          "id": "q05",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9674679834891693,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 32.29
+        },
+        {
+          "id": "q06",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 30.65
+        },
+        {
+          "id": "q07",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9674679834891693,
+          "top3": [
+            "errors/error-codes.json",
+            "runbooks/settlement-invalid-payloads.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 30.75
+        },
+        {
+          "id": "q08",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9674679834891693,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 32.48
+        },
+        {
+          "id": "q09",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "runbooks/downstream-timeouts.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 29.43
+        },
+        {
+          "id": "q10",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "errors/error-codes.json",
+            "runbooks/downstream-timeouts.md"
+          ],
+          "latency_ms": 29.98
+        },
+        {
+          "id": "q11",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/queue-backlog.md",
+            "architecture/settlement-worker.md",
+            "runbooks/settlement-invalid-payloads.md"
+          ],
+          "latency_ms": 28.76
+        },
+        {
+          "id": "q12",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "architecture/settlement-worker.md",
+            "runbooks/settlement-invalid-payloads.md",
+            "runbooks/queue-backlog.md"
+          ],
+          "latency_ms": 31.87
+        },
+        {
+          "id": "q13",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9060254355346823,
+          "top3": [
+            "deployment/database-migration-policy.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 31.28
+        },
+        {
+          "id": "q14",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top3": [
+            "runbooks/schema-migration-rollback.md",
+            "deployment/database-migration-policy.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 31.73
+        },
+        {
+          "id": "q15",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "runbooks/schema-migration-rollback.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 29.73
+        },
+        {
+          "id": "q16",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 31.29
+        },
+        {
+          "id": "q17",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/transaction-api.md",
+            "architecture/payment-platform-overview.md",
+            "architecture/service-dependency-map.md"
+          ],
+          "latency_ms": 29.68
+        },
+        {
+          "id": "q18",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/service-dependency-map.md",
+            "runbooks/downstream-timeouts.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 30.86
+        },
+        {
+          "id": "q19",
+          "style": "paraphrase",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6978817289434457,
+          "top3": [
+            "architecture/payment-platform-overview.md",
+            "architecture/transaction-api.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 30.45
+        },
+        {
+          "id": "q20",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/high-5xx-error-rate.md",
+            "architecture/transaction-api.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 33.95
+        },
+        {
+          "id": "q21",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 30.57
+        },
+        {
+          "id": "q22",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 30.65
+        },
+        {
+          "id": "q23",
+          "style": "paraphrase",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8710785440003369,
+          "top3": [
+            "architecture/payment-platform-overview.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "architecture/transaction-api.md"
+          ],
+          "latency_ms": 30.2
+        },
+        {
+          "id": "q24",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "deployment/database-migration-policy.md"
+          ],
+          "latency_ms": 34.31
+        },
+        {
+          "id": "q25",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "runbooks/db-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 39.31
+        },
+        {
+          "id": "q26",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "errors/error-codes.json",
+            "runbooks/downstream-timeouts.md"
+          ],
+          "latency_ms": 32.22
+        },
+        {
+          "id": "q27",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/payment-platform-overview.md",
+            "architecture/ledger-service.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 33.57
+        },
+        {
+          "id": "q28",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "errors/error-codes.json",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 31.62
+        },
+        {
+          "id": "q29",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 29.82
+        },
+        {
+          "id": "q30",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/payment-platform-overview.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "runbooks/downstream-timeouts.md"
+          ],
+          "latency_ms": 29.05
+        }
+      ]
+    },
+    "keyword": {
+      "overall": {
+        "recall@5": 0.85,
+        "recall@10": 1.0,
+        "mrr@10": 0.7798,
+        "ndcg@10": 0.8197
+      },
+      "by_style": {
+        "exact": {
+          "recall@5": 0.9222,
+          "recall@10": 1.0,
+          "mrr@10": 0.85,
+          "ndcg@10": 0.8821
+        },
+        "paraphrase": {
+          "recall@5": 0.7778,
+          "recall@10": 1.0,
+          "mrr@10": 0.7095,
+          "ndcg@10": 0.7573
+        }
+      },
+      "latency": {
+        "p50_ms": 4.3,
+        "p95_ms": 8.47
+      },
+      "per_question": [
+        {
+          "id": "q01",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8854598815714874,
+          "top3": [
+            "architecture/ledger-service.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "troubleshooting/postgres-troubleshooting.md"
+          ],
+          "latency_ms": 4.06
+        },
+        {
+          "id": "q02",
+          "style": "exact",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9325210919548239,
+          "top3": [
+            "architecture/transaction-api.md",
+            "errors/error-codes.json",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 2.34
+        },
+        {
+          "id": "q03",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8503449055347546,
+          "top3": [
+            "deployment/database-migration-policy.md",
+            "architecture/ledger-service.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 6.16
+        },
+        {
+          "id": "q04",
+          "style": "paraphrase",
+          "recall@5": 0.5,
+          "recall@10": 1.0,
+          "mrr@10": 0.3333333333333333,
+          "ndcg@10": 0.5109559939712153,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 6.22
+        },
+        {
+          "id": "q05",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/db-connection-pool-exhaustion.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 3.71
+        },
+        {
+          "id": "q06",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 5.75
+        },
+        {
+          "id": "q07",
+          "style": "exact",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6653497124326151,
+          "top3": [
+            "runbooks/queue-backlog.md",
+            "errors/error-codes.json",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 2.93
+        },
+        {
+          "id": "q08",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "runbooks/settlement-invalid-payloads.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 3.94
+        },
+        {
+          "id": "q09",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9060254355346823,
+          "top3": [
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "runbooks/high-5xx-error-rate.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 3.26
+        },
+        {
+          "id": "q10",
+          "style": "paraphrase",
+          "recall@5": 0.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.14285714285714285,
+          "ndcg@10": 0.3889580943680543,
+          "top3": [
+            "architecture/service-dependency-map.md",
+            "architecture/transaction-api.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 9.6
+        },
+        {
+          "id": "q11",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6934264036172708,
+          "top3": [
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "runbooks/queue-backlog.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 6.34
+        },
+        {
+          "id": "q12",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6509209298071326,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "architecture/settlement-worker.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 7.54
+        },
+        {
+          "id": "q13",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6797310500037655,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "deployment/database-migration-policy.md",
+            "troubleshooting/postgres-troubleshooting.md"
+          ],
+          "latency_ms": 5.19
+        },
+        {
+          "id": "q14",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top3": [
+            "architecture/ledger-service.md",
+            "deployment/database-migration-policy.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 4.54
+        },
+        {
+          "id": "q15",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "runbooks/schema-migration-rollback.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 4.72
+        },
+        {
+          "id": "q16",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8772153153380493,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "architecture/service-dependency-map.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 3.37
+        },
+        {
+          "id": "q17",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/transaction-api.md",
+            "architecture/service-dependency-map.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 6.83
+        },
+        {
+          "id": "q18",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/service-dependency-map.md",
+            "runbooks/downstream-timeouts.md",
+            "architecture/transaction-api.md"
+          ],
+          "latency_ms": 2.89
+        },
+        {
+          "id": "q19",
+          "style": "paraphrase",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9134015924715543,
+          "top3": [
+            "architecture/transaction-api.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 6.05
+        },
+        {
+          "id": "q20",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/high-5xx-error-rate.md",
+            "architecture/service-dependency-map.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 2.1
+        },
+        {
+          "id": "q21",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md"
+          ],
+          "latency_ms": 1.59
+        },
+        {
+          "id": "q22",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 5.61
+        },
+        {
+          "id": "q23",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.7328286204777911,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "runbooks/high-5xx-error-rate.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 4.96
+        },
+        {
+          "id": "q24",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 1.93
+        },
+        {
+          "id": "q25",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top3": [
+            "runbooks/db-connection-pool-exhaustion.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 3.61
+        },
+        {
+          "id": "q26",
+          "style": "exact",
+          "recall@5": 0.5,
+          "recall@10": 1.0,
+          "mrr@10": 0.25,
+          "ndcg@10": 0.46845052016107697,
+          "top3": [
+            "runbooks/high-5xx-error-rate.md",
+            "errors/error-codes.json",
+            "architecture/service-dependency-map.md"
+          ],
+          "latency_ms": 4.01
+        },
+        {
+          "id": "q27",
+          "style": "paraphrase",
+          "recall@5": 0.5,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8175295903539445,
+          "top3": [
+            "architecture/ledger-service.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 6.56
+        },
+        {
+          "id": "q28",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 1.88
+        },
+        {
+          "id": "q29",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "architecture/settlement-worker.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 2.32
+        },
+        {
+          "id": "q30",
+          "style": "paraphrase",
+          "recall@5": 0.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.16666666666666666,
+          "ndcg@10": 0.3562071871080222,
+          "top3": [
+            "architecture/service-dependency-map.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "architecture/transaction-api.md"
+          ],
+          "latency_ms": 6.08
+        }
+      ]
+    },
+    "hybrid": {
+      "overall": {
+        "recall@5": 0.9667,
+        "recall@10": 1.0,
+        "mrr@10": 0.8917,
+        "ndcg@10": 0.9009
+      },
+      "by_style": {
+        "exact": {
+          "recall@5": 0.9556,
+          "recall@10": 1.0,
+          "mrr@10": 0.9667,
+          "ndcg@10": 0.9518
+        },
+        "paraphrase": {
+          "recall@5": 0.9778,
+          "recall@10": 1.0,
+          "mrr@10": 0.8167,
+          "ndcg@10": 0.85
+        }
+      },
+      "latency": {
+        "p50_ms": 35.49,
+        "p95_ms": 44.62
+      },
+      "per_question": [
+        {
+          "id": "q01",
+          "style": "exact",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8385465274895063,
+          "top3": [
+            "architecture/ledger-service.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 36.95
+        },
+        {
+          "id": "q02",
+          "style": "exact",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9325210919548239,
+          "top3": [
+            "errors/error-codes.json",
+            "architecture/transaction-api.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 33.53
+        },
+        {
+          "id": "q03",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "deployment/database-migration-policy.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 46.39
+        },
+        {
+          "id": "q04",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.8772153153380493,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 35.55
+        },
+        {
+          "id": "q05",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/db-connection-pool-exhaustion.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 33.98
+        },
+        {
+          "id": "q06",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 34.16
+        },
+        {
+          "id": "q07",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9060254355346823,
+          "top3": [
+            "errors/error-codes.json",
+            "architecture/settlement-worker.md",
+            "runbooks/settlement-invalid-payloads.md"
+          ],
+          "latency_ms": 31.93
+        },
+        {
+          "id": "q08",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 35.91
+        },
+        {
+          "id": "q09",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "errors/error-codes.json",
+            "runbooks/downstream-timeouts.md"
+          ],
+          "latency_ms": 36.59
+        },
+        {
+          "id": "q10",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6240505200038379,
+          "top3": [
+            "architecture/transaction-api.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 37.95
+        },
+        {
+          "id": "q11",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/queue-backlog.md",
+            "architecture/settlement-worker.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 35.25
+        },
+        {
+          "id": "q12",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6934264036172708,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "architecture/settlement-worker.md",
+            "runbooks/queue-backlog.md"
+          ],
+          "latency_ms": 35.43
+        },
+        {
+          "id": "q13",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9060254355346823,
+          "top3": [
+            "deployment/database-migration-policy.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 36.77
+        },
+        {
+          "id": "q14",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top3": [
+            "runbooks/schema-migration-rollback.md",
+            "deployment/database-migration-policy.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 38.36
+        },
+        {
+          "id": "q15",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "runbooks/schema-migration-rollback.md",
+            "runbooks/high-5xx-error-rate.md"
+          ],
+          "latency_ms": 38.21
+        },
+        {
+          "id": "q16",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "deployment/deployment-procedure.md",
+            "runbooks/high-5xx-error-rate.md",
+            "runbooks/schema-migration-rollback.md"
+          ],
+          "latency_ms": 33.24
+        },
+        {
+          "id": "q17",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/transaction-api.md",
+            "architecture/payment-platform-overview.md",
+            "architecture/service-dependency-map.md"
+          ],
+          "latency_ms": 43.18
+        },
+        {
+          "id": "q18",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "architecture/service-dependency-map.md",
+            "runbooks/downstream-timeouts.md",
+            "errors/error-codes.json"
+          ],
+          "latency_ms": 36.63
+        },
+        {
+          "id": "q19",
+          "style": "paraphrase",
+          "recall@5": 0.6666666666666666,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9217868789962071,
+          "top3": [
+            "architecture/transaction-api.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md"
+          ],
+          "latency_ms": 34.81
+        },
+        {
+          "id": "q20",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/high-5xx-error-rate.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "architecture/service-dependency-map.md"
+          ],
+          "latency_ms": 37.8
+        },
+        {
+          "id": "q21",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md",
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-05-21-settlement-poison-messages.md"
+          ],
+          "latency_ms": 32.66
+        },
+        {
+          "id": "q22",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "incidents/2026-07-09-fx-provider-latency.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 37.36
+        },
+        {
+          "id": "q23",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.7328286204777911,
+          "top3": [
+            "incidents/2025-08-14-ledger-column-drop.md",
+            "architecture/payment-platform-overview.md",
+            "architecture/transaction-api.md"
+          ],
+          "latency_ms": 32.69
+        },
+        {
+          "id": "q24",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "troubleshooting/postgres-troubleshooting.md",
+            "architecture/ledger-service.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 33.42
+        },
+        {
+          "id": "q25",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "runbooks/db-connection-pool-exhaustion.md",
+            "incidents/2025-08-14-ledger-column-drop.md"
+          ],
+          "latency_ms": 33.0
+        },
+        {
+          "id": "q26",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6934264036172708,
+          "top3": [
+            "runbooks/high-5xx-error-rate.md",
+            "runbooks/downstream-timeouts.md",
+            "incidents/2026-07-09-fx-provider-latency.md"
+          ],
+          "latency_ms": 34.51
+        },
+        {
+          "id": "q27",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 0.9197207891481876,
+          "top3": [
+            "architecture/ledger-service.md",
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 36.74
+        },
+        {
+          "id": "q28",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "errors/error-codes.json",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "architecture/payment-platform-overview.md"
+          ],
+          "latency_ms": 31.75
+        },
+        {
+          "id": "q29",
+          "style": "exact",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top3": [
+            "runbooks/settlement-invalid-payloads.md",
+            "incidents/2026-05-21-settlement-poison-messages.md",
+            "architecture/settlement-worker.md"
+          ],
+          "latency_ms": 32.15
+        },
+        {
+          "id": "q30",
+          "style": "paraphrase",
+          "recall@5": 1.0,
+          "recall@10": 1.0,
+          "mrr@10": 0.25,
+          "ndcg@10": 0.43067655807339306,
+          "top3": [
+            "incidents/2026-02-03-connection-pool-exhaustion.md",
+            "architecture/service-dependency-map.md",
+            "architecture/ledger-service.md"
+          ],
+          "latency_ms": 36.73
+        }
+      ]
+    }
+  }
+}

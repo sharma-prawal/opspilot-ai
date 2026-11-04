@@ -1,0 +1,63 @@
+# OpsPilot AI local infrastructure.
+# Default: PostgreSQL only. Optional services are behind profiles.
+# All ports are bound to 127.0.0.1. Volumes are never removed by project tooling.
+name: opspilot
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    container_name: opspilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set POSTGRES_SUPERUSER_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      OPSPILOT_DB_USER: ${DB_USER:-opspilot_app}
+      OPSPILOT_DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      OPSPILOT_DB_NAME: ${DB_NAME:-opspilot}
+      OPSPILOT_TEST_DB_NAME: ${TEST_DB_NAME:-opspilot_test}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=60
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - opspilot_pgdata:/var/lib/postgresql/data
+      - ../db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres && psql -U $${POSTGRES_USER} -d $${OPSPILOT_DB_NAME} -tAc 'select 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    mem_limit: 1g
+    cpus: 2
+
+  jaeger:
+    profiles: ["observability"]
+    image: jaegertracing/jaeger:2.21.0
+    container_name: opspilot-jaeger
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    mem_limit: 512m
+
+  adminer:
+    profiles: ["tools"]
+    image: adminer:6.3.0
+    container_name: opspilot-adminer
+    ports:
+      - "127.0.0.1:8081:8080"
+    mem_limit: 128m
+
+volumes:
+  opspilot_pgdata:
+    name: opspilot_pgdata

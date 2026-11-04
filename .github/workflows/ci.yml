@@ -1,0 +1,85 @@
+name: ci
+
+# Deterministic checks only: no paid APIs, no Ollama, no model downloads. Live-model tests
+# (`-m live_llm`) and the Playwright e2e test run locally (see docs/development/DEVELOPMENT.md).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read # least privilege: the workflow only reads the repository
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-superuser # throwaway CI-only credential
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      OPSPILOT_ENV: ci
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5433"
+      DB_USER: opspilot_app
+      DB_PASSWORD: ci-app-password
+      DB_NAME: opspilot_test
+      TEST_DB_NAME: opspilot_test
+      OPERATOR_TOKEN: ci-operator-token-0123456789
+      ACTION_SIGNING_KEY: ci-signing-key-0123456789abcdef
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.11.8"
+      - name: Create non-superuser app role, test database and pgvector
+        env:
+          PGPASSWORD: ci-superuser
+        run: |
+          psql -h 127.0.0.1 -p 5433 -U postgres -c "CREATE ROLE opspilot_app LOGIN PASSWORD 'ci-app-password'"
+          psql -h 127.0.0.1 -p 5433 -U postgres -c "CREATE DATABASE opspilot_test OWNER opspilot_app"
+          psql -h 127.0.0.1 -p 5433 -U postgres -d opspilot_test -c "CREATE EXTENSION IF NOT EXISTS vector"
+      - run: uv sync --frozen
+      - run: uv run ruff check . && uv run ruff format --check .
+      - run: uv run mypy apps/api packages services
+      - run: uv run lint-imports
+      # Hash embedder + scripted model; real Postgres, LangGraph checkpointer and MCP protocol.
+      - run: uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: "11.15.0"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

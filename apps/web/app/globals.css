@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* Design tokens: one neutral ramp, one accent, semantic status colours. Light + dark. */
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-2: #f1f3f6;
+  --border: #e2e5ea;
+  --text: #15181d;
+  --muted: #5d6673;
+  --accent: #2f5bd3;
+  --accent-soft: #e8eefc;
+  --success: #1c7c4a;
+  --success-soft: #e5f4ec;
+  --warn: #9a6200;
+  --warn-soft: #fbf1dc;
+  --danger: #b4232c;
+  --danger-soft: #fbe7e8;
+  --info: #2b67a8;
+  --info-soft: #e5eff9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --panel: #151a21;
+    --panel-2: #1b212a;
+    --border: #2a313c;
+    --text: #e6e9ee;
+    --muted: #96a0ad;
+    --accent: #7c9cf0;
+    --accent-soft: #1d2740;
+    --success: #4cc38a;
+    --success-soft: #13291f;
+    --warn: #e0a83a;
+    --warn-soft: #2d2412;
+    --danger: #f0767d;
+    --danger-soft: #32181b;
+    --info: #79aee6;
+    --info-soft: #152434;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: "tnum" 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.prose-report h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 0.75rem; }
+.prose-report h2 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.prose-report h3 { font-size: 0.925rem; font-weight: 600; margin: 1rem 0 0.25rem; }
+.prose-report p, .prose-report li { font-size: 0.875rem; line-height: 1.6; }
+.prose-report ul { list-style: disc; padding-left: 1.25rem; margin: 0.25rem 0 0.5rem; }
+.prose-report code { font-family: var(--font-mono); font-size: 0.8em; background: var(--panel-2); padding: 0.05rem 0.3rem; border-radius: 4px; }
+.prose-report table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0.5rem 0; display: block; overflow-x: auto; }
+.prose-report th, .prose-report td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+.prose-report blockquote { border-left: 3px solid var(--warn); padding-left: 0.75rem; color: var(--muted); }
