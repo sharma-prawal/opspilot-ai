@@ -64,6 +64,8 @@ async def test_health_and_validation(client: httpx.AsyncClient) -> None:
     assert (await client.post("/api/v1/incidents/simulate", json={"scenario": "DROP"})).status_code == 422
     r = await client.get("/health/live", headers={"X-Request-ID": "abc123"})
     assert r.headers["X-Request-ID"] == "abc123"
+    ident = (await client.get("/api/v1/system/identity")).json()
+    assert ident["database"] == "opspilot_test" and ident["test_database"] is True
     openapi = (await client.get("/openapi.json")).json()
     assert "/api/v1/approvals/{action_id}/decision" in openapi["paths"]
 
@@ -147,6 +149,8 @@ async def test_knowledge_endpoints(client: httpx.AsyncClient) -> None:
 async def test_direct_backend_access_requires_operator_token_for_every_mutation(client: httpx.AsyncClient) -> None:
     """H1 defence in depth: bypassing the BFF does not bypass authorization. Every POST route rejects
     a caller without the operator token, before any side effect (enumerated from the live route table)."""
+    ident = (await client.get("/api/v1/system/identity")).json()
+    assert ident["database"] == "opspilot_test" and ident["test_database"] is True
     openapi = (await client.get("/openapi.json")).json()
     zero = "00000000-0000-0000-0000-000000000000"
     posts = [p for p, ops in openapi["paths"].items() if "post" in ops]

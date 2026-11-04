@@ -47,7 +47,7 @@ test: ## Deterministic tests: Python (unit/integration/security) + web unit test
 test-live: ## Live local-model tests (needs Ollama)
 	uv run pytest -m live_llm --run-live
 
-e2e: ## Playwright UI test against the running stack (run `make dev` first; uses the real model)
+e2e: ## Playwright UI tests on an isolated stack (API :8100 on opspilot_test, web :3100); uses the real model
 	set -a; source .env; set +a; cd apps/web && pnpm e2e
 
 lint: ## Ruff, mypy --strict, import-linter, ESLint, TypeScript

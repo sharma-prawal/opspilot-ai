@@ -500,4 +500,36 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
 | `make lint` | clean (4 import contracts kept) |
 | Real-stack retrieval run (preliminary, uncommitted) | agent path hit 1.000 on both sets; doc-benchmark held-out hybrid R@5 0.972 |
 
+## N — E2E tests default to the ordinary development stack (Medium, audit #10) ✅
+
+- **Verification:** confirmed by configuration inspection. Playwright targeted `http://127.0.0.1:3000`, the
+  developer's running UI and therefore the `opspilot` database. `investigation.spec.ts` creates incidents and
+  executes a sandbox remediation, and nothing checked which database it reached.
+- **Change:**
+  - **Dedicated stack started by Playwright itself** (`webServer`, `reuseExistingServer: false`). If a port is
+    already taken the run fails instead of attaching to an existing server.
+    - API: `scripts/e2e-api.sh` on :8100. It forces `DB_NAME=opspilot_test` and `OPSPILOT_INSTANCE=e2e`, refuses
+      any database not ending in `_test` and refuses the dev API port. It migrates and incrementally ingests the
+      test DB before starting.
+    - Web: Next dev server on :3100 with its own build directory (`OPSPILOT_WEB_DIST_DIR=.next-e2e`, supported by
+      Next 16's `distDir`), so it runs beside `make dev`.
+  - **Identity verification before any mutation:**
+    - new `GET /api/v1/system/identity` returns `database`, `test_database` and `instance`;
+    - `e2e/global-setup.ts` checks the API directly, then signs in and checks *through the web BFF*, which is the
+      same chain the browser uses, and aborts the whole run unless both report the `e2e` instance on a `*_test`
+      database;
+    - the mutating spec re-checks with the browser's own session before creating anything.
+- **Regression tests:**
+  - `apps/web/tests/e2e-isolation.test.ts` (6): the guard accepts only `e2e` + `*_test`, and refuses the dev
+    identity, the wrong instance, a missing flag and missing identity;
+  - `test_api.py` asserts the identity endpoint reports `opspilot_test`.
+- **Live verification:**
+  - `make e2e` ran with the dev stack running on :3000/:8000;
+  - 4 passed (3 auth, plus the full INC-001 approve → execute → verified flow), 3 screenshot specs skipped;
+  - dev-DB row counts (incidents, investigations, actions, executions, audit) were identical before and after:
+    `61, 59, 64, 58, 346`;
+  - the test DB gained the run's rows.
+- **Remaining risk:** E2E still uses the real local model. A dev API started from pre-C0 code has no identity
+  endpoint, so the guard refuses it, which is fail-closed and intended.
+
 *(C0-C to C0-E entries are added as those milestones complete.)*

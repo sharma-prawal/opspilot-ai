@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./auth";
+import { assertIsolated } from "./isolation";
 
 // Client-side (router) navigations: we assert the resulting URL explicitly instead of relying on
 // Playwright's implicit post-click navigation wait, which does not settle with Next 16 prefetching.
@@ -10,6 +11,8 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   page.on("pageerror", (e) => errors.push(e.message));
 
   await signIn(page);
+  // This spec creates incidents and executes a sandbox remediation: verify the stack before any mutation.
+  assertIsolated(await (await page.request.get("/api/ops/api/v1/system/identity")).json(), "browser session");
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "System overview" })).toBeVisible();
   await expect(page.getByText("mcp read")).toBeVisible();

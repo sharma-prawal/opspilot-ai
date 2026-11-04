@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import APIRouter
@@ -9,6 +10,16 @@ from opspilot_api.deps import Runtime
 from opspilot_shared.db.models import KbChunk, KbDocument, OpsActionRequest, OpsIncident, OpsInvestigation
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
+
+
+@router.get("/identity")
+async def identity(rt: Runtime) -> dict[str, Any]:
+    """Which database and instance this API serves. E2E runs refuse to mutate anything unless it is a test DB."""
+    return {
+        "database": rt.settings.db_name,
+        "test_database": rt.settings.db_name.endswith("_test"),
+        "instance": os.environ.get("OPSPILOT_INSTANCE", "default"),
+    }
 
 
 @router.get("/overview")
