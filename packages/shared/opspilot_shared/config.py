@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     test_db_name: str = "opspilot_test"
     db_user: str = "opspilot_app"
     db_password: SecretStr = SecretStr("")
+    # Least-privilege roles for the MCP server processes (audit suspected risk / C0 item O). Provisioned by
+    # scripts/db-roles.sh; when no password is configured the children fall back to the application role.
+    mcp_read_db_user: str = "opspilot_mcp_read"
+    mcp_read_db_password: SecretStr = SecretStr("")
+    mcp_actions_db_user: str = "opspilot_mcp_actions"
+    mcp_actions_db_password: SecretStr = SecretStr("")
     db_pool_size: int = Field(default=5, ge=1, le=50)
 
     # Ollama / models
@@ -118,4 +124,10 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    # MCP server children are started with an explicit, minimal environment and must not read the secrets in
+    # .env behind it (C0 item O). This is the only place that consults os.environ for configuration loading.
+    import os
+
+    if os.environ.get("OPSPILOT_NO_DOTENV") == "1":
+        return Settings(_env_file=None)  # type: ignore[call-arg]
     return Settings()

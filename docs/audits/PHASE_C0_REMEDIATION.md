@@ -532,4 +532,47 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
 - **Remaining risk:** E2E still uses the real local model. A dev API started from pre-C0 code has no identity
   endpoint, so the guard refuses it, which is fail-closed and intended.
 
+## O — Process separation provides limited privilege isolation (suspected risk) ✅ (DB and environment); ◐ (OS)
+
+- **Verification:** confirmed by inspection, and it was worse than the audit stated. Children were started with
+  `env=dict(os.environ)`, **and** `Settings` reads `.env` directly. Every MCP server process therefore held the
+  operator bearer token, the approval-signing key, the web session secret, and the database application role
+  that owns every schema. No compromise was demonstrated or attempted.
+- **Change:**
+  - **Minimal child environment** (`opspilot_mcp.gateway.child_env`):
+    - non-secret settings are passed explicitly, plus a short allowlist of process variables (PATH, HOME, locale,
+      VIRTUAL_ENV, OTEL_*);
+    - `OPSPILOT_NO_DOTENV=1` makes the child's settings ignore `.env`;
+    - per-profile secrets: each server gets *its own* DB role, and only the action server gets the
+      token-verification key;
+    - the operator token, web secrets and the superuser password reach neither server.
+  - **Least-privilege database roles** (`scripts/db-roles.sh`, `make db-roles`; idempotent and additive; run by
+    bootstrap after migrations; provisioned here on both databases):
+    - `opspilot_mcp_read`: SELECT on `sim.*` and `kb.*`, SELECT on `ops.incidents`, INSERT on
+      `kb.retrieval_queries`;
+    - `opspilot_mcp_actions`: SELECT/INSERT/UPDATE on `sim.*` (no DELETE), SELECT on `ops.action_requests`, and
+      UPDATE of `ops.action_requests.status` *only*, which is the execution claim from H;
+    - neither role can read `langgraph.*`, the audit log or investigations;
+    - default privileges cover future `sim` and `kb` tables;
+    - if the role passwords are not configured, the children fall back to the application role and log
+      `mcp_child_uses_app_db_role`, so existing setups keep working.
+- **Regression tests:**
+  - `tests/unit/test_mcp_child_env.py` (4), with sentinel secrets planted in the parent environment and settings:
+    - the read child has its role and none of the other secrets;
+    - the action child has the verification key but no operator token;
+    - the fallback works;
+    - children ignore `.env`.
+  - `tests/security/test_mcp_db_roles.py` (2) connects *as each role* to `opspilot_test`:
+    - 4 + 4 allowed statements succeed;
+    - 6 + 7 out-of-scope statements fail with `permission denied`, including action-request parameter or decision
+      edits, audit-log writes, checkpoint reads and sandbox-ledger deletes.
+- **Live verification:**
+  - `pg_stat_activity` during real stdio sessions shows connections as `opspilot_mcp_read` and
+    `opspilot_mcp_actions`;
+  - full suite: 177 passed;
+  - live-model tests: 3 passed.
+- **Remaining risk (◐):** the children still run as the same OS user, so a compromised child could read `.env`
+  from disk. Closing that needs separate OS users or containers per server. This is recommended before any real
+  (non-sandbox) adapter is introduced, and is out of scope for a single-user local deployment.
+
 *(C0-C to C0-E entries are added as those milestones complete.)*

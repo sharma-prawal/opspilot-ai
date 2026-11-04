@@ -21,6 +21,9 @@ infra-up: ## Start Colima (if needed) and PostgreSQL (PROFILES="observability to
 infra-down: ## Stop project containers (volumes are preserved)
 	./scripts/infra-down.sh
 
+db-roles: ## Create/refresh least-privilege DB roles for the MCP servers (idempotent, additive)
+	./scripts/db-roles.sh
+
 migrate: ## Apply Alembic migrations + LangGraph checkpointer setup (app and test DBs)
 	uv run opspilot migrate
 	uv run opspilot migrate --database $(TEST_DB)
@@ -67,4 +70,4 @@ evaluate: ## Retrieval benchmark + agent evaluation (TRIALS=3); renders docs/eva
 build-web: ## Production build of the web app
 	cd apps/web && pnpm build
 
-.PHONY: help bootstrap doctor infra-up infra-down migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web
+.PHONY: help bootstrap doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web
