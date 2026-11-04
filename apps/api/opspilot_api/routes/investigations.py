@@ -67,7 +67,7 @@ async def workflow(rt: Runtime, investigation_id: uuid.UUID) -> dict[str, Any]:
     return await rt.investigations.workflow_state(investigation_id)
 
 
-@router.post("/{investigation_id}/resume", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/{investigation_id}/resume", status_code=status.HTTP_202_ACCEPTED, dependencies=[Operator])
 async def resume(rt: Runtime, investigation_id: uuid.UUID) -> OperationAccepted:
     inv = await rt.investigations.resume(investigation_id)
     return OperationAccepted(investigation_id=inv.id, status="running", status_url=f"/api/v1/investigations/{inv.id}")

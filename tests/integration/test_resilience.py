@@ -113,7 +113,11 @@ async def client(settings, session_factory, embedder, ingested) -> AsyncIterator
     task = asyncio.create_task(host())
     await asyncio.wait_for(started.wait(), 30)
     try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers={"Authorization": f"Bearer {settings.operator_token.get_secret_value()}"},  # BFF-equivalent caller
+        ) as c:
             yield c
     finally:
         stop.set()

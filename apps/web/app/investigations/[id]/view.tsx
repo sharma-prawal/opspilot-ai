@@ -131,7 +131,7 @@ export function InvestigationView() {
   const report = useQuery({ queryKey: ["report", id], queryFn: () => api.report(id), enabled: inv.data?.status === "completed" || inv.data?.status === "failed" });
   const incident = useQuery({ queryKey: ["incident", inv.data?.incident_id], queryFn: () => api.incident(inv.data!.incident_id), enabled: !!inv.data });
   const resume = useMutation({ mutationFn: () => api.resume(id), onSuccess: () => qc.invalidateQueries() });
-  const cancel = useMutation({ mutationFn: () => api.cancel(id, "operator"), onSuccess: () => qc.invalidateQueries() });
+  const cancel = useMutation({ mutationFn: () => api.cancel(id), onSuccess: () => qc.invalidateQueries() });
   const [showReport, setShowReport] = useState(true);
   // Polling stops once the run is terminal; fetch everything one last time on that transition so
   // writes from the final nodes (execute/verify/report) are never missed.

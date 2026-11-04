@@ -30,9 +30,19 @@ if [[ -f .env ]]; then ok ".env exists — leaving it untouched"; else
   rnd() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-32}"; }
   sed -e "s/^POSTGRES_SUPERUSER_PASSWORD=.*/POSTGRES_SUPERUSER_PASSWORD=$(rnd 32)/" \
       -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$(rnd 32)/" \
-      -e "s/^OPERATOR_TOKEN=.*/OPERATOR_TOKEN=$(rnd 40)/" -e "s/^ACTION_SIGNING_KEY=.*/ACTION_SIGNING_KEY=$(rnd 48)/" .env.example > .env
+      -e "s/^OPERATOR_TOKEN=.*/OPERATOR_TOKEN=$(rnd 40)/" -e "s/^ACTION_SIGNING_KEY=.*/ACTION_SIGNING_KEY=$(rnd 48)/" \
+      -e "s/^OPSPILOT_WEB_SESSION_SECRET=.*/OPSPILOT_WEB_SESSION_SECRET=$(rnd 48)/" \
+      -e "s/^OPSPILOT_WEB_OPERATOR_PASSPHRASE=[^ ]*/OPSPILOT_WEB_OPERATOR_PASSPHRASE=$(rnd 20)/" .env.example > .env
   chmod 600 .env; ok ".env created with random local secrets"
 fi
+# Upgrade older .env files with settings added later (never overwrites existing values).
+for key in OPSPILOT_WEB_SESSION_SECRET OPSPILOT_WEB_OPERATOR_PASSPHRASE; do
+  if ! grep -q "^${key}=" .env; then
+    rnd() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-32}"; }
+    printf '%s=%s\n' "$key" "$(rnd 40)" >> .env; ok "added $key to .env"
+  fi
+done
+info "web sign-in passphrase: see OPSPILOT_WEB_OPERATOR_PASSPHRASE in .env"
 load_env
 
 echo "== Ollama"

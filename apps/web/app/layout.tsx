@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AuthRedirect } from "@/components/auth-redirect";
 import { Nav } from "@/components/nav";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </Link>
               <Suspense fallback={<div className="h-8" />}>
                 <Nav />
+                <AuthRedirect />
               </Suspense>
             </div>
           </header>

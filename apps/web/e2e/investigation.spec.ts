@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signIn } from "./auth";
 
 // Client-side (router) navigations: we assert the resulting URL explicitly instead of relying on
 // Playwright's implicit post-click navigation wait, which does not settle with Next 16 prefetching.
@@ -8,6 +9,7 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
 
+  await signIn(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "System overview" })).toBeVisible();
   await expect(page.getByText("mcp read")).toBeVisible();
@@ -33,7 +35,6 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   await expect(page.getByText(/migration/i).first()).toBeVisible();
   await page.screenshot({ path: "test-results/awaiting-approval.png", fullPage: true });
 
-  await page.getByLabel("Operator").fill("e2e-operator");
   await page.getByLabel("Comment (optional)").fill("approved by Playwright");
   await approve.click();
 

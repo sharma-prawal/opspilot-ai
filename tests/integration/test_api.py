@@ -1,6 +1,7 @@
 """HTTP contract tests: real app + lifespan, real DB/checkpointer/MCP protocol, scripted model."""
 
 import asyncio
+import re
 from collections.abc import AsyncIterator
 
 import httpx
@@ -31,7 +32,11 @@ async def client(settings, session_factory, embedder, ingested) -> AsyncIterator
     task = asyncio.create_task(host())
     await asyncio.wait_for(started.wait(), 30)
     try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers={"Authorization": f"Bearer {settings.operator_token.get_secret_value()}"},  # BFF-equivalent caller
+        ) as c:
             yield c
     finally:
         stop.set()
@@ -80,7 +85,7 @@ async def test_full_investigation_lifecycle(client: httpx.AsyncClient, settings)
 
     url = f"/api/v1/approvals/{action['id']}/decision"
     body = {"decision": "approve", "params_hash": action["params_hash"], "decided_by": "sre"}
-    assert (await client.post(url, json=body)).status_code == 401
+    assert (await client.post(url, json=body, headers={"Authorization": ""})).status_code == 401
     assert (await client.post(url, json=body, headers={"Authorization": "Bearer wrong-token-value"})).status_code == 401
     bad = await client.post(url, json={**body, "params_hash": "f" * 64}, headers=auth(settings))
     assert bad.status_code == 409 and bad.json()["error"]["class"] == "approval"
@@ -114,7 +119,7 @@ async def test_cancel_pending_investigation(client: httpx.AsyncClient, settings)
     inc = (await client.post("/api/v1/incidents/simulate", json={"scenario": "INC-001"})).json()
     inv = (await client.post(f"/api/v1/incidents/{inc['id']}/investigations")).json()["investigation_id"]
     await poll(client, inv, {"awaiting_approval"})
-    assert (await client.post(f"/api/v1/investigations/{inv}/cancel")).status_code == 401
+    assert (await client.post(f"/api/v1/investigations/{inv}/cancel", headers={"Authorization": ""})).status_code == 401
     r = await client.post(f"/api/v1/investigations/{inv}/cancel", headers=auth(settings), json={"actor": "sre"})
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
     actions = (await client.get(f"/api/v1/investigations/{inv}/actions")).json()
@@ -136,3 +141,19 @@ async def test_knowledge_endpoints(client: httpx.AsyncClient) -> None:
     assert res["results"] and res["results"][0]["source_uri"]
     trace = (await client.get(f"/api/v1/knowledge/queries/{res['query_id']}")).json()
     assert trace["caller"] == "api.knowledge.search" and len(trace["results"]) == len(res["results"])
+
+
+async def test_direct_backend_access_requires_operator_token_for_every_mutation(client: httpx.AsyncClient) -> None:
+    """H1 defence in depth: bypassing the BFF does not bypass authorization. Every POST route rejects
+    a caller without the operator token, before any side effect (enumerated from the live route table)."""
+    openapi = (await client.get("/openapi.json")).json()
+    zero = "00000000-0000-0000-0000-000000000000"
+    posts = [p for p, ops in openapi["paths"].items() if "post" in ops]
+    assert len(posts) >= 7
+    before = (await client.get("/api/v1/incidents")).json()
+    for path in posts:
+        url = re.sub(r"\{[^}]+\}", zero, path)
+        for headers in ({"Authorization": ""}, {"Authorization": "Bearer not-the-operator-token"}):
+            r = await client.post(url, json={"scenario": "INC-001", "query": "x"}, headers=headers)
+            assert r.status_code == 401, (path, r.status_code)
+    assert (await client.get("/api/v1/incidents")).json() == before  # nothing was created

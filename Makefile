@@ -48,7 +48,7 @@ test-live: ## Live local-model tests (needs Ollama)
 	uv run pytest -m live_llm --run-live
 
 e2e: ## Playwright UI test against the running stack (run `make dev` first; uses the real model)
-	cd apps/web && pnpm e2e
+	set -a; source .env; set +a; cd apps/web && pnpm e2e
 
 lint: ## Ruff, mypy --strict, import-linter, ESLint, TypeScript
 	uv run ruff check .
