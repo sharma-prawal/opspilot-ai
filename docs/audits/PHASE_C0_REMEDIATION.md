@@ -324,7 +324,7 @@ Recorded 2026-11-04 after commits `17ac70d`, `b60a901`, `85ca9d9`, `6bb70f0`:
 
 ## C0-B gate (Medium findings E–H) — passed
 
-Recorded 2026-11-04 after commits `ace66f4` (E), `6662ff1` (F), `97a248a` (G) and `01a4749` (H):
+Recorded 2026-11-04 after commits `ace66f4` (E), `6662ff1` (F), `97a248a` (G) and `1cf3bb4` (H):
 
 | Suite | Result |
 |---|---|
