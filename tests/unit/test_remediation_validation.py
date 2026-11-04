@@ -231,6 +231,17 @@ async def test_no_remediation_when_impact_has_ended() -> None:
         "investigation_id": "00000000-0000-0000-0000-000000000010",
         "incident": {"service": "transaction-api"},
         "evidence": evidence(recovered, dep_ev("e1", "dep-x", "transaction-api", 0.9)),
+        # Genuine recovery requires complete, healthy observations (H2), not merely a recovered anomaly.
+        "telemetry_coverage": {
+            "transaction-api": {
+                "metrics_requested": ["http_5xx_ratio", "p95_latency_ms"],
+                "metrics_ok": ["http_5xx_ratio", "p95_latency_ms"],
+                "metrics_failed": {},
+                "metrics_insufficient": [],
+                "health_status": "healthy",
+                "catalog_failed": False,
+            }
+        },
         "rca": {"remediation_plan": [{"action_type": "rollback_deployment", "deployment_id": "dep-x"}]},
     }
     out = await nodes.propose(st)

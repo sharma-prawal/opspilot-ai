@@ -30,6 +30,7 @@ from opspilot_agents.analysis import (
     lexical_overlap_bonus,
     mean,
 )
+from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages
 from opspilot_agents.remediation import enforce_plan_shape, validate_step
@@ -39,7 +40,7 @@ from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.evidence import Citation, Evidence, EvidenceKind, ToolCallStatus
-from opspilot_shared.domain.incidents import IncidentCategory
+from opspilot_shared.domain.incidents import ImpactState, IncidentCategory
 from opspilot_shared.errors import ApprovalError, LLMError
 from opspilot_shared.ids import short_hash, stable_uuid
 from opspilot_shared.llm.ports import ChatModel
@@ -196,10 +197,9 @@ def _enqueue(state: State, new: list[Task], task: Task) -> None:
         new.append(task)
 
 
-def _impact_ongoing(state: State) -> bool:
-    """Deterministic: an unrecovered anomaly on the alerting service means customer impact is ongoing."""
-    svc = state["incident"]["service"]
-    return any(not a["data"].get("recovered") for a in _anomalies(state, {svc}))
+def _impact(state: State) -> dict[str, Any]:
+    """Tri-state, evidence-based impact on the alerting service (see impact.py)."""
+    return assess_impact(dict(state)).model_dump(mode="json")
 
 
 def _anomalies(state: State, services: set[str] | None = None) -> list[dict[str, Any]]:
@@ -352,11 +352,50 @@ class InvestigationNodes:
         new_tasks: list[Task] = []
         onset: datetime | None = None
 
+        coverage: dict[str, Any] = {
+            "metrics_requested": chosen,
+            "metrics_ok": [],
+            "metrics_failed": {},
+            "metrics_insufficient": [],
+            "health_status": None,
+            "catalog_failed": not (catalog_res and catalog_res.ok),
+        }
+        if coverage["catalog_failed"]:
+            eid, ev = _evidence(
+                id=f"ev-toolerr-{short_hash(svc, 'list_service_metrics')}",
+                kind=EvidenceKind.TOOL_ERROR,
+                source_tool="list_service_metrics",
+                collected_by="telemetry",
+                service=svc,
+                relevance=0.7,
+                summary=f"Metric catalogue for {svc} unavailable: "
+                f"{catalog_res.error if catalog_res else 'tool budget exhausted'}. Metric evidence is missing.",
+                data={"tool": "list_service_metrics", "error": catalog_res.error if catalog_res else "budget"},
+            )
+            evidence[eid] = ev
         for metric, res in zip(chosen, metric_results, strict=True):
             if not res or not res.ok or not res.data:
+                err = res.error if res else "tool budget exhausted"
+                coverage["metrics_failed"][metric] = err
+                eid, ev = _evidence(
+                    id=f"ev-toolerr-{short_hash(svc, 'query_metrics', metric)}",
+                    kind=EvidenceKind.TOOL_ERROR,
+                    source_tool="query_metrics",
+                    collected_by="telemetry",
+                    service=svc,
+                    relevance=0.7,
+                    summary=f"Metric {metric} for {svc} could not be retrieved: {err}. "
+                    "This is not evidence of recovery.",
+                    data={"tool": "query_metrics", "metric": metric, "error": err},
+                )
+                evidence[eid] = ev
                 continue
             unit = catalog.get(metric, "")
             pts = [(_dt(p["ts"]), float(p["value"])) for p in res.data["points"]]
+            if len(pts) < MIN_POINTS:
+                coverage["metrics_insufficient"].append(metric)
+                continue
+            coverage["metrics_ok"].append(metric)
             sh = detect_shift(pts, metric=metric, unit=unit)
             if sh:
                 if not sh.recovered and (onset is None or sh.onset < onset):
@@ -450,6 +489,7 @@ class InvestigationNodes:
 
         if rhealth and rhealth.ok and rhealth.data:
             h = rhealth.data
+            coverage["health_status"] = h["status"]
             eid, ev = _evidence(
                 id=f"ev-health-{short_hash(svc, h['as_of'])}",
                 kind=EvidenceKind.SERVICE_HEALTH,
@@ -489,6 +529,7 @@ class InvestigationNodes:
             "evidence": evidence,
             "observations": [obs],
             "window": window,
+            "telemetry_coverage": {svc: coverage},
             "task_queue": [*state.get("task_queue", []), *new_tasks],
             "completed_tasks": _complete(state, task),
         }
@@ -934,7 +975,8 @@ class InvestigationNodes:
                 "hypotheses": hyps,
                 "evidence_gaps": value.evidence_gaps,
                 "followups": list(dict.fromkeys(value.followups)),
-                "impact_ongoing": _impact_ongoing(state),
+                "impact": _impact(state),
+                "impact_ongoing": _impact(state)["state"] == ImpactState.ONGOING.value,
                 "impact_ongoing_model": value.impact_ongoing,
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
@@ -1009,12 +1051,20 @@ class InvestigationNodes:
                     "validation": check.details,
                 }
             )
-        if plan and not _impact_ongoing(state):
+        impact = _impact(state)
+        if plan and impact["state"] != ImpactState.ONGOING.value:
+            recovered = impact["state"] == ImpactState.RECOVERED.value
             rejected += [
                 {
                     "proposal": {k: p[k] for k in ("action_type", "parameters")},
-                    "category": "unwarranted",
-                    "reason": "impact has already ended on the alerting service; no remediation is warranted",
+                    "category": "unwarranted" if recovered else "insufficient_evidence",
+                    "reason": (
+                        "impact has ended on the alerting service; no remediation is warranted"
+                        if recovered
+                        else "impact on the alerting service is unknown ("
+                        + "; ".join(impact["reasons"])
+                        + "); remediation requires affirmative evidence of ongoing impact"
+                    ),
                     "at": _iso(utcnow()),
                 }
                 for p in plan

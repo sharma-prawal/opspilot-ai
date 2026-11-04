@@ -20,6 +20,8 @@ OUTCOMES = {
     "inconclusive": "Evidence was insufficient to determine the cause; escalated.",
     "no_action_required": "Impact has ended and no action is required.",
     "no_action_proposed": "Impact is ongoing but no catalogue action applies; escalated.",
+    "impact_unknown": "Impact could not be established from the available evidence; escalated.",
+    "verification_incomplete": "Remediation executed but not every recovery condition could be checked; escalated.",
     "failed": "The investigation did not complete.",
 }
 ESCALATE = {
@@ -31,8 +33,18 @@ ESCALATE = {
     "escalated",
     "inconclusive",
     "no_action_proposed",
+    "impact_unknown",
+    "verification_incomplete",
     "failed",
 }
+
+
+def impact_state(rca: dict[str, Any]) -> str:
+    """Impact state recorded by the RCA node. Legacy records without it are treated conservatively."""
+    impact = rca.get("impact")
+    if isinstance(impact, dict) and impact.get("state"):
+        return str(impact["state"])
+    return "ongoing" if rca.get("impact_ongoing") else "unknown"
 
 
 def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) -> dict[str, Any]:
@@ -43,6 +55,8 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     esc = rca.get("escalation") or {}
     hyps = rca.get("hypotheses") or []
     top = hyps[0]["confidence"] if hyps else 0.0
+    impact = impact_state(rca)
+    verification = state.get("verification") or {}
     if state.get("status") == "failed":
         code = "failed"
     elif approval.get("decision") == "expired":
@@ -52,19 +66,29 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     elif executions:
         if executions[-1].get("status") != "succeeded":
             code = "remediation_failed"
+        elif verification.get("status") == "recovered" or (
+            "status" not in verification and verification.get("recovered")
+        ):
+            code = "mitigated"
+        elif verification.get("status") == "incomplete":
+            code = "verification_incomplete"
         else:
-            code = "mitigated" if (state.get("verification") or {}).get("recovered") else "not_recovered"
-    elif rca.get("impact_ongoing") is False:
+            code = "not_recovered"
+    elif esc.get("required"):  # an explicit escalation request is never overridden
+        code = "escalated"
+    elif impact == "recovered":  # requires affirmative, sufficient recovery evidence
         code = "no_action_required"
+    elif impact == "unknown":
+        code = "impact_unknown"
     elif rca.get("remediation_plan") and not plan:
         code = "proposal_blocked"
-    elif esc.get("required"):
-        code = "escalated"
     elif top < confidence_threshold:
         code = "inconclusive"
     else:
         code = "no_action_proposed"
     reason = esc.get("reason") or OUTCOMES[code]
+    if code == "impact_unknown":
+        reason = "; ".join((rca.get("impact") or {}).get("reasons") or [OUTCOMES[code]])
     return {
         "code": code,
         "summary": OUTCOMES[code],
@@ -73,6 +97,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         "reason": reason,
         "actions_executed": len(executions),
         "steps_planned": len(plan),
+        "impact": impact,
     }
 
 
@@ -119,8 +144,9 @@ def render_report(state: dict[str, Any]) -> str:
         ]
     if rca.get("summary"):
         lines += ["## Summary", "", rca["summary"], ""]
-        if "impact_ongoing" in rca:
-            lines += [f"Impact ongoing at analysis time: **{'yes' if rca['impact_ongoing'] else 'no'}**.", ""]
+        if rca.get("impact"):
+            imp = rca["impact"]
+            lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
     if hyps:
         lines += ["## Ranked hypotheses", ""]
         for h in hyps:

@@ -30,6 +30,7 @@ class InvestigationState(TypedDict, total=False):
     active_task: Task | None
     completed_tasks: list[str]
     evidence: Annotated[dict[str, dict[str, Any]], merge_evidence]
+    telemetry_coverage: Annotated[dict[str, dict[str, Any]], merge_evidence]
     observations: Annotated[list[dict[str, Any]], operator.add]
     tool_calls: Annotated[list[dict[str, Any]], operator.add]
     llm_calls: Annotated[list[dict[str, Any]], operator.add]
