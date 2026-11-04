@@ -454,8 +454,50 @@ plan-scoring changes, so the evaluation is run once against the final behaviour.
   matching its hash. It fails on the unfixed code (no passage recorded).
 - **Remaining risk:** citations recorded before C0 cannot be repaired retroactively.
 
-## C0-C gate (findings I, J, K, L, M)
+## K — Retrieval evaluation measures a different path from agent retrieval (Medium, audit #8) ✅
 
-*(K, the agent-path retrieval benchmark, follows; the gate is recorded when it completes.)*
+- **Verification:** confirmed by inspection, as the audit states. The document benchmark retrieves 30 chunks per
+  query, collapses them into a document ranking and applies no document-type split. The agent requests 5
+  runbook chunks and 3 incident chunks, through MCP filters, with lifecycle demotion and prompt excerpts.
+- **Change:** new `opspilot_eval/agent_path_bench.py`. The document benchmark is retained unchanged.
+  - The benchmark does **not** re-implement the agent's parameters, which could drift again. It runs the agent's
+    own `InvestigationNodes.knowledge` against a real read-server gateway: the production stdio MCP server in
+    `make evaluate`, and the in-process MCP server in tests.
+  - The labelled question is used as the investigation's knowledge query, which is what the node queries when no
+    other evidence exists.
+  - Queries, tools, filters, candidate depths, chunk limits, lifecycle handling and excerpts are therefore
+    identical by construction.
+  - Passages are scored in RCA-prompt order: `(-relevance, id)`, capped at `max_prompt_evidence`.
+  - Metrics: hit, document recall, runbook-path recall, MRR, precision, passages, non-current passages, excerpt
+    length and truncation, latency, and misses.
+  - The results are a new "Retrieval on the agent's path" section of `BASELINE.md`.
+  - Phase B evaluation artifacts are frozen verbatim (from `git show 9ec857c:…`) under
+    `datasets/evaluation/history/phase-b-9ec857c/` and `docs/evaluation/history/`, because `make evaluate`
+    overwrites `*_latest` and `traces_latest/`.
+- **Regression tests:** `tests/integration/test_agent_path_bench.py` (2):
+  - the benchmark issues exactly `search_runbooks(top_k=5)` and `get_historical_incidents(top_k=3)`;
+  - per-question invariants hold;
+  - prompt ordering matches the RCA ranking.
+- **Preliminary measurement**, a real-stack `opspilot-eval retrieval` run at `464ce47` with qwen3-embedding:0.6b.
+  It was not committed; the official numbers come from the C0-E `make evaluate`.
+  - Held-out agent path: hit 1.000, document recall 0.956, runbook-path recall 0.822, MRR 0.605, precision 0.383,
+    0 non-current passages.
+  - For comparison, the document benchmark's hybrid held-out Recall@5 is 0.972 (Phase B: 0.922; the change is
+    the I lifecycle fix resolving `h01`) and MRR 0.767.
+  - The agent receives a relevant passage for every question, but further down the prompt order (MRR 0.605 vs.
+    0.767), and about 62% of supplied passages come from documents not labelled relevant.
+  - Per the C0 brief, no reranker is added on this basis alone. Low precision at k = 8 with 1–3 relevant
+    documents per question is partly structural, and it is recorded for the failure analysis.
+- **Remaining risk:** the benchmark uses the question as the query. In live investigations the node builds its
+  query from collected evidence, which the agent evaluation measures end to end.
+
+## C0-C gate (findings I, J, K, L, M) — passed
+
+| Suite | Result |
+|---|---|
+| Full deterministic Python suite | 171 passed, 3 live skipped |
+| Web unit tests | 24 passed |
+| `make lint` | clean (4 import contracts kept) |
+| Real-stack retrieval run (preliminary, uncommitted) | agent path hit 1.000 on both sets; doc-benchmark held-out hybrid R@5 0.972 |
 
 *(C0-C to C0-E entries are added as those milestones complete.)*

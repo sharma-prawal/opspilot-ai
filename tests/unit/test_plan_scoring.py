@@ -4,11 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from opspilot_eval.agent_eval import load_truth, score_run
 
-TRACES = Path(__file__).resolve().parents[2] / "datasets/evaluation/results/traces_latest"
+TRACES = Path(__file__).resolve().parents[2] / "datasets/evaluation/history/phase-b-9ec857c/traces"  # frozen
 ROLLBACK = ("rollback_deployment", {"service": "ledger-service", "deployment_id": "dep-ls-0042"})
 RESTART = ("restart_service", {"service": "ledger-service"})
 
@@ -77,7 +75,6 @@ def test_negative_scenario_rejects_even_a_failed_attempt() -> None:
     assert row["executed"] == [] and row["forbidden_attempted"] and row["plan_acceptable"] is False
 
 
-@pytest.mark.skipif(not TRACES.exists(), reason="no stored evaluation traces")
 def test_stored_phase_b_runs_rescored_with_the_stricter_scorer() -> None:
     """Historical runs keep their verdicts: none relied on a forbidden, extra or out-of-order action."""
     for path in sorted(TRACES.glob("*-approve.json")):

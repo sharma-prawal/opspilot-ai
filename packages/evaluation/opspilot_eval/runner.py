@@ -15,7 +15,7 @@ import subprocess
 from datetime import UTC, datetime
 from typing import Any
 
-from opspilot_eval import agent_eval, retrieval_bench
+from opspilot_eval import agent_eval, agent_path_bench, retrieval_bench
 from opspilot_shared.config import REPO_ROOT, get_settings
 from opspilot_shared.logging import configure_logging
 
@@ -53,17 +53,26 @@ def _meta() -> dict[str, Any]:
 
 async def run_retrieval() -> dict[str, Any]:
     from opspilot_api.container import Infrastructure  # composition root; eval may import anything
+    from opspilot_mcp.gateway import connect_gateway
 
-    infra = Infrastructure.create(get_settings())
+    settings = get_settings()
+    infra = Infrastructure.create(settings)
     try:
         retriever = infra.retriever()
-        return {
+        out = {
             "meta": _meta(),
             "development": await retrieval_bench.run(retriever, path=retrieval_bench.QUESTIONS),
             "heldout": await retrieval_bench.run(retriever, path=retrieval_bench.HELDOUT, warmup=False),
         }
     finally:
         await infra.aclose()
+    # Agent path (audit finding 8): the agent's own knowledge node over the production MCP read server.
+    async with connect_gateway(settings, "read") as gw:
+        out["agent_path"] = {
+            "development": await agent_path_bench.run(gw, path=retrieval_bench.QUESTIONS),
+            "heldout": await agent_path_bench.run(gw, path=retrieval_bench.HELDOUT),
+        }
+    return out
 
 
 async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
@@ -169,6 +178,32 @@ def render_baseline() -> None:
         ]
         out += _retrieval_section("Held-out set", ret["heldout"])
         out += _retrieval_section("Development set (used while building; optimistic)", ret["development"])
+    if ret and "agent_path" in ret:
+        out += [
+            "## Retrieval on the agent's path (measured)",
+            "",
+            "The agent's own knowledge node over the MCP read server: `search_runbooks` (top 5, non-incident "
+            "types) + `get_historical_incidents` (top 3), lifecycle demotion, scored in RCA-prompt order. "
+            "Relevance labels are document-level (a passage counts if it comes from a relevant document). "
+            "Not comparable one-to-one with the document benchmark above (different unit and depth).",
+            "",
+            "| Set | questions | hit | doc recall | runbook-path recall | MRR | precision | passages | "
+            "non-current passages | p50 | p95 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for label, key in (("Held-out", "heldout"), ("Development", "development")):
+            a = ret["agent_path"][key]
+            o = a["overall"]
+            out.append(
+                f"| {label} | {a['questions']} | {_fmt(o['hit'])} | {_fmt(o['doc_recall'])} | "
+                f"{_fmt(o['runbook_path_recall'])} | {_fmt(o['mrr'])} | {_fmt(o['precision'])} | "
+                f"{_fmt(o['passages'])} | {a['non_current_passages']} | {a['latency']['p50_ms']} | "
+                f"{a['latency']['p95_ms']} |"
+            )
+        misses = ret["agent_path"]["heldout"]["misses"]
+        out += ["", "Held-out questions with no relevant passage supplied to the RCA prompt:", ""]
+        out += [f"- `{x['id']}` ({x['style']}) top-3: {', '.join(x['top3'])}" for x in misses] or ["- none"]
+        out.append("")
     if agent:
         m, s = agent["meta"], agent["summary"]
         out += [
