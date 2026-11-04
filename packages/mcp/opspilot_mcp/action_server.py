@@ -3,8 +3,15 @@
 Defence in depth — this server does not trust its caller. Before executing it:
 1. verifies the HMAC approval token (signature, expiry) and that it names this action_id;
 2. loads the persisted action request and requires status ``approved`` and a matching params hash;
-3. executes with the *persisted* parameters (the caller cannot supply parameters at all);
-4. relies on the simulator's per-action idempotency ledger so replays never re-execute.
+3. **claims** the action (``approved -> executing``) under a row lock, in its own committed transaction.
+   The claim is the non-cancellable boundary (audit suspected risk / finding H): cancellation takes the same
+   row lock and revokes only ``pending``/``approved`` requests, so either the cancel wins and execution is
+   refused, or the claim wins and the cancel is refused. ``executing`` is re-entrant so a crash between claim
+   and effect can be retried with the same token;
+4. executes with the *persisted* parameters (the caller cannot supply parameters at all);
+5. relies on the simulator's per-action idempotency ledger so replays never re-execute.
+
+The claim is the only write this server makes outside the ``sim`` schema (ops.action_requests.status).
 """
 
 from __future__ import annotations
@@ -16,6 +23,7 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
+from sqlalchemy import select
 
 from opspilot_mcp.backend import OpsBackend
 from opspilot_mcp.schemas import ExecutionOutcome
@@ -76,13 +84,20 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
         if claims.expired:
             raise ToolError("approval: approval token expired")
         computed = action_params_hash(req.action_type, req.parameters)
-        if req.status != "approved":
-            raise ToolError(f"approval: action status is {req.status!r}, not 'approved'")
         if not (req.params_hash == claims.params_hash == computed):
             raise ToolError("approval: parameters do not match the approved parameters")
         spec = REMEDIATION_CATALOG.get(ActionType(req.action_type))
         if spec is None or not spec.implemented:
             raise ToolError(f"unsupported action type {req.action_type!r}")
+        # Execution claim: authorisation is re-read under a row lock and committed before any effect.
+        async with backend.session_factory() as s, s.begin():
+            locked = (
+                await s.execute(select(OpsActionRequest).where(OpsActionRequest.id == action_id).with_for_update())
+            ).scalar_one()
+            if locked.status not in ("approved", "executing"):
+                raise ToolError(f"approval: action status is {locked.status!r}, not 'approved'")
+            locked.status = "executing"
+        _log.info("action_claimed", action_id=str(action_id))
         try:
             row = await backend.store.execute_action(
                 req.environment_id,

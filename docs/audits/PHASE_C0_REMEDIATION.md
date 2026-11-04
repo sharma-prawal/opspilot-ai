@@ -280,4 +280,62 @@ Recorded 2026-11-04 after commits `17ac70d`, `b60a901`, `85ca9d9`, `6bb70f0`:
   - The cancellation-versus-execution boundary is handled under H.
   - Lease timing assumes roughly synchronised clocks; all lease times come from the API hosts, not the DB.
 
-*(Remaining C0-B to C0-E entries are added as those milestones complete.)*
+## H — Cancellation versus execution (suspected risk) ✅
+
+- **Reproduction:** confirmed on the unmodified code with targeted tests (5 of 7 fail on it). Three defects:
+  - Cancellation revoked only `pending` requests. An investigation cancelled after approval kept an `approved`
+    action that the action server would still execute with a valid token.
+  - The action server checked `approved` outside any lock and never claimed the action. Nothing in the system
+    ever set `executing`.
+  - The dispatcher checked "paused on this action" before "investigation terminal". A decision accepted before
+    cancellation would therefore resume a *cancelled* workflow and flip it back to `running`.
+- **Root cause:** there was no defined non-cancellable boundary, and authorisation was not re-read
+  transactionally at the point of effect.
+- **Change:**
+  - **The execution claim is the boundary.**
+    - The action server re-reads the request under `SELECT … FOR UPDATE` and compare-and-sets
+      `approved → executing`, committing before any effect.
+    - `executing` is re-entrant for the same signed, action-bound token, so a crash between claim and effect is
+      retried. The per-action sandbox ledger keeps the effect single.
+    - This is the action server's only write outside `sim`, and it is documented as such (relevant to O).
+  - **Cancel** takes the same row locks:
+    - it revokes `pending | approved` → `cancelled` in one transaction, *before* stopping the task;
+    - it refuses with 409 while any action is `executing`, so a claimed action always completes and its result
+      is recorded.
+  - **Delivery and runner:** the dispatcher checks terminal status first; a command for a cancelled
+    investigation is marked `failed` (or `delivered` if already consumed). The runner never starts a segment for
+    a `completed` or `cancelled` investigation.
+- **Regression tests:** `tests/security/test_cancellation_races.py` (7):
+  - cancel before claim → execution refused, nothing executed;
+  - cancel during execution → 409 and the effect completes;
+  - concurrent cancel vs. execute across a two-sided timing sweep (10 rounds; both orders are forced at the
+    extremes) → never both cancelled and executed;
+  - crash between claim and effect → retry executes once, and cancellation is refused meanwhile;
+  - token expiry after execution → replay only; an expired token for an unexecuted action is not even claimed;
+  - cancel after completion → 409;
+  - decision accepted before cancel → never delivered; the workflow is not resumed.
+
+  The race test initially required both outcomes from timing alone. That proved flaky under full-suite load,
+  so the sweep was made two-sided rather than the assertion weakened.
+- **Remaining risk:**
+  - An action left `executing` by a crash blocks cancellation until the run is resumed. Resuming re-enters the
+    claim and records a definitive result. This is intentional: the effect may already have happened.
+  - Cross-process cancellation stops the remote task only at its next boundary (see G).
+
+## C0-B gate (Medium findings E–H) — passed
+
+Recorded 2026-11-04 after commits `ace66f4` (E), `6662ff1` (F), `97a248a` (G) and `01a4749` (H):
+
+| Suite | Result |
+|---|---|
+| Full deterministic Python suite (dedicated `opspilot_test` DB) | 158 passed, 3 live skipped (stable across two consecutive runs) |
+| Live-model tests (`--run-live`, qwen3:8b) | 3 passed |
+| Web unit tests (vitest, incl. BFF auth and redaction) | 24 passed |
+| `make lint` (ruff, mypy --strict, import-linter, eslint, tsc) | clean |
+| Migration 0005 | applied to `opspilot_test` and `opspilot`; 0 pre-existing violations, all rows preserved |
+| `opspilot sanitize-secrets` on the dev DB | dry run only: 58 legacy rows found, none modified |
+
+Live agent re-measurement (`make evaluate`) for F is scheduled with C0-E, after the C0-C retrieval and
+plan-scoring changes, so the evaluation is run once against the final behaviour.
+
+*(C0-C to C0-E entries are added as those milestones complete.)*

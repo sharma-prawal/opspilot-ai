@@ -128,6 +128,15 @@ class CommandDispatcher:
         async with self._sf() as s:
             inv = await s.get(OpsInvestigation, cmd.investigation_id)
         snap = await self._graph.aget_state(thread_config(cmd.investigation_id))
+        consumed = ((snap.values or {}).get("approval") or {}).get("action_id") == str(cmd.action_id) or any(
+            x.get("action_id") == str(cmd.action_id) for x in (snap.values or {}).get("executions") or []
+        )
+        if inv is None or inv.status in TERMINAL:  # checked first: never resume a cancelled workflow
+            if consumed:
+                await self.mark_delivered(cmd.id)
+                return "already_consumed"
+            await self._set(cmd.id, status="failed", last_error=f"investigation is {inv.status if inv else 'missing'}")
+            return "investigation_terminal"
         waiting = [i.value for t in snap.tasks for i in (t.interrupts or ())]
         if any(w.get("action", {}).get("action_id") == str(cmd.action_id) for w in waiting):
             resume = dict(cmd.payload)
@@ -148,15 +157,9 @@ class CommandDispatcher:
             )
             _log.info("command_submitted", command_id=str(cmd.id), action_id=str(cmd.action_id))
             return "submitted"
-        consumed = ((snap.values or {}).get("approval") or {}).get("action_id") == str(cmd.action_id) or any(
-            x.get("action_id") == str(cmd.action_id) for x in (snap.values or {}).get("executions") or []
-        )
         if consumed:  # crash after the workflow consumed the decision: record delivery, do nothing else
             await self.mark_delivered(cmd.id)
             return "already_consumed"
-        if inv is None or inv.status in TERMINAL:
-            await self._set(cmd.id, status="failed", last_error=f"investigation is {inv.status if inv else 'missing'}")
-            return "investigation_terminal"
         await self._set(
             cmd.id, status="pending", claimed_at=None, last_error="workflow is not paused on this action yet"
         )

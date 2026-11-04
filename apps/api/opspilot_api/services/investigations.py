@@ -215,8 +215,8 @@ class InvestigationRunner:
     ) -> None:
         async with self._sf() as s:
             inv = await s.get(OpsInvestigation, investigation_id)
-        if inv is None:
-            return
+        if inv is None or inv.status in (InvestigationStatus.COMPLETED.value, InvestigationStatus.CANCELLED.value):
+            return  # a cancelled/completed run is never resumed (e.g. a decision delivered after cancellation)
         if expect_action_id is not None:
             snap = await self._graph.aget_state(config)
             waiting = [i.value for t in snap.tasks for i in (t.interrupts or ())]
@@ -681,20 +681,36 @@ class InvestigationService:
         return inv
 
     async def cancel(self, investigation_id: uuid.UUID, actor: str) -> OpsInvestigation:
+        """Cancel an investigation, revoking requests that have not been claimed for execution.
+
+        The action server's execution claim (``approved -> executing``, under the same row lock) is the
+        non-cancellable boundary: once an action is claimed, cancellation is refused and the run completes,
+        so its effect is always recorded. Decisions are revoked *before* the task is stopped, in one
+        transaction, so an accepted-but-undelivered approval can no longer execute."""
         inv = await self.get(investigation_id)
         if InvestigationStatus(inv.status).terminal:
             raise ConflictError(f"investigation is already {inv.status}")
-        await self.runner.cancel(investigation_id)
         async with self._sf() as s, s.begin():
-            for a in (
-                await s.execute(
-                    select(OpsActionRequest).where(
-                        OpsActionRequest.investigation_id == investigation_id, OpsActionRequest.status == "pending"
+            locked = list(
+                (
+                    await s.execute(
+                        select(OpsActionRequest)
+                        .where(
+                            OpsActionRequest.investigation_id == investigation_id,
+                            OpsActionRequest.status.in_(["pending", "approved", "executing"]),
+                        )
+                        .order_by(OpsActionRequest.id)
+                        .with_for_update()
                     )
+                ).scalars()
+            )
+            if executing := [a for a in locked if a.status == "executing"]:
+                raise ConflictError(
+                    f"action {executing[0].id} is executing; cancellation is not possible past the execution claim"
                 )
-            ).scalars():
+            for a in locked:
                 await repo.transition_action(
-                    s, a.id, ("pending",), status="cancelled", decided_at=utcnow(), decided_by=actor
+                    s, a.id, ("pending", "approved"), status="cancelled", decided_at=utcnow(), decided_by=actor
                 )
                 await repo.audit(
                     s, actor=actor, action="action.cancelled", entity_type="action_request", entity_id=str(a.id)
@@ -704,6 +720,7 @@ class InvestigationService:
             )
             await repo.set_incident_status(s, inv.incident_id, IncidentStatus.OPEN.value)
             await repo.add_event(s, investigation_id, "run_cancelled", None, {"by": actor})
+        await self.runner.cancel(investigation_id)
         return await self.get(investigation_id)
 
     async def reconcile(self, *, expired_leases_only: bool = False) -> dict[str, int]:
