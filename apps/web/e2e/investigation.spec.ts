@@ -14,7 +14,8 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
 
   await page.getByRole("link", { name: "Incidents", exact: true }).click(nav);
   await page.waitForURL("**/incidents");
-  await page.getByRole("button", { name: "Simulate INC-001" }).click(nav);
+  await page.getByLabel("Scenario").selectOption("INC-001");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click(nav);
   await page.waitForURL(/\/incidents\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: /Elevated HTTP 5xx ratio on transaction-api/ })).toBeVisible();
 

@@ -30,7 +30,11 @@ export interface InvestigationResult {
   approval?: { decision: string; decided_by: string; comment?: string; decided_at: string } | null;
   remediation?: { status: string; message: string } | null;
   verification?: { recovered: boolean; notes: string; observed_before?: number; observed_after?: number } | null;
-  rejected_proposals?: { proposal: Record<string, unknown>; reason: string }[];
+  rejected_proposals?: { proposal: Record<string, unknown>; reason: string; category?: string | null }[];
+  remediation_plan?: (ProposedAction & { step: number; role: string; added_by?: string })[];
+  executions?: { step: number; status: string; message: string; action_type: string }[];
+  outcome?: { code: string; summary: string; escalate: boolean; escalate_to?: string | null; reason: string;
+              actions_executed: number; steps_planned: number } | null;
   window?: Record<string, string>;
   errors?: { node: string; error_class: string; message: string }[];
 }

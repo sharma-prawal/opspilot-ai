@@ -11,23 +11,26 @@ stateDiagram-v2
   intake --> plan
   plan --> dispatch
   dispatch --> telemetry: next task = telemetry
-  dispatch --> changes: next task = changes
   dispatch --> dependencies: next task = dependencies
+  dispatch --> changes: next task = changes
   dispatch --> knowledge: next task = knowledge
   dispatch --> rca: queue empty or budget exhausted
   telemetry --> dispatch
-  changes --> dispatch
   dependencies --> dispatch
+  changes --> dispatch
   knowledge --> dispatch
   rca --> followup: low confidence and gaps and rounds left
   followup --> dispatch
-  rca --> propose: valid remediation proposed
-  rca --> report: no actionable remediation
+  rca --> propose: model proposed a plan
+  rca --> report: empty plan (no action / escalate)
   rca --> failed: RCA could not be produced
-  propose --> await_approval
-  await_approval --> execute: approved
-  await_approval --> report: rejected / cancelled
-  execute --> verify
+  propose --> await_approval: >=1 step passed validation
+  propose --> report: all steps blocked by safety gates
+  await_approval --> execute: approved (signed token)
+  await_approval --> report: rejected / expired
+  execute --> advance: step succeeded and more steps
+  advance --> await_approval: next step needs its own approval
+  execute --> verify: last step done or a step failed
   verify --> report
   report --> [*]
   failed --> [*]
@@ -40,17 +43,17 @@ stateDiagram-v2
 | `intake` | Load incident, establish time window | no | `get_incident` |
 | `plan` | **Supervisor**: classify incident, choose capabilities and order | yes (1 call) | — |
 | `dispatch` | Router: pop next task from queue; enforce budgets | no | — |
-| `telemetry` | **Telemetry agent**: error-rate anomaly + onset detection, log signature clustering, health | no | `query_metrics`, `search_logs`, `get_service_health` |
+| `telemetry` | **Telemetry agent**: discovers the service's metrics, unit-aware bidirectional shift detection (with recovered flag), log clustering, health; records tool outages as evidence gaps | no | `list_service_metrics`, `query_metrics`, `search_logs`, `get_service_health` |
 | `changes` | **Change agent**: deployments/config changes, temporal correlation scoring | no | `list_recent_deployments`, `get_config_changes` |
-| `dependencies` | Downstream health and error rates | no | `get_service_dependencies`, `get_service_health`, `query_metrics` |
+| `dependencies` | Runtime config, downstream health, datastore capacity, queue state | no | `get_service_dependencies`, `get_service_config`, `get_service_health`, `get_datastore_status`, `inspect_queue` |
 | `knowledge` | **Knowledge agent**: hybrid retrieval over runbooks and past incidents, cited chunks | no | `search_runbooks`, `get_historical_incidents` |
 | `rca` | **RCA agent**: ranked hypotheses, evidence gaps, follow-ups, remediation choice | yes (1 call per round) | — |
 | `followup` | Translate LLM-requested follow-ups into queued tasks (bounded rounds) | no | — |
-| `propose` | Validate remediation against the catalogue and evidence; derive stable action ID | no | — |
+| `propose` | Validate each plan step against evidence and safety gates; canonical order; derive stable action IDs | no | — |
 | `await_approval` | `interrupt()` with the exact action; validate the resume payload | no | — |
-| `execute` | Call approval-gated sandbox action | no | `execute_remediation` (action server) |
-| `verify` | Compare post-action error rate against SLO threshold | no | `query_metrics`, `get_service_health` |
-| `report` | Render RCA markdown + structured result from state | no | — |
+| `execute` / `advance` | Execute one approved step; advance to the next step (which needs its own approval) | no | `execute_remediation` (action server) |
+| `verify` | Every unrecovered anomalous metric must return within 25% of its excursion from baseline | no | `query_metrics` |
+| `report` | Deterministic outcome + escalation; render RCA markdown from state | no | — |
 
 Deterministic analysis runs as plain code — the LLM is used where judgement is needed
 (classification/planning and hypothesis ranking/remediation choice), not to re-describe numbers.
@@ -124,3 +127,38 @@ The resume value must reference the same action ID and parameter hash or the nod
   (exposed as `POST /api/v1/investigations/{id}/resume`).
 - `tests/integration/test_checkpoint_resume.py` builds a graph, runs it to the interrupt, discards
   the graph and the connection pool, rebuilds both, and resumes from Postgres.
+
+## Remediation plans and safety gates
+
+The RCA model returns an ordered plan of 0–4 catalogue steps. `propose` admits a step only if it passes
+generic, evidence-based rules (`packages/agents/opspilot_agents/remediation.py`); none of them names a
+scenario:
+
+| Gate | Rule |
+|---|---|
+| Impact | No remediation when the alerting service has no unrecovered anomaly (computed, not model-reported) |
+| Evidence | Deployment IDs, services, queues and error codes must appear in collected evidence |
+| Correlation | A rollback target must correlate with the onset (≥ 0.3) |
+| Ambiguity | Refuse a rollback when another change is within 0.15 correlation (≥ 0.5): a human must discriminate |
+| Causal consistency | Refuse reverting X when ≥ 80% of X's errors blame a different, unhealthy, unchanged dependency |
+| Capacity | Pool changes must keep replicas × pool + other clients ≤ 90% of usable datastore connections, ≤ 2× per step, and capacity evidence must exist |
+| Abnormality | Restart / pause targets must themselves show abnormal evidence |
+| Shape | Canonical containment → resolution → recovery; restart/pool-scale dropped when the plan reverts the cause; a paused consumer is always resumed (policy-added step, separately approved) |
+
+Rejected steps are recorded with a category (`invalid`, `unsafe`, `insufficient_evidence`, `unwarranted`).
+
+## Outcomes
+
+`report` classifies every run deterministically: `mitigated`, `not_recovered`, `remediation_failed`,
+`remediation_rejected`, `approval_expired`, `no_action_required`, `proposal_blocked`, `escalated`,
+`inconclusive`, `no_action_proposed`, `failed`. All except `mitigated` and `no_action_required` set
+`escalate=true` and render an Escalation section. The incident becomes `mitigated` / `resolved` /
+stays `open` accordingly.
+
+## Resilience
+
+- MCP sessions are owned by a supervisor task (`SupervisedMcpGateway`): transport failures trigger bounded
+  reconnection with backoff and one retry of the call (safe: reads are idempotent, execution is idempotent per
+  action ID); exhaustion fails fast and readiness turns red.
+- Approval requests expire (`APPROVAL_REQUEST_TTL_SECONDS`): refused at decision time and swept every 60 s;
+  the run resumes into the report with outcome `approval_expired`.

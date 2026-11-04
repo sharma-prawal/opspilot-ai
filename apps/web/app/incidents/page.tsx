@@ -11,7 +11,7 @@ export default function IncidentsPage() {
   const q = useQuery({ queryKey: ["incidents"], queryFn: api.incidents, refetchInterval: 5000 });
   return (
     <>
-      <PageHeader title="Incidents" subtitle="Incidents raised in simulated environments." actions={<SimulateButton />} />
+      <PageHeader title="Incidents" subtitle="Incidents raised in simulated environments." actions={<SimulateButton picker />} />
       <ErrorNote error={q.error} />
       <Card>
         {q.data?.length ? (

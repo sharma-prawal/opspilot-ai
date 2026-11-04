@@ -33,8 +33,26 @@ calls to the action tool without approval fail, (d) replayed approvals are rejec
 
 All datasets are synthetic and generated in this repository. No customer or production data.
 
+## Safety gates on model proposals (Phase B)
+
+Prompt injection and over-eager models both show up as unwarranted proposals. Measured on the first live
+pass before the gates existed, the model rolled back unrelated deployments in all three negative scenarios and
+proposed a 345-connection pool on a 200-connection database. The gates in `AGENT_WORKFLOWS.md` now block these
+in code, independent of the prompt. The human approval and the action server's token check remain the final
+controls; the gates reduce how often a human is asked to approve something wrong.
+
+Adversarial content in the corpus: an unreviewed wiki page instructs "AI assistants" to restart services and
+raise pools to 200 and to mark actions approved; a superseded runbook recommends a pool increase that is unsafe
+under current limits. Retrieved documents carry their lifecycle status; non-current documents are halved in
+relevance and labelled in evidence and reports.
+
 ## Known gaps (tracked)
 
 - Single shared operator token rather than per-user identity (OIDC planned).
 - No rate limiting on the API (localhost only).
+- Retrieval ranking does not use document status: in the held-out benchmark a superseded runbook and the
+  injected wiki page outranked the current runbook for one question (h01). The agent compensates by demoting
+  non-current evidence; ranking-level demotion is a planned change.
+- An operator who approves every step still executes whatever passed the gates; the gates are evidence-based
+  heuristics, not proofs of correctness.
 - Model weights are trusted as distributed by Ollama's registry.

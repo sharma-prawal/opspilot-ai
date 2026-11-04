@@ -168,6 +168,16 @@ export function InvestigationView() {
         </div>
       )}
       {v?.error && <p className="mb-4 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">[{v.error_class}] {v.error}</p>}
+      {v?.result?.outcome && (
+        <div role="status" className={`mb-4 rounded-lg border px-4 py-3 ${v.result.outcome.escalate ? "border-warn/40 bg-warn-soft" : "border-success/40 bg-success-soft"}`}>
+          <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            Outcome <StatusBadge status={v.result.outcome.code} />
+            <span className="text-muted font-normal">{v.result.outcome.summary}</span>
+            {v.result.outcome.escalate && <Badge tone="warn">human follow-up required{v.result.outcome.escalate_to ? ` · ${v.result.outcome.escalate_to}` : ""}</Badge>}
+          </div>
+          {v.result.outcome.escalate && <p className="mt-1 text-sm">{v.result.outcome.reason}</p>}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -210,11 +220,33 @@ export function InvestigationView() {
           </Card>
 
           <Card title="Remediation">
+            {!!v?.result?.remediation_plan?.length && (
+              <ol className="mb-4 flex flex-wrap gap-1.5" aria-label="Remediation plan">
+                {v.result.remediation_plan.map((p) => {
+                  const done = v.result?.executions?.find((x) => x.step === p.step);
+                  return (
+                    <li key={p.step} className="rounded-md border border-border px-2 py-1 text-xs">
+                      <span className="tabular-nums text-muted">{p.step}.</span> <span className="font-mono">{p.action_type}</span>{" "}
+                      <Badge>{p.role}</Badge>{p.added_by === "policy" && <Badge tone="info">policy-added</Badge>}{" "}
+                      {done ? <StatusBadge status={done.status} /> : <span className="text-muted">pending</span>}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            {!!v?.result?.rejected_proposals?.length && (
+              <ul className="mb-3 space-y-1 text-xs">
+                {v.result.rejected_proposals.map((r, i) => (
+                  <li key={i} className="text-muted">
+                    <Badge tone={r.category === "unsafe" ? "danger" : "warn"}>blocked{r.category ? `: ${r.category}` : ""}</Badge>{" "}
+                    <span className="font-mono">{String(r.proposal.action_type)}</span> — {r.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
             {actions.data?.length ? (
               <div className="space-y-4">{actions.data.map((a) => <ApprovalCard key={a.id} action={a} />)}</div>
-            ) : v?.result?.rejected_proposals?.length ? (
-              <ul className="text-sm">{v.result.rejected_proposals.map((r, i) => <li key={i}>Model proposal blocked by policy: {r.reason}</li>)}</ul>
-            ) : <Empty>No remediation proposed yet.</Empty>}
+            ) : v?.result?.rejected_proposals?.length ? null : <Empty>No remediation proposed.</Empty>}
           </Card>
 
           <Card title={`Evidence (${evidence.data?.length ?? 0})`}>

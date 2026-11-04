@@ -23,6 +23,9 @@ const STATUS_TONE: Record<string, Tone> = {
   queued: "neutral", running: "info", completed: "success", failed: "danger", cancelled: "neutral", interrupted: "warn",
   pending: "warn", approved: "info", rejected: "neutral", executing: "info", succeeded: "success",
   ok: "success", error: "danger", timeout: "danger", healthy: "success", degraded: "warn", unhealthy: "danger",
+  expired: "neutral", no_action_required: "success", escalated: "warn", proposal_blocked: "warn",
+  inconclusive: "warn", no_action_proposed: "warn", remediation_rejected: "neutral", approval_expired: "neutral",
+  not_recovered: "danger", remediation_failed: "danger",
 };
 
 export function statusTone(status: string | null | undefined): Tone {
