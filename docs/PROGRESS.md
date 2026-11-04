@@ -87,3 +87,18 @@ See `README.md` → Repository layout. Key entry points: `apps/api/opspilot_api/
 `services/investigations.py`; `packages/agents/opspilot_agents/graph.py`, `nodes.py`; `packages/mcp/opspilot_mcp/*_server.py`;
 `packages/rag/opspilot_rag/ingest.py`, `retrieval.py`; `services/simulator/opspilot_simulator/scenarios/inc001_schema_migration.py`;
 `apps/web/app/investigations/[id]/view.tsx`.
+
+## Status — 2026-11-04, Phase B session (interrupted by usage limit)
+
+Done:
+- **B0:** release audit (no secrets, personal paths or client data; machine inventory redacted). CI actions are SHA-pinned with a read-only token. Public repo `sharma-prawal/opspilot-ai`; first CI run passed; **v0.1.0** tagged and released. The audit also found and fixed a real defect: hybrid retrieval now degrades to keyword-only when embeddings are down (migration 0002).
+- **B1/B2 (code):** INC-002, INC-003, NEG-001/002/003 implemented; 4 new MCP read tools; multi-step approved plans; evidence-based safety gates; outcomes with escalation; approval-request expiry and a sweeper (migration 0003). Commits `9f1ee66`, `a20e8e2`, `aa184ea`.
+- **Tests:** 89 deterministic tests pass; ruff, mypy --strict and import-linter are clean.
+- **Live single-run check (qwen3:8b, one run each, not an evaluation):** INC-001/002/003 → mitigated (the INC-002 unsafe pool increase was blocked); NEG-001 → no_action_required; NEG-002/NEG-003 → proposal_blocked, with no action executed.
+
+Not done (next session, in order):
+1. Push-triggered CI for these commits: check the result (`gh run list`).
+2. Unit/API tests for expiry/sweeper, the BackendUnavailable tool fault and INC-002/003 simulator effects; a doc update for D24–D30 (gates, plan loop, deterministic impact, onset fix).
+3. B3: held-out retrieval set, multi-scenario agent eval with ground truth files (INC-002/003, NEG-*), BASELINE regeneration.
+4. B4: MCP session supervision/reconnect plus resilience tests (MCP kill, duplicate resume/approval, expiry).
+5. B5: UI outcome/plan display, README/architecture/security docs, screenshots, roadmap.
