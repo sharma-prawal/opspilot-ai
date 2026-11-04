@@ -8,6 +8,7 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch: # manual re-run (e.g. if a push event was dropped)
 
 permissions:
   contents: read # least privilege: the workflow only reads the repository
