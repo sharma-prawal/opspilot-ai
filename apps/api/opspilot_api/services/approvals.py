@@ -11,13 +11,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from langgraph.types import Command
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opspilot_api import repositories as repo
+from opspilot_api.services.commands import CommandDispatcher, enqueue_decision
 from opspilot_api.services.investigations import InvestigationRunner, thread_config
-from opspilot_shared.approvals import action_params_hash, issue_token
+from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.config import Settings
 from opspilot_shared.db.models import OpsActionRequest
 from opspilot_shared.domain.actions import ApprovalDecisionKind
@@ -35,11 +35,13 @@ class ApprovalService:
         runner: InvestigationRunner,
         graph: Any,
         settings: Settings,
+        dispatcher: CommandDispatcher | None = None,
     ) -> None:
         self._sf = session_factory
         self._runner = runner
         self._graph = graph
         self._s = settings
+        self._dispatcher = dispatcher or CommandDispatcher(session_factory, runner, graph, settings)
 
     async def list(self, status: str | None = "pending") -> list[OpsActionRequest]:
         stmt = select(OpsActionRequest).order_by(OpsActionRequest.requested_at.desc()).limit(100)
@@ -114,26 +116,33 @@ class ApprovalService:
                 "await_approval",
                 {"action_id": str(action_id), "decision": decision.value, "decided_by": decided_by},
             )
-
-        resume: dict[str, Any] = {
-            "action_id": str(action_id),
-            "params_hash": row.params_hash,
-            "decision": decision.value,
-            "decided_by": decided_by,
-            "comment": comment,
-            "decided_at": decided_at.isoformat(),
-        }
-        if decision is ApprovalDecisionKind.APPROVE:
-            resume["approval_token"] = issue_token(
-                self._s.action_signing_key.get_secret_value(),
+            # Same transaction: the decision and its delivery intent commit atomically (outbox, audit H3).
+            await enqueue_decision(
+                s,
+                investigation_id=row.investigation_id,
                 action_id=action_id,
-                params_hash=row.params_hash,
-                approved_by=decided_by,
-                ttl_seconds=self._s.approval_token_ttl_seconds,
+                payload={
+                    "action_id": str(action_id),
+                    "params_hash": row.params_hash,
+                    "decision": decision.value,
+                    "decided_by": decided_by,
+                    "comment": comment,
+                    "decided_at": decided_at.isoformat(),
+                },
             )
-        self._runner.submit(row.investigation_id, Command(resume=resume))
+
+        await self._deliver(action_id)
         _log.info("approval_decided", action_id=str(action_id), decision=decision.value, decided_by=decided_by)
         return await self.get(action_id)
+
+    async def _deliver(self, action_id: uuid.UUID) -> None:
+        """Best-effort immediate delivery. The decision is already durable; failures are retried by the
+        dispatcher (periodic sweep and start-up reconciliation), so they must not fail the request."""
+        try:
+            outcome = await self._dispatcher.deliver_for_action(action_id)
+            _log.info("decision_delivery", action_id=str(action_id), outcome=outcome)
+        except Exception as exc:
+            _log.warning("decision_delivery_deferred", action_id=str(action_id), error=str(exc))
 
     def _is_stale(self, row: OpsActionRequest) -> bool:
         return (utcnow() - row.requested_at).total_seconds() > self._s.approval_request_ttl_seconds
@@ -166,20 +175,20 @@ class ApprovalService:
                 "await_approval",
                 {"action_id": str(row.id), "reason": reason},
             )
-        if not self._runner.is_active(row.investigation_id):
-            self._runner.submit(
-                row.investigation_id,
-                Command(
-                    resume={
-                        "action_id": str(row.id),
-                        "params_hash": row.params_hash,
-                        "decision": "expired",
-                        "decided_by": "system",
-                        "comment": reason,
-                        "decided_at": utcnow().isoformat(),
-                    }
-                ),
+            await enqueue_decision(
+                s,
+                investigation_id=row.investigation_id,
+                action_id=row.id,
+                payload={
+                    "action_id": str(row.id),
+                    "params_hash": row.params_hash,
+                    "decision": "expired",
+                    "decided_by": "system",
+                    "comment": reason,
+                    "decided_at": utcnow().isoformat(),
+                },
             )
+        await self._deliver(row.id)
         return True
 
     async def expire_stale(self) -> int:

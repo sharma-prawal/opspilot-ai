@@ -13,6 +13,7 @@ from opspilot_agents.ports import ToolGateway
 from opspilot_api.checkpointing import checkpointer_pool
 from opspilot_api.container import Infrastructure
 from opspilot_api.services.approvals import ApprovalService
+from opspilot_api.services.commands import CommandDispatcher
 from opspilot_api.services.incidents import IncidentService
 from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
 from opspilot_mcp.gateway import Profile, connect_gateway
@@ -43,6 +44,7 @@ class AppRuntime:
     incidents: IncidentService
     investigations: InvestigationService
     approvals: ApprovalService
+    dispatcher: CommandDispatcher
 
     @classmethod
     @asynccontextmanager
@@ -67,6 +69,9 @@ class AppRuntime:
                 )
                 graph = build_graph(deps, saver, node_timeout_seconds=settings.llm_timeout_seconds * 2)
                 runner = InvestigationRunner(infra.session_factory, graph, settings.max_concurrent_investigations)
+                dispatcher = CommandDispatcher(infra.session_factory, runner, graph, settings)
+                investigations = InvestigationService(infra.session_factory, runner, graph, settings.llm_model)
+                investigations.dispatcher = dispatcher
                 rt = cls(
                     settings,
                     infra,
@@ -75,8 +80,9 @@ class AppRuntime:
                     graph,
                     runner,
                     IncidentService(infra.session_factory),
-                    InvestigationService(infra.session_factory, runner, graph, settings.llm_model),
-                    ApprovalService(infra.session_factory, runner, graph, settings),
+                    investigations,
+                    ApprovalService(infra.session_factory, runner, graph, settings, dispatcher),
+                    dispatcher,
                 )
                 _log.info(
                     "runtime_ready",

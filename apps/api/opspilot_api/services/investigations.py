@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langgraph.types import Command
@@ -57,15 +58,27 @@ class InvestigationRunner:
         self._graph = graph
         self._sem = asyncio.Semaphore(max_concurrency)
         self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
+        self._shutting_down = False
 
     def is_active(self, investigation_id: uuid.UUID) -> bool:
         t = self._tasks.get(investigation_id)
         return t is not None and not t.done()
 
-    def submit(self, investigation_id: uuid.UUID, graph_input: Any) -> None:
+    def submit(
+        self,
+        investigation_id: uuid.UUID,
+        graph_input: Any,
+        *,
+        on_success: Callable[[uuid.UUID], Awaitable[None]] | None = None,
+        command_id: uuid.UUID | None = None,
+    ) -> None:
+        """Start a graph segment. ``on_success(command_id)`` runs only after the segment's results are persisted."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
-        task = asyncio.create_task(self.run(investigation_id, graph_input), name=f"investigation-{investigation_id}")
+        task = asyncio.create_task(
+            self.run(investigation_id, graph_input, on_success=on_success, command_id=command_id),
+            name=f"investigation-{investigation_id}",
+        )
         self._tasks[investigation_id] = task
         task.add_done_callback(lambda _t: self._tasks.pop(investigation_id, None))
 
@@ -77,6 +90,8 @@ class InvestigationRunner:
         return False
 
     async def shutdown(self) -> None:
+        # Shutdown interrupts runs (resumable); it is not an operator cancellation (terminal).
+        self._shutting_down = True
         for t in list(self._tasks.values()):
             t.cancel()
         await asyncio.gather(*self._tasks.values(), return_exceptions=True)
@@ -86,7 +101,21 @@ class InvestigationRunner:
         if t:
             await asyncio.shield(t)
 
-    async def run(self, investigation_id: uuid.UUID, graph_input: Any) -> None:
+    async def finalize(self, investigation_id: uuid.UUID) -> None:
+        """Persist the final application state of a graph that has already finished (crash recovery)."""
+        async with self._sf() as s:
+            inv = await s.get(OpsInvestigation, investigation_id)
+        if inv is not None:
+            await self._finish_segment(investigation_id, inv.incident_id, thread_config(investigation_id))
+
+    async def run(
+        self,
+        investigation_id: uuid.UUID,
+        graph_input: Any,
+        *,
+        on_success: Callable[[uuid.UUID], Awaitable[None]] | None = None,
+        command_id: uuid.UUID | None = None,
+    ) -> None:
         config = thread_config(investigation_id)
         async with self._sem:
             async with self._sf() as s:
@@ -122,10 +151,20 @@ class InvestigationRunner:
                     ):
                         await self._persist(investigation_id, incident_id, mode, chunk)
                     await self._finish_segment(investigation_id, incident_id, config)
+                    if on_success is not None and command_id is not None:
+                        await on_success(command_id)
                 except asyncio.CancelledError:
-                    await self._mark(
-                        investigation_id, InvestigationStatus.CANCELLED, "cancelled by operator", "cancelled"
-                    )
+                    if self._shutting_down:
+                        await self._mark(
+                            investigation_id,
+                            InvestigationStatus.INTERRUPTED,
+                            "process shutting down; resumable from checkpoint",
+                            "interrupted",
+                        )
+                    else:
+                        await self._mark(
+                            investigation_id, InvestigationStatus.CANCELLED, "cancelled by operator", "cancelled"
+                        )
                     raise
                 except Exception as exc:
                     error_class = exc.error_class if isinstance(exc, OpsPilotError) else type(exc).__name__
@@ -138,7 +177,12 @@ class InvestigationRunner:
         async with self._sf() as s, s.begin():
             inv = await s.get(OpsInvestigation, investigation_id)
             await repo.set_investigation(
-                s, investigation_id, status=status.value, error=error, error_class=error_class, completed_at=utcnow()
+                s,
+                investigation_id,
+                status=status.value,
+                error=error,
+                error_class=error_class,
+                completed_at=utcnow() if status.terminal else None,
             )
             await repo.add_event(
                 s, investigation_id, "run_" + status.value, None, {"error": error, "error_class": error_class}
@@ -203,21 +247,24 @@ class InvestigationRunner:
                 status="pending",
             )
             .on_conflict_do_nothing(index_elements=["id"])
+            .returning(OpsActionRequest.id)
         )
-        await s.execute(stmt)  # idempotent: re-running the interrupt never duplicates the request
+        # Idempotent: re-running the interrupt (or reconciling after a restart) never duplicates the request.
+        created = (await s.execute(stmt)).scalar_one_or_none() is not None
         await repo.set_investigation(
             s, investigation_id, status=InvestigationStatus.AWAITING_APPROVAL.value, current_step="await_approval"
         )
         await repo.set_incident_status(s, incident_id, IncidentStatus.AWAITING_APPROVAL.value)
-        await repo.add_event(s, investigation_id, "approval_requested", "await_approval", {"action": action})
-        await repo.audit(
-            s,
-            actor="agent",
-            action="action.requested",
-            entity_type="action_request",
-            entity_id=str(action_id),
-            details=action,
-        )
+        if created:
+            await repo.add_event(s, investigation_id, "approval_requested", "await_approval", {"action": action})
+            await repo.audit(
+                s,
+                actor="agent",
+                action="action.requested",
+                entity_type="action_request",
+                entity_id=str(action_id),
+                details=action,
+            )
 
     async def _on_executed(self, s: AsyncSession, investigation_id: uuid.UUID, rem: dict[str, Any]) -> None:
         action_id = rem.get("action_id")
@@ -365,6 +412,7 @@ class InvestigationService:
         self.runner = runner
         self._graph = graph
         self._model = model_name
+        self.dispatcher: Any = None  # CommandDispatcher, wired by the runtime (avoids an import cycle)
 
     async def start(self, incident_id: uuid.UUID) -> OpsInvestigation:
         async with self._sf() as s, s.begin():
@@ -502,6 +550,12 @@ class InvestigationService:
             raise ConflictError(f"investigation is {inv.status}")
         snap = await self._graph.aget_state(thread_config(investigation_id))
         if any(t.interrupts for t in snap.tasks):
+            # A decision that was accepted but never delivered (crash) is redelivered instead of stranded.
+            pending = await self.dispatcher.pending_for(investigation_id) if self.dispatcher else []
+            if pending:
+                for cmd in pending:
+                    await self.dispatcher.deliver(cmd.id)
+                return inv
             raise ConflictError("investigation is waiting for an approval decision; use the approvals API")
         if not snap.values:
             graph_input: Any = {"investigation_id": str(inv.id), "incident_id": str(inv.incident_id)}
@@ -540,15 +594,64 @@ class InvestigationService:
             await repo.add_event(s, investigation_id, "run_cancelled", None, {"by": actor})
         return await self.get(investigation_id)
 
-    async def mark_orphans_interrupted(self) -> int:
-        """At start-up: runs recorded as running/queued have no live task in this new process."""
-        async with self._sf() as s, s.begin():
+    async def reconcile(self) -> dict[str, int]:
+        """Start-up reconciliation of checkpoints, decisions, executions and application rows (audit H3).
+
+        - finished graph, non-terminal row          -> persist the final state (lost final persistence)
+        - paused on an interrupt                    -> ensure the action request exists, status awaiting_approval
+        - mid-run with an accepted decision pending -> resume from the checkpoint (decision already given)
+        - mid-run otherwise                         -> interrupted (operator resumes explicitly)
+        then deliver every pending / stale delivery command. Idempotent; safe to run repeatedly.
+        """
+        counts: dict[str, int] = {}
+
+        def bump(k: str) -> None:
+            counts[k] = counts.get(k, 0) + 1
+
+        async with self._sf() as s:
             rows = list(
                 (
-                    await s.execute(select(OpsInvestigation).where(OpsInvestigation.status.in_(["running", "queued"])))
+                    await s.execute(
+                        select(OpsInvestigation).where(
+                            OpsInvestigation.status.in_(["queued", "running", "awaiting_approval", "interrupted"])
+                        )
+                    )
                 ).scalars()
             )
-            for r in rows:
-                r.status = InvestigationStatus.INTERRUPTED.value
-                await repo.add_event(s, r.id, "run_interrupted", r.current_step, {"reason": "process restart"})
-        return len(rows)
+        for inv in rows:
+            if self.runner.is_active(inv.id):
+                continue
+            try:
+                snap = await self._graph.aget_state(thread_config(inv.id))
+                interrupts = [i.value for t in snap.tasks for i in (t.interrupts or ())]
+                if snap.values and not snap.next:
+                    await self.runner.finalize(inv.id)
+                    bump("finalized")
+                elif interrupts:
+                    async with self._sf() as s, s.begin():
+                        for value in interrupts:
+                            await self.runner._on_interrupt(s, inv.id, inv.incident_id, value)
+                    bump("awaiting_approval")
+                elif snap.values and self.dispatcher and await self.dispatcher.pending_for(inv.id):
+                    self.runner.submit(inv.id, None)
+                    bump("resumed")
+                elif inv.status in ("running", "queued"):
+                    async with self._sf() as s, s.begin():
+                        await repo.set_investigation(s, inv.id, status=InvestigationStatus.INTERRUPTED.value)
+                        await repo.add_event(
+                            s, inv.id, "run_interrupted", inv.current_step, {"reason": "process restart"}
+                        )
+                    bump("interrupted")
+            except Exception:
+                _log.exception("reconcile_failed", investigation_id=str(inv.id))
+                bump("errors")
+        if self.dispatcher is not None:
+            for k, v in (await self.dispatcher.dispatch_due()).items():
+                counts[f"command_{k}"] = v
+        if counts:
+            _log.info("reconciled", **counts)
+        return counts
+
+    async def mark_orphans_interrupted(self) -> int:
+        """Deprecated: superseded by ``reconcile`` (kept for compatibility with older callers)."""
+        return (await self.reconcile()).get("interrupted", 0)

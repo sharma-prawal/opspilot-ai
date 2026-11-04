@@ -382,6 +382,31 @@ class OpsActionRequest(Base):
     verification: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class OpsWorkflowCommand(Base):
+    """Transactional outbox for workflow commands (audit H3).
+
+    Written in the same transaction as the decision it carries, then delivered at least once to the
+    LangGraph workflow by a claim-based dispatcher. ``action_id`` is the idempotency key: one command per
+    decided action. The approval token is minted at delivery time and never stored here.
+    """
+
+    __tablename__ = "workflow_commands"
+    __table_args__ = (Index("ix_ops_workflow_commands_status", "status", "claimed_at"), {"schema": "ops"})
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ops.investigations.id", ondelete="CASCADE"), index=True
+    )
+    action_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16))  # pending | delivering | delivered | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
+    claimed_at: Mapped[datetime | None] = mapped_column(TZ)
+    delivered_at: Mapped[datetime | None] = mapped_column(TZ)
+
+
 class OpsAuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = {"schema": "ops"}

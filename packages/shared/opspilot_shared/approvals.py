@@ -26,6 +26,7 @@ class ApprovalClaims:
     approved_by: str
     issued_at: int
     expires_at: int
+    expired: bool = False
 
 
 def _b64(data: bytes) -> str:
@@ -51,7 +52,9 @@ def issue_token(
     return f"{_b64(body)}.{_b64(sig)}"
 
 
-def verify_token(key: str, token: str, *, now: int | None = None) -> ApprovalClaims:
+def verify_token(key: str, token: str, *, now: int | None = None, allow_expired: bool = False) -> ApprovalClaims:
+    """Verify signature and expiry. ``allow_expired`` returns signed-but-expired claims flagged ``expired``;
+    callers may use them only to *replay* an already-recorded result, never to authorise a new effect."""
     if len(key) < 16:
         raise ApprovalError("ACTION_SIGNING_KEY is missing or too short")
     try:
@@ -63,9 +66,12 @@ def verify_token(key: str, token: str, *, now: int | None = None) -> ApprovalCla
     if not hmac.compare_digest(sig, expected):
         raise ApprovalError("approval token signature invalid")
     claims = json.loads(body)
-    if int(now if now is not None else time.time()) >= int(claims["exp"]):
+    expired = int(now if now is not None else time.time()) >= int(claims["exp"])
+    if expired and not allow_expired:
         raise ApprovalError("approval token expired")
-    return ApprovalClaims(uuid.UUID(claims["aid"]), claims["ph"], claims["by"], int(claims["iat"]), int(claims["exp"]))
+    return ApprovalClaims(
+        uuid.UUID(claims["aid"]), claims["ph"], claims["by"], int(claims["iat"]), int(claims["exp"]), expired=expired
+    )
 
 
 def action_params_hash(action_type: str, parameters: dict[str, object]) -> str:

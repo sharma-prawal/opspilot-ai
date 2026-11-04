@@ -56,9 +56,10 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AppRuntime.open(settings, chat=chat, gateways=gateways, embedder=embedder) as rt:
-            orphans = await rt.investigations.mark_orphans_interrupted()
-            if orphans:
-                _log.warning("orphaned_investigations_marked_interrupted", count=orphans)
+            # Reconcile checkpoints, decisions and application rows left by a previous process (audit H3).
+            reconciled = await rt.investigations.reconcile()
+            if reconciled:
+                _log.warning("startup_reconciliation", **reconciled)
             app.state.runtime = rt
 
             async def sweep() -> None:  # bounded background maintenance: expire stale approval requests
@@ -66,9 +67,10 @@ def create_app(
                     try:
                         if n := await rt.approvals.expire_stale():
                             _log.warning("approval_requests_expired", count=n)
+                        await rt.dispatcher.dispatch_due()  # retry undelivered decisions (at-least-once)
                     except Exception:
-                        _log.exception("approval_sweep_failed")
-                    await asyncio.sleep(60)
+                        _log.exception("maintenance_sweep_failed")
+                    await asyncio.sleep(15)
 
             sweeper = asyncio.create_task(sweep(), name="approval-sweeper")
             try:

@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     action_signing_key: SecretStr = SecretStr("")
     approval_token_ttl_seconds: int = Field(default=900, ge=30, le=86400)
     approval_request_ttl_seconds: int = Field(default=3600, ge=30, le=7 * 86400)
+    command_lease_seconds: float = Field(default=120.0, gt=0, le=3600)  # redeliver stale in-flight commands
 
     # Observability
     otel_exporter: Literal["none", "console", "otlp"] = "none"

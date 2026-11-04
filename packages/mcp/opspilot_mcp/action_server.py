@@ -58,7 +58,9 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
     ) -> ExecutionOutcome:
         """Execute a previously approved remediation action in the sandbox environment."""
         try:
-            claims = verify_token(key, approval_token)
+            # Signature always required. Expiry is enforced below, after the ledger lookup, so a crash-recovered
+            # workflow can learn the result of an action that already executed (audit suspected risk).
+            claims = verify_token(key, approval_token, allow_expired=True)
         except OpsPilotError as exc:
             _log.warning("action_rejected", action_id=str(action_id), reason=str(exc))
             raise ToolError(f"approval: {exc}") from exc
@@ -71,6 +73,8 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
             raise ToolError("approval: no persisted action request")
         if prior is not None:
             return _outcome(prior, replayed=True)
+        if claims.expired:
+            raise ToolError("approval: approval token expired")
         computed = action_params_hash(req.action_type, req.parameters)
         if req.status != "approved":
             raise ToolError(f"approval: action status is {req.status!r}, not 'approved'")
