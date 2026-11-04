@@ -57,6 +57,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     top = hyps[0]["confidence"] if hyps else 0.0
     impact = impact_state(rca)
     verification = state.get("verification") or {}
+    withheld = [r for r in state.get("rejected_proposals") or [] if r.get("category") == "withheld_uncertain"]
     if state.get("status") == "failed":
         code = "failed"
     elif approval.get("decision") == "expired":
@@ -80,6 +81,8 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         code = "no_action_required"
     elif impact == "unknown":
         code = "impact_unknown"
+    elif withheld:  # a valid plan existed but the diagnosis was too uncertain to propose it
+        code = "inconclusive"
     elif rca.get("remediation_plan") and not plan:
         code = "proposal_blocked"
     elif top < confidence_threshold:
@@ -87,6 +90,8 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     else:
         code = "no_action_proposed"
     reason = esc.get("reason") or OUTCOMES[code]
+    if code == "inconclusive" and withheld:
+        reason = withheld[0]["reason"]
     if code == "impact_unknown":
         reason = "; ".join((rca.get("impact") or {}).get("reasons") or [OUTCOMES[code]])
     return {

@@ -36,6 +36,7 @@ from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_me
 from opspilot_agents.remediation import enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
+from opspilot_agents.uncertainty import uncertainty_reasons
 from opspilot_agents.verification import (
     Condition,
     evaluate_metric,
@@ -81,6 +82,7 @@ class AgentPolicy:
     max_llm_calls: int = 6
     max_rounds: int = 2
     confidence_threshold: float = 0.6
+    ambiguity_margin: float = 0.1  # top-two hypotheses closer than this with disjoint evidence => withheld
     lookback_hours: float = 3.0
     change_horizon_hours: float = 6.0
     recovery_threshold: float = 0.01
@@ -1077,6 +1079,22 @@ class InvestigationNodes:
                 }
                 for p in plan
             ]
+            plan = []
+        uncertain = uncertainty_reasons(
+            state, confidence_threshold=self.p.confidence_threshold, ambiguity_margin=self.p.ambiguity_margin
+        )
+        if plan and uncertain:  # explicit uncertainty policy: never ask for approval of an uncertain diagnosis
+            rejected += [
+                {
+                    "proposal": {k: p[k] for k in ("action_type", "parameters")},
+                    "category": "withheld_uncertain",
+                    "reason": "proposal withheld: " + "; ".join(uncertain),
+                    "uncertainty": uncertain,
+                    "at": _iso(utcnow()),
+                }
+                for p in plan
+            ]
+            _log.info("remediation_withheld", reasons=uncertain, steps=len(plan))
             plan = []
         plan, dropped = enforce_plan_shape(plan)
         rejected += [{**d, "at": _iso(utcnow())} for d in dropped]

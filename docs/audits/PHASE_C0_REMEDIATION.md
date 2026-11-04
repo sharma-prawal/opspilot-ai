@@ -188,4 +188,47 @@ Recorded 2026-11-04 after commits `17ac70d`, `b60a901`, `85ca9d9`, `6bb70f0`:
     including null values) but never rewrites serialized checkpoints, which could corrupt resumable workflows.
   - Redaction is key-based. A secret embedded in free text (for example an exception message) is not detected.
 
+## F — Low confidence and explicit escalation do not prevent proposals (Medium) ✅
+
+- **Reproduction:** reproduced as a unit test on the unmodified code. A hypothesis at confidence 0.1, with
+  `escalation.required = true` and a correlated rollback, routed to `propose` (no follow-ups left) and produced an
+  approvable action.
+- **Root cause:** confidence only selected *follow-up vs. decide*. Once follow-ups were exhausted, any non-empty
+  plan that passed validation went to approval. Escalation was considered only when classifying the outcome.
+- **Change:** an explicit uncertainty policy, `opspilot_agents/uncertainty.py`, applied in `propose` after safety
+  validation and the impact gate.
+  - A validated plan is *withheld* (category `withheld_uncertain`, with the list of reasons) when any of these
+    holds:
+    - no hypothesis was produced;
+    - the top confidence is below `confidence_threshold` (0.6);
+    - the RCA requests escalation;
+    - the top two hypotheses are within `ambiguity_margin` (0.1) and share no supporting evidence;
+    - a tool or model budget was exhausted.
+  - Outcomes: an explicit escalation yields `escalated` (with its owner); any other withheld plan yields
+    `inconclusive`, with the withholding reasons. Both escalate.
+  - **No operator override** in this phase. An uncertain investigation escalates with its evidence, and any
+    action is taken outside the automated path. This is deliberate: an override needs per-user identity and
+    its own audit trail (H1 remaining risk).
+  - Before choosing the thresholds we checked them against the stored Phase B traces. No correctly-mitigated
+    run has a near-tie with disjoint evidence; the closest, INC-002, is 0.95 / 0.85 with shared evidence. The
+    margin comparison is rounded, so a gap of exactly 0.1 is not treated as a tie through float error.
+- **Regression tests:** `tests/unit/test_uncertainty.py` (8). Five fail on the unfixed code:
+  - audit reproduction → `escalated`;
+  - low confidence alone → `inconclusive`;
+  - escalation at high confidence;
+  - competing hypotheses with disjoint evidence;
+  - exhausted budget.
+
+  Three guards pass on both, to keep the policy from over-blocking:
+  - close hypotheses sharing evidence still propose;
+  - the exact-margin boundary is not treated as a tie;
+  - a confident, unambiguous diagnosis still proposes.
+
+  Two plan-shaping fixtures in `test_remediation_validation.py` had no hypothesis at all. They now carry a
+  confident one; the gate itself is tested separately.
+- **Remaining risk:**
+  - Confidence is self-reported by the model. The gate stops uncertain proposals but cannot detect confident
+    errors; the safety validator and human approval remain the controls for those.
+  - Live re-measurement is part of the C0-E `make evaluate` run.
+
 *(Remaining C0-B to C0-E entries are added as those milestones complete.)*
