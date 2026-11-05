@@ -73,13 +73,18 @@ flowchart LR
   assembled every returned document is revalidated against committed rows: a passage whose version no longer exists
   is dropped, labels are replaced by the committed status/tier (`lifecycle_validated: true`), obsolete passages are
   dropped under `exclude_obsolete`, and expansion is withdrawn if its document changed. Each case adds a warning.
-- **Immutable revisions (C0-H1):** a revision is `(document id, version)`. Ingestion publishes one under a
+- **Consistent logical revisions (C0-H1):** a revision is `(document id, version)`. Ingestion publishes one under a
   per-document transaction advisory lock, assigning `committed version + 1` from the row read under that lock (the
   commit is the linearization point; row update and chunk replacement become visible together). Migration 0007 makes the
   database enforce it: a deferred composite FK keeps every committed chunk on its document's current revision, and a
   trigger refuses a content change without a version increase. Each passage carries `document_hash`; expansion and the
   final revalidation require the exact committed revision (version and hash), and one document never appears with two
   revisions in a response. Passages are handed over as value snapshots validated at that final statement.
+  **Scope (independent verification C0-H):** revision identity is *logical source-content* identity, not physical
+  chunk identity. Re-indexing unchanged text with different chunk settings keeps the version and can reuse a chunk
+  ID for a different slice of the same source. The database guards the document's version/hash and chunk
+  membership, not chunk bytes, so a direct chunk `UPDATE` by the trusted owner role (`opspilot_app`) is not refused.
+  Neither happens through supported ingestion or tools; the MCP roles have no knowledge-base write privileges.
 - **Degradation (C0 M):** if embeddings fail, hybrid degrades to keyword-only. `warnings` and
   `effective_mode = keyword` are returned and carried across MCP to the agent.
 - **Citation snapshots (C0 J):** each result carries the full chunk `content` and `content_sha256`. The agent

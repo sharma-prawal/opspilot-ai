@@ -79,3 +79,12 @@ escalation request, competing hypotheses with disjoint evidence, or an exhausted
 - An operator who approves every step still executes whatever passed the gates; the gates are evidence-based
   heuristics, not proofs of correctness. Confidence is self-reported by the model.
 - Model weights are trusted as distributed by Ollama's registry.
+- The application database role (`opspilot_app`) is a trusted schema owner. Ownership fencing and the
+  document-revision constraints stop stale normal application writes and the MCP roles, but not a holder of that
+  credential, who could disable triggers, edit the epoch or rewrite chunk rows (independent verification C0-H).
+- Physical chunk IDs are not immutable: revision identity is logical source content (see RAG pipeline). Citation
+  snapshots remain self-verifying.
+- Operator control-plane writes from a process that has just lost ownership are not fenced; they can be delayed
+  until lease or outbox recovery, without stale execution.
+- Expired approval tokens written to a local development database by versions before v0.2.1 remain until the
+  operator runs `opspilot sanitize-secrets --apply`.

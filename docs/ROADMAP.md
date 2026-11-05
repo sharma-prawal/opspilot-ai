@@ -6,10 +6,15 @@
 |---|---|
 | v0.1.0 | INC-001 end to end: LangGraph workflow with Postgres checkpoints and HITL, MCP read/action servers, hybrid RAG, FastAPI, Next.js UI, CI |
 | v0.2.0 (Phase B) | INC-002, INC-003, NEG-001..003; capacity/queue/config tools; multi-step plans approved per step; evidence-based safety gates; explicit outcomes and escalation; approval expiry; supervised MCP sessions; held-out retrieval set; incident-level evaluation |
-| Phase C0 (branch `hardening/phase-c0`, unreleased) | Remediation of the Codex audit: BFF authentication, tri-state impact, durable decision delivery, complete recovery verification, credential redaction, uncertainty policy, DB-enforced investigation invariant and execution lease, cancellation boundary, lifecycle-aware retrieval, citation snapshots, agent-path retrieval benchmark, stricter plan scoring, MCP degradation warnings, isolated E2E, least-privilege MCP roles, resource bounds. Details: `docs/audits/PHASE_C0_REMEDIATION.md` |
-| Phase C0-F (same branch, unreleased) | Remediation of the independent verification: observed-scope recovery verification with health conditions and metric-specific ranges, atomic admission with durable dispatch and lease fencing, current-runbook section coverage, test-workflow ownership, INC-003 answer-key specification check with occurrence/order-aware scoring. Details: `docs/audits/PHASE_C0_F_REMEDIATION.md` |
-| Phase C0-G (same branch, unreleased) | Remediation of the second independent verification: evidence-complete recovery verification, monotonic terminal states (transition policy + DB trigger), lifecycle-validated retrieval with no superseded guidance in investigations, runtime-enforced single execution owner per database. Details: `docs/audits/PHASE_C0_G_REMEDIATION.md` |
-| Phase C0-H (same branch, unreleased) | Remediation of the third independent verification: immutable, serialized document revisions enforced by the database; explicit runtime lifecycle; epoch-based database fencing of checkpoint writes, runner state writes and remediation claims. Details: `docs/audits/PHASE_C0_H_REMEDIATION.md` |
+| v0.2.1 (Phase C0) | Hardening from the independent audit of v0.2.0 and three rounds of independent re-verification (C0, C0-F, C0-G, C0-H): BFF authentication, credential redaction, least-privilege MCP roles; evidence-complete recovery verification and uncertainty policy; durable decision delivery, monotonic terminal states, cancellation-safe execution claim; atomic admission and resource bounds; single execution owner per database with runtime lifecycle and epoch fencing of checkpoint, runner and remediation-claim writes; lifecycle-aware retrieval, serialized logical document revisions, citation snapshots; agent-path retrieval benchmark and stricter scoring. Conditional independent sign-off; limitations in `docs/releases/V0.2.1_NOTES.md` |
+
+## Phase C1 — starting point
+
+Phase C1 begins from `main` at v0.2.1. Its first milestone is the item that blocks every stronger claim:
+**an unseen incident scenario set authored and sealed by someone other than the author of the gates and labels**,
+evaluated once against the frozen v0.2.1 behaviour before any agent or gate change. That gives an out-of-sample
+baseline for the safety gates and the raw model planner. Planner robustness work and multi-worker readiness follow
+it and are measured against the same sealed set.
 
 ## Planned
 
@@ -19,6 +24,8 @@
 | P1 | An unseen scenario set authored and sealed by someone other than the author of the gates and labels (deployment and non-deployment cases, including cases where rollback is wrong) | The gates were designed after observing failures on the current scenarios; C0-F has no novel-case measurement |
 | P1 | Planner robustness: bounded, typed, catalogue-only candidates recorded in shadow mode first, eligible only with an explicit causal-change link plus mechanism evidence (never "any correlated, cited deployment"), evaluated on the unseen set before enabling | INC-002 diagnosis/plan inconsistency. The independent audit showed "offer the rollback of a correlated, cited deployment" is unsafe as a general rule (NEG-002 cites an unrelated deploy) |
 | P1 | Multi-worker readiness: a DB-enforced global admission budget; fencing tokens through the checkpointer; stale-owner pause/takeover/resume tests | C0-F2 admission and fencing are per process; LangGraph checkpoint writes are not fenced; C0-G4 therefore enforces one execution owner per database |
+| P2 | Separate the schema-owner (migration) role from the runtime application role | C0-H independent verification: `opspilot_app` owns the epoch and checkpoint tables, so fencing is not tamper-resistant against the runtime credential |
+| P2 | Physical chunk-generation identity (or archived immutable revisions) | C0-H independent verification: revision identity is logical; re-chunking unchanged text can reuse a chunk ID/version, and chunk bytes are not database-guarded |
 | P2 | Raw model-plan scoring that binds or evidence-validates every target parameter | Independent audit R6: `model_plan_acceptable` is partial pattern conformance (INC-003's key binds no rollback service or queue) |
 | P2 | Owner-scoped test cleanup and terminal-row/checkpoint retention | C0-F4 isolation is temporal on an exclusively used test DB; terminal rows accumulate |
 | P1 | Per-service SLO definitions for recovery verification | C0-F1 residual limits are conservative defaults, not SLOs |

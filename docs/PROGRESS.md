@@ -224,6 +224,32 @@ API/web restarted on the new code.
 
 **Next:** final independent verification. Merge, tag `v0.2.1` and publish only with authorisation. Phase C1 not started.
 
+## Status — 2026-11-05, v0.2.1 release preparation (Phase C0 closure)
+
+**Input:** final independent Codex verification of `de879a2`. Verdict **CONDITIONAL**: H1/H2 verified closed, no
+supported-path release blocker. Two claim qualifications apply: physical chunk IDs are not immutable (revision
+identity is logical), and the `opspilot_app` owner credential is trusted. Artifacts are preserved verbatim in
+`docs/audits/PHASE_C0_H_INDEPENDENT_*`. Decision D64.
+
+**Release documentation:**
+- `docs/releases/V0.2.1_NOTES.md` finalized with the nine disclosed limitations;
+- README brought in line with it (capabilities, v0.2.1 numbers, Limitations section);
+- the RAG, deployment and security pages scoped to the audit's qualifications;
+- ROADMAP: v0.2.1 row and the Phase C1 starting point.
+
+**Verified by execution (code unchanged since `2116ef1`; documentation-only commits since):**
+- `make lint` clean;
+- `make test`: 304 passed + 3 live skipped, and 30 web tests;
+- `make doctor` ✓, migrations at head `0008` on the dev and test DBs;
+- secret scan of every commit since `main` and the new audit artifacts: no `.env` value, approval token, key or
+  home path found.
+
+The full LLM evaluation was not re-run, because no code changed. The official results are `history/phase-c0h-2116ef1/`.
+
+**Publication plan:** push `hardening/phase-c0`, open a PR to `main`, and wait for CI and the owner's approval.
+Then merge with a merge commit, tag `v0.2.1` on the verified `main` commit and publish the GitHub release. The
+closure record is added after publication.
+
 ## Status — 2026-11-05, end of Phase C0-G (second independent audit remediation)
 
 **Input:** second independent Codex verification of `5079b72` (verdict FAIL), preserved verbatim in `docs/audits/`

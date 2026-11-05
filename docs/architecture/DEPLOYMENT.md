@@ -45,8 +45,13 @@ are process-local, so OpsPilot enforces a single execution owner at runtime rath
   execution synchronously and the API exits.
 - **Write fencing (C0-H2):** each new owner increments `ops.execution_owner.epoch`; checkpoint writes (database trigger),
   runner state writes and remediation claims carry the owner's `(epoch, lock pid)` and are refused once the owner is
-  stale or its lock session is gone. A takeover waits for in-flight fenced writes, so old and new owners' writes never
-  interleave.
+  stale or its lock session is gone. A takeover waits for in-flight fenced writes, so for these writes the old and new
+  owners never interleave. **Scope:** the fence covers normal application writes and the unprivileged MCP roles. The
+  application role `opspilot_app` owns the epoch and checkpoint tables, so it is a trusted schema administrator that
+  could disable the triggers; the fence is not tamper-proof against that credential. Operator control-plane writes
+  (start, cancel, decide) are not fenced: a process that has just lost ownership can still commit them, and they are
+  picked up by the new owner after lease/outbox recovery (up to the run lease of 60 s or the command lease of 120 s,
+  plus sweep timing). Independent verification found delay but no stale execution.
 - **Upgrades:** stop the API before `make migrate` when upgrading to 0008 — the new checkpoint trigger refuses writes from
   a running pre-0008 API (by design). Then `make db-roles` (grants the fence to the action role) and `make dev`.
 

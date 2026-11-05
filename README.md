@@ -8,6 +8,9 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
+> **Status: v0.2.1, experimental, local-first.** Remediation acts only on a deterministic simulator. Run one API
+> worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
             │  supervisor plan            (logs, metrics, deploys, deps, health)
@@ -22,31 +25,68 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Area | State |
 |---|---|
 | Native Ollama (`qwen3:8b`, `qwen3-embedding:0.6b`), embedding dim verified = 1024 | ✅ |
-| PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0005), LangGraph Postgres checkpoints | ✅ |
+| PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0008), LangGraph Postgres checkpoints | ✅ |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
+| Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
 | Two MCP servers over stdio (13 read tools, 2 action tools), supervised sessions with bounded reconnection | ✅ |
 | LangGraph workflow: supervisor plan, evidence-driven routing, RCA, **multi-step plans approved step by step**, verification, deterministic **outcomes and escalation** | ✅ |
 | Evidence-based safety gates on model proposals (impact, correlation, ambiguity, causal consistency, capacity, abnormality, plan shape) | ✅ |
 | Backend-enforced approvals: operator token on every mutation, params-hash binding, CAS transitions, HMAC token re-verified by the executor, row-locked execution claim (non-cancellable boundary), idempotent execution, request expiry, **crash-safe decision delivery** (transactional outbox) | ✅ |
-| Signed-in operator UI (session, CSRF, roles), central credential redaction, least-privilege MCP database roles, bounded resources | ✅ (Phase C0) |
+| Signed-in operator UI (session, CSRF, roles), central credential redaction, least-privilege MCP database roles, bounded resources | ✅ (v0.2.1) |
+| Evidence-complete recovery verification (tri-state impact, observed-incident scope, `verification_incomplete`), uncertain plans withheld | ✅ (v0.2.1) |
+| Monotonic terminal states, cancellation-safe execution claim, atomic admission (HTTP 429, nothing persisted) | ✅ (v0.2.1) |
+| Single execution owner per database (advisory lock, runtime lifecycle) with epoch fencing of checkpoint writes, runner writes and remediation claims | ✅ (v0.2.1) |
 | Workflow survives API restart; MCP child crash recovered transparently | ✅ |
 | FastAPI (26 endpoints) and Next.js 16 operator UI (outcome, plan, blocked proposals, evidence, timeline, report) | ✅ |
-| Tests: 180 deterministic + 30 web unit + 3 live-model + isolated Playwright e2e (own API on `opspilot_test`, identity-checked); ruff, mypy `--strict`, import-linter; CI on every push | ✅ |
+| Tests: 304 deterministic + 30 web unit + 3 live-model + isolated Playwright e2e (own API on `opspilot_test`, identity-checked); ruff, mypy `--strict`, import-linter; CI on every push | ✅ |
 | Held-out retrieval set and incident-level evaluation across all scenarios with retained traces | ✅ |
 
-Headline measurements: Phase C0 evaluation, 13 live runs over six scenarios, approving every step; details,
-per-scenario tables and caveats in BASELINE and the C0 remediation record. **Safety:** 0 unsafe, forbidden or
-unauthorized actions executed; 0 approval bypasses; false-positive remediation rate 0; citation validity 1.0.
-**End-to-end outcome accuracy:** 12/13. **Known regression:** INC-002 was mitigated in 1 of 2 runs (Phase B: 2 of 2).
-An ablation attributes this to the corrected lifecycle-aware retrieval changing the model's context; the failing
-runs were blocked and escalated, never executed. **Model weaknesses:** in NEG-002 the model blames the unrelated
-deployment, and it proposes an action in every negative scenario; the deterministic gates, not the model, prevent
-execution. Held-out retrieval: hybrid Recall@5 0.972. On the agent's actual path, a relevant passage reached the RCA
-prompt for every held-out question (MRR 0.605).
+Headline measurements come from the v0.2.1 evaluation: `qwen3:8b`, temperature 0, 13 live runs over six
+scenarios. Details, per-scenario tables and caveats are in BASELINE and the
+[release notes](docs/releases/V0.2.1_NOTES.md#evaluation).
 
-**Planned** (see [ROADMAP](docs/ROADMAP.md)): an unseen scenario set to test the gates out of sample, planner
-robustness (INC-002), per-server OS isolation for MCP, INC-004/005, OIDC operator identity, SSE.
+**What the gated system did:**
+- correct final outcome in 13/13 runs (6 mitigations, 6 correct non-remediation outcomes, 1 rejection);
+- recovery verified in 6/6 mitigations;
+- 0 unsafe, forbidden or unauthorized actions executed, and 0 approval bypasses;
+- false-positive remediation rate 0;
+- citation validity 1.0.
+
+**What the model proposed before the gates:**
+- its own plan was acceptable in only 3 of 12 runs;
+- root cause correct in 7 of 9 determinable cases (NEG-002 blames an unrelated deployment);
+- 11 policy interventions, including 1 unsafe proposal;
+- a rollback proposed in every negative scenario run.
+
+The deterministic gates and human approval, not the model, produce the correct outcomes.
+
+Held-out retrieval: hybrid Recall@5 0.972. On the agent's actual path, a relevant passage reached the RCA prompt for
+every held-out question (MRR 0.603).
+
+**Planned** (see [ROADMAP](docs/ROADMAP.md)): an independently sealed unseen scenario set to test the gates out of
+sample, planner robustness, per-server OS isolation for MCP, INC-004/005, OIDC operator identity, SSE.
+
+## Limitations
+
+v0.2.1 received a **conditional** sign-off from the final independent verification
+([report](docs/audits/PHASE_C0_H_INDEPENDENT_VERIFICATION.md)). These limits apply:
+
+1. **Experimental, local-first only.** One machine, local models, services bound to `127.0.0.1`.
+2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
+3. **One execution owner per database.** A second API worker, CLI demo or evaluation run on the same database is
+   refused. Multi-worker operation is unsupported.
+4. **The database-owner credential is trusted.** Ownership fencing and the revision constraints stop stale normal
+   application writes and the unprivileged MCP roles, not the `opspilot_app` owner role.
+5. **Physical chunk IDs are not immutable.** Revision identity is logical source content. Citation snapshots stay
+   self-verifying.
+6. **No independently sealed, unseen evaluation yet.** One author wrote the scenarios, labels and gates, and the
+   gates were designed after observing failures on these scenarios.
+7. **Raw model planning is unreliable.** Safety policies and human approval enforce the remediation boundary.
+8. **Old local development token records** (expired approval tokens written by earlier versions) need
+   `opspilot sanitize-secrets --apply`.
+9. **Not ready for multi-user or network-exposed production use.** There are shared per-role passphrases, no
+   per-user identity, and the MCP servers share one OS user.
 
 Measured results are only in [`docs/evaluation/BASELINE.md`](docs/evaluation/BASELINE.md) (generated by
 `make evaluate`, never hand-edited), including the caveats: one author wrote the scenarios and labels, and the
@@ -119,7 +159,11 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 - Decisions: [ADRs](docs/adr/) · [decision log](docs/DECISIONS.md)
 - Setup: [environment audit](docs/setup/ENVIRONMENT_AUDIT.md) · [development guide](docs/development/DEVELOPMENT.md)
 - Status: [progress](docs/PROGRESS.md) · [evaluation baseline](docs/evaluation/BASELINE.md)
-- Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · [Phase C0 remediation record](docs/audits/PHASE_C0_REMEDIATION.md) · [v0.2.1 release notes (draft)](docs/releases/V0.2.1_NOTES.md)
+- Release: [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
+- Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · remediation records
+  [C0](docs/audits/PHASE_C0_REMEDIATION.md) · [C0-F](docs/audits/PHASE_C0_F_REMEDIATION.md) ·
+  [C0-G](docs/audits/PHASE_C0_G_REMEDIATION.md) · [C0-H](docs/audits/PHASE_C0_H_REMEDIATION.md) ·
+  [final independent verification](docs/audits/PHASE_C0_H_INDEPENDENT_VERIFICATION.md)
 - Licensing and data provenance: [THIRD_PARTY.md](docs/THIRD_PARTY.md)
 
 ## License
