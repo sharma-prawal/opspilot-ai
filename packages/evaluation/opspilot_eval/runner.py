@@ -13,6 +13,7 @@ import json
 import platform
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from opspilot_eval import agent_eval, agent_path_bench, resource_bench, retrieval_bench
@@ -39,9 +40,35 @@ def _meta() -> dict[str, Any]:
         )
     except OSError:
         commit = "unknown"
+
+    def _git(*args: str) -> str:
+        try:
+            out = subprocess.run(["git", *args], capture_output=True, text=True, cwd=REPO_ROOT, check=False)  # noqa: S603,S607
+            return out.stdout.strip()
+        except OSError:
+            return ""
+
+    digest = None
+    try:  # model identity beyond its tag (audit: provenance of evaluation runs)
+        import httpx
+
+        tags = httpx.get(f"{s.ollama_base_url}/api/tags", timeout=5).json().get("models", [])
+        digest = next((m.get("digest") for m in tags if m.get("name") == s.llm_model), None)
+    except Exception:  # provenance is best effort; the run itself does not depend on it
+        digest = None
+    from opspilot_agents.nodes import AgentPolicy
+
+    policy = AgentPolicy()
     return {
         "run_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "git": commit,
+        "git_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+        "llm_model_digest": digest,
+        "agent_policy": {
+            "max_prompt_evidence": policy.max_prompt_evidence,
+            "knowledge_section_expansion": policy.knowledge_section_expansion,
+            "max_verification_checks": policy.max_verification_checks,
+        },
         "llm_model": s.llm_model,
         "embedding_model": s.embedding_model,
         "machine": f"{platform.system()} {platform.machine()}",
@@ -75,13 +102,17 @@ async def run_retrieval() -> dict[str, Any]:
     return out
 
 
-async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
+def _reset_traces(traces: Path) -> None:
+    traces.mkdir(parents=True, exist_ok=True)
+    for old in traces.glob("*.json"):  # traces of the previous evaluation run (written by this tool)
+        old.unlink()
+
+
+async def run_agent(trials: int, scenarios: list[str], traces: Path = TRACES) -> dict[str, Any]:
     from opspilot_api.demo import investigate
     from opspilot_api.runtime import AppRuntime
 
-    TRACES.mkdir(parents=True, exist_ok=True)
-    for old in TRACES.glob("*.json"):  # traces of the previous evaluation run (written by this tool)
-        old.unlink()
+    _reset_traces(traces)
     rows: list[dict[str, Any]] = []
     async with AppRuntime.open(get_settings()) as rt:
         plan = [(s, i, "approve") for s in scenarios for i in range(trials)]
@@ -96,7 +127,7 @@ async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
                 row["outcome_correct"] = row["outcome"] == "remediation_rejected"
                 row["plan_acceptable"] = run["executions_total"] == 0
             rows.append(row)
-            (TRACES / f"{scenario}-{trial + 1}-{decision}.json").write_text(
+            (traces / f"{scenario}-{trial + 1}-{decision}.json").write_text(
                 json.dumps({"score": row, "run": run}, indent=1, default=str)
             )
             print(
@@ -304,7 +335,25 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("suite", nargs="?", default="all", choices=["all", "retrieval", "agent", "resources", "render"])
     parser.add_argument("--trials", type=int, default=2)
     parser.add_argument("--scenarios", nargs="*", default=None)
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="supplementary agent run: write results and traces to this new directory; the official latest "
+        "results and BASELINE.md are left untouched",
+    )
     args = parser.parse_args(argv)
+    if args.out is not None:
+        if args.suite != "agent":
+            parser.error("--out is only supported for the agent suite")
+        if args.out.exists() and any(args.out.iterdir()):
+            parser.error(f"{args.out} exists and is not empty; supplementary runs never overwrite")
+        configure_logging("WARNING", "console")
+        scenarios = args.scenarios or agent_eval.scenarios_with_truth()
+        data = asyncio.run(run_agent(args.trials, scenarios, traces=args.out / "traces"))
+        (args.out / "agent.json").write_text(json.dumps(data, indent=2, default=str))
+        print(f"agent (supplementary): wrote {args.out / 'agent.json'}")
+        return
     configure_logging("WARNING", "console")
     RESULTS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
