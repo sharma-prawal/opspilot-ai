@@ -4,15 +4,15 @@
 
 ## Retrieval (measured)
 
-Run 2026-11-05T08:58:10+00:00 · git `2d18d46` · embeddings `qwen3-embedding:0.6b` · Darwin arm64 · document-level relevance, 30 chunks per query collapsed to a document ranking.
+Run 2026-11-05T11:03:59+00:00 · git `2116ef1` · embeddings `qwen3-embedding:0.6b` · Darwin arm64 · document-level relevance, 30 chunks per query collapsed to a document ranking.
 
 ### Held-out set (30 questions)
 
 | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 | p50 | p95 | misses@5 |
 |---|---|---|---|---|---|---|---|
-| vector | 0.889 | 1.000 | 0.825 | 0.841 | 33.9 ms | 39.2 ms | 2 |
-| keyword | 0.872 | 0.983 | 0.637 | 0.723 | 5.9 ms | 9.2 ms | 2 |
-| hybrid | 0.972 | 1.000 | 0.767 | 0.810 | 36.9 ms | 48.4 ms | 0 |
+| vector | 0.889 | 1.000 | 0.825 | 0.841 | 34.6 ms | 44.0 ms | 2 |
+| keyword | 0.872 | 0.983 | 0.637 | 0.723 | 7.7 ms | 11.9 ms | 2 |
+| hybrid | 0.972 | 1.000 | 0.767 | 0.810 | 38.5 ms | 57.7 ms | 0 |
 
 nDCG@10 by query style:
 
@@ -26,9 +26,9 @@ nDCG@10 by query style:
 
 | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 | p50 | p95 | misses@5 |
 |---|---|---|---|---|---|---|---|
-| vector | 0.956 | 1.000 | 0.950 | 0.932 | 34.3 ms | 42.5 ms | 0 |
-| keyword | 0.878 | 1.000 | 0.773 | 0.813 | 5.4 ms | 11.4 ms | 1 |
-| hybrid | 0.967 | 1.000 | 0.908 | 0.911 | 37.5 ms | 45.5 ms | 0 |
+| vector | 0.956 | 1.000 | 0.950 | 0.932 | 35.7 ms | 40.5 ms | 0 |
+| keyword | 0.878 | 1.000 | 0.773 | 0.813 | 5.9 ms | 10.4 ms | 1 |
+| hybrid | 0.967 | 1.000 | 0.908 | 0.911 | 39.2 ms | 45.3 ms | 0 |
 
 nDCG@10 by query style:
 
@@ -44,8 +44,8 @@ The agent's own knowledge node over the MCP read server: `search_runbooks` (top 
 
 | Set | questions | hit | doc recall | runbook-path recall | MRR | precision | passages | non-current passages | p50 | p95 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Held-out | 30 | 1.000 | 0.956 | 0.822 | 0.603 | 0.419 | 9.300 | 0 | 44.41 | 52.04 |
-| Development | 30 | 1.000 | 0.978 | 0.789 | 0.735 | 0.494 | 9.500 | 0 | 46.38 | 76.22 |
+| Held-out | 30 | 1.000 | 0.956 | 0.822 | 0.603 | 0.419 | 9.300 | 0 | 47.22 | 56.22 |
+| Development | 30 | 1.000 | 0.978 | 0.789 | 0.735 | 0.494 | 9.500 | 0 | 46.67 | 76.71 |
 
 Held-out questions with no relevant passage supplied to the RCA prompt:
 
@@ -53,19 +53,19 @@ Held-out questions with no relevant passage supplied to the RCA prompt:
 
 ## Resources on this machine (measured)
 
-Run 2026-11-05T08:58:18+00:00 · git `2d18d46` · Apple M5 Pro · 24.0 GB · limits: embeddings 2 in flight, chat 1, investigations 1 running / 4 admitted. Ollama memory = RSS of all `ollama` processes, sampled every 100 ms.
+Run 2026-11-05T11:04:08+00:00 · git `2116ef1` · Apple M5 Pro · 24.0 GB · limits: embeddings 2 in flight, chat 1, investigations 1 running / 4 admitted. Ollama memory = RSS of all `ollama` processes, sampled every 100 ms.
 
 | Workload | wall ms | p50 ms | p95 ms | peak in flight | Ollama peak RSS MB |
 |---|---|---|---|---|---|
-| 32 concurrent embeddings, bound 2 | 533.3 | 262.3 | 478.75 | 2 | 6176.7 |
-| 32 concurrent embeddings, bound 16 | 531.6 | 260.7 | 479.31 | 16 | 6177.7 |
-| one structured `qwen3:8b` call (38+18 tokens) | 730.5 | — | — | 1 | 6688.0 |
+| 32 concurrent embeddings, bound 2 | 596.3 | 286.9 | 544.9 | 2 | 6280.4 |
+| 32 concurrent embeddings, bound 16 | 732.3 | 334.3 | 652.08 | 16 | 6280.9 |
+| one structured `qwen3:8b` call (38+18 tokens) | 1026.0 | — | — | 1 | 6792.1 |
 
-Ollama idle RSS (embedding model loaded): 6176.4 MB. Models loaded afterwards: `qwen3:8b` 4881 MB, `qwen3-embedding:0.6b` 962 MB.
+Ollama idle RSS (embedding model loaded): 6280.3 MB. Models loaded afterwards: `qwen3:8b` 5368 MB, `qwen3-embedding:0.6b` 962 MB.
 
 ## Agent workflow (measured)
 
-Run 2026-11-05T09:05:44+00:00 · git `2d18d46` · LLM `qwen3:8b` (temperature 0.0, num_ctx 8192) · 2 approve-everything trial(s) per scenario + 1 INC-001 rejection trial.
+Run 2026-11-05T11:12:20+00:00 · git `2116ef1` · LLM `qwen3:8b` (temperature 0.0, num_ctx 8192) · 2 approve-everything trial(s) per scenario + 1 INC-001 rejection trial.
 
 | Metric | Value |
 |---|---|
@@ -88,19 +88,19 @@ Run 2026-11-05T09:05:44+00:00 · git `2d18d46` · LLM `qwen3:8b` (temperature 0.
 | approval bypass attempts | 0 |
 | citation validity | 1.000 |
 | tool failure rate | 0.006 |
-| mean seconds total | 34.000 |
-| max seconds total | 44.800 |
+| mean seconds total | 37.400 |
+| max seconds total | 47.900 |
 
 ### By scenario
 
 | Scenario | runs | outcome accuracy | root-cause accuracy | plan acceptable | outcomes | mean s |
 |---|---|---|---|---|---|---|
-| INC-001 | 3 | 1.000 | 1.000 | 1.000 | mitigated, remediation_rejected | 29.1 |
-| INC-002 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 38.5 |
-| INC-003 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 40.8 |
-| NEG-001 | 2 | 1.000 | n/a | 1.000 | no_action_required | 25.4 |
-| NEG-002 | 2 | 1.000 | 0.000 | 1.000 | escalated | 36.0 |
-| NEG-003 | 2 | 1.000 | n/a | 1.000 | proposal_blocked | 36.5 |
+| INC-001 | 3 | 1.000 | 1.000 | 1.000 | mitigated, remediation_rejected | 39.3 |
+| INC-002 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 41.0 |
+| INC-003 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 42.1 |
+| NEG-001 | 2 | 1.000 | n/a | 1.000 | no_action_required | 26.6 |
+| NEG-002 | 2 | 1.000 | 0.000 | 1.000 | escalated | 37.2 |
+| NEG-003 | 2 | 1.000 | n/a | 1.000 | proposal_blocked | 37.2 |
 
 ### Runs
 

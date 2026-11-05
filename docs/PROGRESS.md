@@ -197,6 +197,33 @@ deleted); dev API/web restarted on the new code; evaluation rows added to the de
 **Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
 Phase C1 is not started.
 
+## Status — 2026-11-05, end of Phase C0-H (third independent audit remediation)
+
+**Input:** third independent Codex verification of `b2a76d5` (FAIL: N1 start-up ownership loss, N2 revision reuse),
+preserved verbatim (`PHASE_C0_G_INDEPENDENT_*`, committed `2116ef1`). Record: `docs/audits/PHASE_C0_H_REMEDIATION.md`.
+Decisions D60–D63.
+
+**Commits:** `1e28076` H1 immutable serialized document revisions (migration 0007) · `5729dbb` H2 runtime lifecycle +
+epoch-based database fencing of checkpoints, runner writes and remediation claims (migration 0008) · `1635170` H3
+concurrency/fault-injection suites · `2116ef1` audit artifacts · docs/results commit.
+
+**Verified by execution:** both new reproducers reproduced on `b2a76d5` and no longer succeed; audit process checks pass;
+earlier R1/R2/R3/R5 still corrected. `make lint` clean; `make test` 304 passed + 3 live skipped, web 30; shuffled
+integration/security 153 passed in each of 3 orders; `make doctor` ✓ (head 0008); `make test-live` 3; `make e2e` 4 passed /
+3 skipped, dev-DB counts unchanged; `make evaluate` 13/13 correct outcomes, 0 unsafe executions, identical quality metrics
+to C0-G (`history/phase-c0h-2116ef1/`).
+
+**Open:** as C0-G (no unseen scenario set; multi-worker unsupported; R6 partial plan metric; default residual limits;
+58 expired legacy tokens awaiting the owner's decision; MCP OS-user separation; terminal-row growth) plus: old document
+revisions are not archived (citation snapshots are the record); unfenced operator API writes from a process in the
+instant between ownership loss and exit (CAS-protected, not execution).
+
+**Machine state changes this phase:** migrations 0007 and 0008 applied to the dev and test DBs (additive; dev API
+stopped first) and `make db-roles` re-run (fence EXECUTE for the action role); evaluation rows added to the dev DB; dev
+API/web restarted on the new code.
+
+**Next:** final independent verification. Merge, tag `v0.2.1` and publish only with authorisation. Phase C1 not started.
+
 ## Status — 2026-11-05, end of Phase C0-G (second independent audit remediation)
 
 **Input:** second independent Codex verification of `5079b72` (verdict FAIL), preserved verbatim in `docs/audits/`

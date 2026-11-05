@@ -39,7 +39,18 @@ are process-local, so OpsPilot enforces a single execution owner at runtime rath
   so it never continues as an unprotected owner. `/health/ready` reports `execution_owner`.
 - No transaction is held by the lock connection (autocommit), and none spans inference.
 
-Multi-worker execution (global admission, fenced checkpoint writes) is not supported in v0.2.1.
+- **Runtime lifecycle (C0-H2):** `INITIALIZING → ACQUIRING_OWNERSHIP → READY → OWNERSHIP_LOST → STOPPING → STOPPED`.
+  Only READY admits or runs investigations, reconciles, delivers decisions or sweeps. READY is entered after
+  initialization and an affirmative database fence check; loss before it fails start-up, loss after it stops all
+  execution synchronously and the API exits.
+- **Write fencing (C0-H2):** each new owner increments `ops.execution_owner.epoch`; checkpoint writes (database trigger),
+  runner state writes and remediation claims carry the owner's `(epoch, lock pid)` and are refused once the owner is
+  stale or its lock session is gone. A takeover waits for in-flight fenced writes, so old and new owners' writes never
+  interleave.
+- **Upgrades:** stop the API before `make migrate` when upgrading to 0008 — the new checkpoint trigger refuses writes from
+  a running pre-0008 API (by design). Then `make db-roles` (grants the fence to the action role) and `make dev`.
+
+Multi-worker execution (global admission) is not supported in v0.2.1.
 
 ## Why this shape
 

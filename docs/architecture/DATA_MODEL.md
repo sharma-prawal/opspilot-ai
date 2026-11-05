@@ -104,6 +104,12 @@ erDiagram
   0004, C0 H3).
 - `trg_ops_investigations_terminal_guard` (migration 0006, C0-G2): a `BEFORE UPDATE OF status` trigger that refuses
   any status change out of `completed` or `cancelled`.
+- `uq_kb_documents_revision` (id, version), `fk_kb_chunks_document_revision` chunks(document_id, document_version) →
+  documents(id, version) DEFERRABLE INITIALLY DEFERRED, and `trg_kb_documents_revision_guard` (content change requires a
+  higher version; versions never decrease) — migration 0007, C0-H1.
+- `ops.execution_owner` (single row: `epoch`, `owner`, `owner_pid`, `acquired_at`), `ops.execution_fence(epoch, pid)` and
+  `ops.fence_checkpoint_write()` (migration 0008, C0-H2); statement triggers `trg_fence_checkpoints`,
+  `trg_fence_checkpoint_blobs`, `trg_fence_checkpoint_writes` on the LangGraph tables (installed by `opspilot migrate`).
 
 ## Execution ownership and outbox (Phase C0)
 
@@ -114,8 +120,10 @@ erDiagram
   Approval tokens are never stored.
 - Investigation status changes only through `repositories.transition_investigation` (locked compare-and-set against
   `domain.investigation.LEGAL_TRANSITIONS`, C0-G2).
-- Execution owner (C0-G4): not a table. A session-level advisory lock `(0x4F505350, 1)` per database, held by the one
-  runtime that may execute investigations; visible in `pg_locks` with the owner's `application_name`.
+- Execution owner (C0-G4, C0-H2): a session-level advisory lock `(0x4F505350, 1)` per database, held by the one runtime
+  that may execute investigations (visible in `pg_locks` with the owner's `application_name`), plus the owner's epoch and
+  lock-session PID in `ops.execution_owner`. Checkpoint writes, runner state writes and the action server's execution
+  claim are fenced on that `(epoch, pid)` in their own transaction.
 
 ## Database roles
 

@@ -96,6 +96,9 @@ no background work (reconciliation, delivery, expiry, restart) ever leaves a ter
 | GET | `/api/v1/approvals/{action_id}` | one action request incl. execution result and verification |
 | POST 🔒 | `/api/v1/approvals/{action_id}/decision` | `{"decision": "approve"\|"reject", "params_hash": "<64 hex>", "decided_by", "comment"}` |
 
+Approval tokens (C0-H2) also carry the minting execution owner's epoch and lock-session PID; the action server's claim
+transaction refuses a token whose owner is no longer current, and tokens without an owner binding.
+
 Decision validation (all server-side): action is `pending`; `params_hash` equals the stored hash and the
 hash recomputed from stored parameters; the workflow is paused on this action; not currently executing;
 compare-and-set `pending → approved|rejected`. The decision and its delivery command are committed

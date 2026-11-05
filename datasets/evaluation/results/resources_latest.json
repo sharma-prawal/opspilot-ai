@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-05T08:58:18+00:00",
-    "git": "2d18d46",
+    "run_at": "2026-11-05T11:04:08+00:00",
+    "git": "2116ef1",
     "git_dirty": true,
     "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
     "agent_policy": {
@@ -27,40 +27,40 @@
     "max_concurrent_investigations": 1,
     "max_pending_investigations": 4
   },
-  "ollama_idle_rss_mb": 6176.4,
+  "ollama_idle_rss_mb": 6280.3,
   "embedding_burst_bounded": {
     "bound": 2,
     "requests": 32,
-    "wall_ms": 533.3,
+    "wall_ms": 596.3,
     "per_request": {
-      "p50_ms": 262.3,
-      "p95_ms": 478.75
+      "p50_ms": 286.9,
+      "p95_ms": 544.9
     },
     "peak_in_flight": 2,
-    "ollama_peak_rss_mb": 6176.7
+    "ollama_peak_rss_mb": 6280.4
   },
   "embedding_burst_wide": {
     "bound": 16,
     "requests": 32,
-    "wall_ms": 531.6,
+    "wall_ms": 732.3,
     "per_request": {
-      "p50_ms": 260.7,
-      "p95_ms": 479.31
+      "p50_ms": 334.3,
+      "p95_ms": 652.08
     },
     "peak_in_flight": 16,
-    "ollama_peak_rss_mb": 6177.7
+    "ollama_peak_rss_mb": 6280.9
   },
   "chat_call": {
     "model": "qwen3:8b",
-    "wall_ms": 730.5,
+    "wall_ms": 1026.0,
     "prompt_tokens": 38,
     "completion_tokens": 18,
-    "ollama_peak_rss_mb": 6688.0
+    "ollama_peak_rss_mb": 6792.1
   },
   "loaded_models_after": [
     {
       "name": "qwen3:8b",
-      "size_mb": 4881
+      "size_mb": 5368
     },
     {
       "name": "qwen3-embedding:0.6b",

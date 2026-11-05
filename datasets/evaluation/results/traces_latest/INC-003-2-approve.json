@@ -92,21 +92,21 @@
   "tool_calls": 35,
   "tool_failures": 0,
   "llm_calls": 2,
-  "seconds_to_pause": 32.6,
-  "seconds_total": 36.8,
+  "seconds_to_pause": 33.8,
+  "seconds_total": 38.0,
   "error": null,
   "trial": 2,
   "decision": "approve"
  },
  "run": {
   "scenario": "INC-003",
-  "incident_id": "cd389cef-c922-40ea-bddb-b5bd762af0a2",
-  "environment_id": "ef86e71e-30da-4920-9048-ae71b812ab99",
-  "reference": "INC-20261105-0038",
-  "investigation_id": "a47ce3c2-2d07-4c9d-aaa9-e738dde753c9",
+  "incident_id": "43ce0147-ddcf-4b0b-a8dd-acf1d7ba24a6",
+  "environment_id": "4c64369c-08bb-4c81-ab91-d496e7995c9d",
+  "reference": "INC-20261105-0052",
+  "investigation_id": "096cdac5-a721-4649-beee-59d17aa6b648",
   "status": "completed",
-  "seconds_to_pause": 32.6,
-  "seconds_total": 36.8,
+  "seconds_to_pause": 33.8,
+  "seconds_total": 38.0,
   "result": {
    "rca": {
     "model": "qwen3:8b",
@@ -217,7 +217,7 @@
    },
    "plan": {
     "notes": [],
-    "planned_at": "2026-11-05T09:01:28.633628+00:00",
+    "planned_at": "2026-11-05T11:07:54.037078+00:00",
     "capabilities": [
      "telemetry",
      "changes",
@@ -245,8 +245,8 @@
    "approval": {
     "comment": "approve via opspilot investigate",
     "decision": "approve",
-    "action_id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
-    "decided_at": "2026-11-05T09:02:01.794295+00:00",
+    "action_id": "2d51224b-ad9f-5e09-b828-4225012f174b",
+    "decided_at": "2026-11-05T11:08:28.167131+00:00",
     "decided_by": "cli-operator",
     "params_hash": "11cf6991e9c420d3f2a65b4bf305c377d5c605a75785f86d59e0585927bc681e",
     "approval_token": null
@@ -262,9 +262,9 @@
      },
      "message": "settlement-worker consumer paused (containment: nothing is processed)",
      "replayed": false,
-     "action_id": "5be1ce1d-8bf8-5d2d-9677-e546e6e0c680",
+     "action_id": "13e5ff2e-a19c-52d5-9747-982eb20ba6ae",
      "action_type": "pause_consumer",
-     "executed_at": "2026-11-05T09:01:58.709609Z"
+     "executed_at": "2026-11-05T11:08:25.132465Z"
     },
     {
      "role": "resolution",
@@ -278,24 +278,24 @@
      },
      "message": "rolled back dep-ta-3180 on transaction-api",
      "replayed": false,
-     "action_id": "32398349-2018-5871-98f4-7aa623480281",
+     "action_id": "30b1760f-fc8d-555d-b93a-c8251ea6ba73",
      "action_type": "rollback_deployment",
-     "executed_at": "2026-11-05T09:01:59.752402Z"
+     "executed_at": "2026-11-05T11:08:26.138164Z"
     },
     {
      "role": "recovery",
      "step": 3,
      "status": "succeeded",
      "details": {
-      "quarantined": 4335,
+      "quarantined": 4317,
       "sim_now_after": "2026-11-03T15:00:00+00:00",
       "executed_at_sim": "2026-11-03T14:50:00+00:00"
      },
-     "message": "quarantined 4335 schema-invalid messages from settlement-events and its DLQ (preserved for replay)",
+     "message": "quarantined 4317 schema-invalid messages from settlement-events and its DLQ (preserved for replay)",
      "replayed": false,
-     "action_id": "0b61dc64-bc0a-5d58-8c1c-cc4b38d99666",
+     "action_id": "7d5629f5-e4e0-57d1-90bf-b7ec894e384d",
      "action_type": "quarantine_messages",
-     "executed_at": "2026-11-05T09:02:00.793805Z"
+     "executed_at": "2026-11-05T11:08:27.179943Z"
     },
     {
      "role": "recovery",
@@ -307,9 +307,9 @@
      },
      "message": "settlement-worker consumer resumed",
      "replayed": false,
-     "action_id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
+     "action_id": "2d51224b-ad9f-5e09-b828-4225012f174b",
      "action_type": "resume_consumer",
-     "executed_at": "2026-11-05T09:02:01.833354Z"
+     "executed_at": "2026-11-05T11:08:28.223143Z"
     }
    ],
    "remediation": {
@@ -320,9 +320,9 @@
     },
     "message": "settlement-worker consumer resumed",
     "replayed": false,
-    "action_id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
+    "action_id": "2d51224b-ad9f-5e09-b828-4225012f174b",
     "action_type": "resume_consumer",
-    "executed_at": "2026-11-05T09:02:01.833354Z"
+    "executed_at": "2026-11-05T11:08:28.223143Z"
    },
    "verification": {
     "notes": "9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked",
@@ -351,7 +351,7 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 2",
       "evidence_id": "ev-metric-76dc653db63c",
-      "tool_call_id": "tc-a71323d114814846"
+      "tool_call_id": "tc-4cc5346fe76d4340"
      },
      {
       "kind": "metric",
@@ -365,7 +365,7 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 22",
       "evidence_id": "ev-metric-0bc0e3e3ad63",
-      "tool_call_id": "tc-14f29984f2444419"
+      "tool_call_id": "tc-7fe2fc794c5e4357"
      },
      {
       "kind": "metric",
@@ -379,7 +379,7 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 65.52",
       "evidence_id": "ev-metric-8ef20fe5df69",
-      "tool_call_id": "tc-0bd27468800c4815"
+      "tool_call_id": "tc-4679b91d23534967"
      },
      {
       "kind": "metric",
@@ -393,7 +393,7 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 2",
       "evidence_id": "ev-metric-6fb183e49438",
-      "tool_call_id": "tc-1f91e0a5fcd247b0"
+      "tool_call_id": "tc-4155ac4018924815"
      },
      {
       "kind": "health",
@@ -403,7 +403,7 @@
       "service": "settlement-worker",
       "observed": "healthy",
       "evidence_id": "ev-metric-0bc0e3e3ad63",
-      "tool_call_id": "tc-9cfce3ce34384c0b"
+      "tool_call_id": "tc-9cf70dc41c4841f7"
      },
      {
       "kind": "health",
@@ -413,7 +413,7 @@
       "service": "transaction-api",
       "observed": "healthy",
       "evidence_id": "ev-health-f7e713d2af2b",
-      "tool_call_id": "tc-5f418bc2b89447dc"
+      "tool_call_id": "tc-714084f6e606493c"
      },
      {
       "kind": "postcondition",
@@ -423,7 +423,7 @@
       "service": "transaction-api",
       "observed": "rolled_back",
       "evidence_id": "step-2",
-      "tool_call_id": "tc-b74ebdd20dc74c5a"
+      "tool_call_id": "tc-1018fc594337463e"
      },
      {
       "kind": "postcondition",
@@ -433,7 +433,7 @@
       "service": null,
       "observed": "0 unquarantined failing message(s)",
       "evidence_id": "step-3",
-      "tool_call_id": "tc-b93b0c3a947a467b"
+      "tool_call_id": "tc-6c100ef1ee534f60"
      },
      {
       "kind": "postcondition",
@@ -443,7 +443,7 @@
       "service": "settlement-worker",
       "observed": "running",
       "evidence_id": "step-4",
-      "tool_call_id": "tc-b93b0c3a947a467b"
+      "tool_call_id": "tc-6c100ef1ee534f60"
      }
     ],
     "status": "recovered",
@@ -491,7 +491,7 @@
     "role": "recovery",
     "step": 4,
     "added_by": "policy",
-    "action_id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
+    "action_id": "2d51224b-ad9f-5e09-b828-4225012f174b",
     "plan_size": 4,
     "rationale": "policy: a paused consumer must be resumed once the cause is resolved",
     "parameters": {
@@ -500,7 +500,7 @@
     "validation": null,
     "action_type": "resume_consumer",
     "params_hash": "11cf6991e9c420d3f2a65b4bf305c377d5c605a75785f86d59e0585927bc681e",
-    "proposed_at": "2026-11-05T09:01:57.798457+00:00",
+    "proposed_at": "2026-11-05T11:08:24.422188+00:00",
     "hypothesis_rank": 1
    },
    "remediation_plan": [
@@ -508,7 +508,7 @@
      "risk": "medium",
      "role": "containment",
      "step": 1,
-     "action_id": "5be1ce1d-8bf8-5d2d-9677-e546e6e0c680",
+     "action_id": "13e5ff2e-a19c-52d5-9747-982eb20ba6ae",
      "plan_size": 4,
      "rationale": "Pause the settlement-worker consumer to contain retry churn and prevent further dead-letter queue growth.",
      "parameters": {
@@ -517,14 +517,14 @@
      "validation": null,
      "action_type": "pause_consumer",
      "params_hash": "9a6bfc72a6e235324f56d2e7f787f743528e52224ac1e2a046cdce799a577d20",
-     "proposed_at": "2026-11-05T09:01:57.798346+00:00",
+     "proposed_at": "2026-11-05T11:08:24.422003+00:00",
      "hypothesis_rank": 1
     },
     {
      "risk": "medium",
      "role": "resolution",
      "step": 2,
-     "action_id": "32398349-2018-5871-98f4-7aa623480281",
+     "action_id": "30b1760f-fc8d-555d-b93a-c8251ea6ba73",
      "plan_size": 4,
      "rationale": "Roll back the transaction-api deployment to revert the schema change that caused validation failures.",
      "parameters": {
@@ -534,14 +534,14 @@
      "validation": null,
      "action_type": "rollback_deployment",
      "params_hash": "a49768d7ec07f6be73787453cc138613d1064cdc7a44683671737dcd99ca5680",
-     "proposed_at": "2026-11-05T09:01:57.798302+00:00",
+     "proposed_at": "2026-11-05T11:08:24.421929+00:00",
      "hypothesis_rank": 1
     },
     {
      "risk": "medium",
      "role": "recovery",
      "step": 3,
-     "action_id": "0b61dc64-bc0a-5d58-8c1c-cc4b38d99666",
+     "action_id": "7d5629f5-e4e0-57d1-90bf-b7ec894e384d",
      "plan_size": 4,
      "rationale": "Quarantine messages with the validation error code to preserve them for later replay and analysis.",
      "parameters": {
@@ -551,7 +551,7 @@
      "validation": null,
      "action_type": "quarantine_messages",
      "params_hash": "55bba96d731ad562581c943328f50410dabe10b2e58e40f3dae529ed75118317",
-     "proposed_at": "2026-11-05T09:01:57.798375+00:00",
+     "proposed_at": "2026-11-05T11:08:24.422030+00:00",
      "hypothesis_rank": 1
     },
     {
@@ -559,7 +559,7 @@
      "role": "recovery",
      "step": 4,
      "added_by": "policy",
-     "action_id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
+     "action_id": "2d51224b-ad9f-5e09-b828-4225012f174b",
      "plan_size": 4,
      "rationale": "policy: a paused consumer must be resumed once the cause is resolved",
      "parameters": {
@@ -568,7 +568,7 @@
      "validation": null,
      "action_type": "resume_consumer",
      "params_hash": "11cf6991e9c420d3f2a65b4bf305c377d5c605a75785f86d59e0585927bc681e",
-     "proposed_at": "2026-11-05T09:01:57.798457+00:00",
+     "proposed_at": "2026-11-05T11:08:24.422188+00:00",
      "hypothesis_rank": 1
     }
    ],
@@ -576,7 +576,7 @@
   },
   "actions": [
    {
-    "id": "5be1ce1d-8bf8-5d2d-9677-e546e6e0c680",
+    "id": "13e5ff2e-a19c-52d5-9747-982eb20ba6ae",
     "type": "pause_consumer",
     "parameters": {
      "service": "settlement-worker"
@@ -584,7 +584,7 @@
     "decision": "approve"
    },
    {
-    "id": "32398349-2018-5871-98f4-7aa623480281",
+    "id": "30b1760f-fc8d-555d-b93a-c8251ea6ba73",
     "type": "rollback_deployment",
     "parameters": {
      "service": "transaction-api",
@@ -593,7 +593,7 @@
     "decision": "approve"
    },
    {
-    "id": "0b61dc64-bc0a-5d58-8c1c-cc4b38d99666",
+    "id": "7d5629f5-e4e0-57d1-90bf-b7ec894e384d",
     "type": "quarantine_messages",
     "parameters": {
      "queue": "settlement-events",
@@ -602,7 +602,7 @@
     "decision": "approve"
    },
    {
-    "id": "71ea5e99-740c-5b16-b0dd-8389195c0a8b",
+    "id": "2d51224b-ad9f-5e09-b828-4225012f174b",
     "type": "resume_consumer",
     "parameters": {
      "service": "settlement-worker"
@@ -611,7 +611,7 @@
    }
   ],
   "action": {
-   "id": "5be1ce1d-8bf8-5d2d-9677-e546e6e0c680",
+   "id": "13e5ff2e-a19c-52d5-9747-982eb20ba6ae",
    "type": "pause_consumer",
    "parameters": {
     "service": "settlement-worker"
@@ -625,77 +625,77 @@
     "tool": "get_incident",
     "agent": "intake",
     "status": "ok",
-    "latency_ms": 4.8,
+    "latency_ms": 5.2,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 8.4,
+    "latency_ms": 11.9,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 22.5,
+    "latency_ms": 27.3,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 25.4,
+    "latency_ms": 30.9,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 27.9,
+    "latency_ms": 33.9,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 30.2,
+    "latency_ms": 36.1,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 32.0,
+    "latency_ms": 38.4,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 32.2,
+    "latency_ms": 38.5,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 40.8,
+    "latency_ms": 48.1,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 4.4,
+    "latency_ms": 3.9,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 5.9,
+    "latency_ms": 5.5,
     "error": null
    },
    {
@@ -709,188 +709,188 @@
     "tool": "inspect_queue",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 9.5,
+    "latency_ms": 12.2,
     "error": null
    },
    {
     "tool": "list_recent_deployments",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 3.5,
+    "latency_ms": 4.2,
     "error": null
    },
    {
     "tool": "get_config_changes",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 3.8,
+    "latency_ms": 4.2,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 4.3,
+    "latency_ms": 4.5,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 8.3,
+    "latency_ms": 11.1,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 11.6,
+    "latency_ms": 13.7,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 12.2,
+    "latency_ms": 14.4,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 14.3,
+    "latency_ms": 16.5,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 16.3,
-    "error": null
-   },
-   {
-    "tool": "search_runbooks",
-    "agent": "knowledge",
-    "status": "ok",
-    "latency_ms": 95.1,
+    "latency_ms": 18.5,
     "error": null
    },
    {
     "tool": "get_historical_incidents",
     "agent": "knowledge",
     "status": "ok",
-    "latency_ms": 108.3,
+    "latency_ms": 63.4,
+    "error": null
+   },
+   {
+    "tool": "search_runbooks",
+    "agent": "knowledge",
+    "status": "ok",
+    "latency_ms": 87.0,
     "error": null
    },
    {
     "tool": "execute_remediation",
     "agent": "remediation",
     "status": "ok",
-    "latency_ms": 70.4,
+    "latency_ms": 189.6,
     "error": null
    },
    {
     "tool": "execute_remediation",
     "agent": "remediation",
     "status": "ok",
-    "latency_ms": 74.3,
+    "latency_ms": 120.0,
     "error": null
    },
    {
     "tool": "execute_remediation",
     "agent": "remediation",
     "status": "ok",
-    "latency_ms": 316.2,
+    "latency_ms": 323.8,
     "error": null
    },
    {
     "tool": "execute_remediation",
     "agent": "remediation",
     "status": "ok",
-    "latency_ms": 156.5,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 18.6,
+    "latency_ms": 170.1,
     "error": null
    },
    {
     "tool": "list_recent_deployments",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 19.1,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 20.0,
+    "latency_ms": 26.2,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 20.1,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 20.8,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 21.1,
+    "latency_ms": 32.6,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 21.7,
+    "latency_ms": 34.5,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 35.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 36.4,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 36.9,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 37.6,
     "error": null
    },
    {
     "tool": "inspect_queue",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 23.5,
+    "latency_ms": 38.0,
     "error": null
    }
   ],
   "llm_calls": [
    {
-    "id": "llm-93b2b1b40850",
+    "id": "llm-70451ff1efaf",
     "purpose": "supervisor.plan",
     "model": "qwen3:8b",
-    "latency_ms": 2155.3,
+    "latency_ms": 2273.9,
     "prompt_tokens": 441,
     "completion_tokens": 87,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:01:26.478188Z"
+    "started_at": "2026-11-05T11:07:51.763250Z"
    },
    {
-    "id": "llm-96169a51e327",
+    "id": "llm-1da3d35ff0ad",
     "purpose": "rca.analyze",
     "model": "qwen3:8b",
-    "latency_ms": 28875.4,
+    "latency_ms": 30067.1,
     "prompt_tokens": 5538,
     "completion_tokens": 986,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:01:28.912635Z"
+    "started_at": "2026-11-05T11:07:54.329992Z"
    }
   ],
   "evidence_ids": [
@@ -1270,14 +1270,14 @@
      ],
      "pending_or_dead_by_producer": [
       {
-       "producer_version": "3.18.0",
-       "schema_version": "settlement-event.v4-draft",
-       "count": 3242
-      },
-      {
        "producer_version": "3.17.2",
        "schema_version": "settlement-event.v3",
        "count": 226
+      },
+      {
+       "producer_version": "3.18.0",
+       "schema_version": "settlement-event.v4-draft",
+       "count": 3242
       }
      ],
      "samples": [
@@ -1559,7 +1559,7 @@
     "data": {
      "rank": 1,
      "score": 0.032266,
-     "query_id": "79bdc314-2e8a-445b-b6a6-9f595877471a",
+     "query_id": "f595fd2b-f2be-4a10-8f64-fe05de31f7fe",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 1,
@@ -1575,7 +1575,7 @@
      "passage": "- **Invalid payloads**: events failing schema validation are retried 3 times then moved to the\n  dead-letter queue `settlement-events.dlq`. A burst of DLQ messages usually follows a producer\n  change to the event schema.\n- **Backlog**: consumer lag grows when batch submission slows (bank SFTP latency) or when the\n  worker is scaled down. Queue depth above 50k messages breaches the 15-minute settlement SLO.\n- settlement-worker reads ledger balances via ledger-service `GET /v1/accounts/{id}/balance`.",
      "passage_sha256": "698731c392474e22c1f7ee2921a153153c8da743ea944424bffd143069bdefc8",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1590,7 +1590,7 @@
     "data": {
      "rank": 2,
      "score": 0.032258,
-     "query_id": "79bdc314-2e8a-445b-b6a6-9f595877471a",
+     "query_id": "f595fd2b-f2be-4a10-8f64-fe05de31f7fe",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1606,7 +1606,7 @@
      "passage": "Symptoms: settlement-worker logs `SETTLEMENT_SCHEMA_INVALID` and DLQ depth on\n`settlement-events.dlq` rises; settlement batches shrink or stop.\n\n1. Inspect the queue and a DLQ sample \u2014 which field fails validation, which producer version sent it?\n2. Correlate with recent producer (transaction-api) deployments that changed the event shape.",
      "passage_sha256": "3fb6a3b734dc97cf566ca1b7bd7d963a9b3fba4295829bf9d40b322d6cebfbee",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1621,7 +1621,7 @@
     "data": {
      "rank": 3,
      "score": 0.032018,
-     "query_id": "79bdc314-2e8a-445b-b6a6-9f595877471a",
+     "query_id": "f595fd2b-f2be-4a10-8f64-fe05de31f7fe",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 4,
@@ -1637,7 +1637,7 @@
      "passage": "- **Containment:** `pause_consumer` on settlement-worker stops retry churn and partition stalls. It does\n  **not** fix anything; nothing settles while paused.\n- **Resolution:** roll back the producer deployment that emits the invalid shape, so no new poison arrives.\n- **Recovery:** `quarantine_messages` for the observed validation error code moves invalid messages\n  (pending and dead-lettered) aside \u2014 they are preserved for later replay, never deleted. Then\n  `resume_consumer`. Resuming while poison messages remain, or before the producer is fixed, restarts\n  the failure loop.\n- **Afterwards:** transform and replay quarantined messages once a compatible schema is deployed.",
      "passage_sha256": "cf98f36ea0aafa277fb6cbe3968b2f91b3e444b78b84a70da4af135bda19a039",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1652,7 +1652,7 @@
     "data": {
      "rank": 4,
      "score": 0.031025,
-     "query_id": "79bdc314-2e8a-445b-b6a6-9f595877471a",
+     "query_id": "f595fd2b-f2be-4a10-8f64-fe05de31f7fe",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 3,
@@ -1668,7 +1668,7 @@
      "passage": "- service: settlement-worker\n- meaning: A settlement event failed settlement-event.v3 schema validation and was dead-lettered.\n- first steps: Inspect DLQ sample; correlate with producer deployments.",
      "passage_sha256": "0b03be182d8e61da1a13aa56659d172b96e39415c89358110906b536000427eb",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.4,
     "observed_at": null
@@ -1683,7 +1683,7 @@
     "data": {
      "rank": 5,
      "score": 0.030777,
-     "query_id": "79bdc314-2e8a-445b-b6a6-9f595877471a",
+     "query_id": "f595fd2b-f2be-4a10-8f64-fe05de31f7fe",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 6,
@@ -1699,7 +1699,7 @@
      "passage": "settlement-worker consumes `payment.authorized` events from `settlement-events`, validates them\nagainst the `settlement-event.v3` JSON schema, groups them per merchant and submits settlement\nbatches every 5 minutes.",
      "passage_sha256": "89685e7fe38e8f2d09fff9ae43c050e5a5d530d7429642267319cb150ca40d13",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.3,
     "observed_at": null
@@ -1714,7 +1714,7 @@
     "data": {
      "rank": 1,
      "score": 0.032787,
-     "query_id": "925b50b9-d154-4c15-a74d-92afe1b4cbe5",
+     "query_id": "e4adaf92-693c-43cb-ab3e-eaa97dc51fc1",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 1,
@@ -1730,7 +1730,7 @@
      "passage": "transaction-api v3.9.0 began emitting `amount` as a string. settlement-worker rejected 100% of\nevents with `SETTLEMENT_SCHEMA_INVALID`; 180k messages were dead-lettered over 2 hours.",
      "passage_sha256": "91bc1025947125eb418c0dade5ff9696d9c1964fce4440bfa922dd1fc80e05f1",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1745,7 +1745,7 @@
     "data": {
      "rank": 2,
      "score": 0.032258,
-     "query_id": "925b50b9-d154-4c15-a74d-92afe1b4cbe5",
+     "query_id": "e4adaf92-693c-43cb-ab3e-eaa97dc51fc1",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1761,7 +1761,7 @@
      "passage": "transaction-api rolled back; DLQ replayed after validation.",
      "passage_sha256": "d8e01e132355ffd4a21c1563803bf42112947ec036053fdaad76e19e64d28552",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1776,7 +1776,7 @@
     "data": {
      "rank": 3,
      "score": 0.031258,
-     "query_id": "925b50b9-d154-4c15-a74d-92afe1b4cbe5",
+     "query_id": "e4adaf92-693c-43cb-ab3e-eaa97dc51fc1",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 5,
@@ -1792,7 +1792,7 @@
      "passage": "Contract tests between producer and consumer schemas were missing.",
      "passage_sha256": "e1978d5b01c569559addb157ba33dc078eb4154615d00a4cd15dcff79773fade",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:01:28.893120Z"
+     "retrieved_at": "2026-11-05T11:07:54.313683Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1816,8 +1816,8 @@
    "steps_planned": 4,
    "impact": "ongoing"
   },
-  "report_markdown": "# RCA: INC-20261105-0038 \u2014 Settlement dead-letter queue growing; throughput below SLO\n\n- **Outcome:** `mitigated` \u2014 Remediation executed and recovery verified.  \n- **Service:** settlement-worker  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:10:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** queue_backlog (llm)\n\n## Summary\n\nSettlement dead-letter queue growing; throughput below SLO\n\nImpact at analysis time: **ongoing** \u2014 4 unrecovered anomalous metric(s) on settlement-worker.\n\n## Ranked hypotheses\n\n### 1. Deployment_regression: transaction-api 3.18.0 introduced schema change causing validation failures \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe transaction-api deployment introduced a schema change (renaming 'currency' to 'currency_code') which caused validation failures in settlement-worker, leading to dead-letter queue growth.\n\nSupporting evidence:\n- `ev-deploy-bdb260a93f7f` \u2014 transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename currency to currency_code (settlement-event.v4 draft)\"; co\u2026\n- `ev-queue-4c70f9ac987a` \u2014 queue settlement-events (expects settlement-event.v3): consumer settlement-worker running; pending 226, dead-lettered 3242, quarantined 0; producers ['transaction-api']; failures: SETTLEMENT_SCHEMA_INVALID x3242 from pr\u2026\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-3fed9ae2ae0a` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads] Symptoms: settlement-worker logs `SETTLEMENT_SCHEMA_INVALID` and DLQ depth on `settlement-events.\u2026\n- `ev-kb-401986d7ea0b` \u2014 [Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution] transaction-api rolled back; DLQ replayed after validation.\n\n### 2. Configuration_error: settlement-worker max_retries set to 3 causing retry churn \u2014 confidence 75%\n\n*Category:* `configuration_error`\n\nThe settlement-worker configuration change to max_retries=3 caused retry churn, contributing to the dead-letter queue growth.\n\nSupporting evidence:\n- `ev-cfgchg-56713edbbb00` \u2014 settlement-worker config consumer.max_retries 5 -> 3 (id cfg-sw-0081) at 13:10:00Z, 50.0 min before onset; correlation 0.19\n- `ev-log-113d9836431f` \u2014 settlement-worker ERROR x1 (first 14:20:15Z, last 14:20:15Z): Message msg-05e033178300 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-3826f45b1373` \u2014 settlement-worker ERROR x1 (first 14:18:19Z, last 14:18:19Z): Message msg-0311b858294d failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-3c28fed4fe2d` \u2014 settlement-worker ERROR x1 (first 14:21:27Z, last 14:21:27Z): Message msg-107666d9c96b failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-b597d3d799a7` \u2014 settlement-worker ERROR x1 (first 14:21:12Z, last 14:21:12Z): Message msg-085c9d2f036c failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-d39eee83bbe6` \u2014 settlement-worker ERROR x1 (first 14:11:48Z, last 14:11:48Z): Message msg-030a83fde470 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n\n### 3. Dependency_degradation: Bank SFTP upload retry 1/3: connection reset by peer \u2014 confidence 65%\n\n*Category:* `dependency_degradation`\n\nThe Bank SFTP upload retry failure caused connection reset by peer, leading to retry churn and contributing to the dead-letter queue growth.\n\nSupporting evidence:\n- `ev-log-5faa89e2a2d3` \u2014 settlement-worker ERROR x1 (first 14:07:23Z, last 14:07:23Z): Bank SFTP upload retry 1/3: connection reset by peer\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-af362726db76` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads > Containment, resolution, recovery] - **Containment:** `pause_consumer` on settlement-worker stop\u2026\n\n### 4. Bad_payload: transaction-api emitting invalid event schema causing validation failures \u2014 confidence 60%\n\n*Category:* `bad_payload`\n\nThe transaction-api is emitting invalid event schema (settlement-event.v4-draft) which is not compatible with the settlement-worker's expected schema (settlement-event.v3), leading to validation failures.\n\nSupporting evidence:\n- `ev-deploy-bdb260a93f7f` \u2014 transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename currency to currency_code (settlement-event.v4 draft)\"; co\u2026\n- `ev-queue-4c70f9ac987a` \u2014 queue settlement-events (expects settlement-event.v3): consumer settlement-worker running; pending 226, dead-lettered 3242, quarantined 0; producers ['transaction-api']; failures: SETTLEMENT_SCHEMA_INVALID x3242 from pr\u2026\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-3fed9ae2ae0a` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads] Symptoms: settlement-worker logs `SETTLEMENT_SCHEMA_INVALID` and DLQ depth on `settlement-events.\u2026\n- `ev-kb-401986d7ea0b` \u2014 [Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution] transaction-api rolled back; DLQ replayed after validation.\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:58:00Z | transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename |\n| 2026-11-03 14:00:00Z | settlement-worker consumer_retries_per_min rose from baseline 0 attempts/min to 224 attempts/min starting 14:00:00Z; currently 220 attempts/min |\n| 2026-11-03 14:00:00Z | settlement-worker dlq_depth rose from baseline 12 messages to 3254 messages starting 14:00:00Z; currently 3254 messages |\n| 2026-11-03 14:00:00Z | settlement-worker validation_failures_per_min rose from baseline 0 messages/min to 112 messages/min starting 14:00:00Z; currently 110 messages/min |\n| 2026-11-03 14:06:00Z | settlement-worker queue_depth rose from baseline 44 messages to 266 messages starting 14:06:00Z; currently 266 messages |\n| 2026-11-03 14:07:23. | first error on settlement-worker: Bank SFTP upload retry 1/3: connection reset by peer |\n| 2026-11-03 14:10:00Z | alert fired / incident detected |\n| 2026-11-03 14:11:48. | first error on settlement-worker: Message msg-030a83fde470 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:18:19. | first error on settlement-worker: Message msg-0311b858294d failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:20:15. | first error on settlement-worker: Message msg-05e033178300 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:21:12. | first error on settlement-worker: Message msg-085c9d2f036c failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:21:27. | first error on settlement-worker: Message msg-107666d9c96b failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n\n## Remediation\n\n| Step | Action | Role | Parameters | Result |\n|---|---|---|---|---|\n| 1 | `pause_consumer` | containment | {'service': 'settlement-worker'} | succeeded: settlement-worker consumer paused (containment: nothing is processed) |\n| 2 | `rollback_deployment` | resolution | {'service': 'transaction-api', 'deployment_id': 'dep-ta-3180'} | succeeded: rolled back dep-ta-3180 on transaction-api |\n| 3 | `quarantine_messages` | recovery | {'queue': 'settlement-events', 'error_code': 'SETTLEMENT_SCHEMA_INVALID'} | succeeded: quarantined 4335 schema-invalid messages from settlement-events and its DLQ (preserved fo\u2026 |\n| 4 | `resume_consumer` | recovery | {'service': 'settlement-worker'} | succeeded: settlement-worker consumer resumed |\n\n- **Last decision:** approve by cli-operator at 2026-11-05 09:02:01. \u2014 \u201capprove via opspilot investigate\u201d\n- **Verification:** recovered (VERIFIED) \u2014 9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked\n  - settlement-worker (alerting_service, action_target, cited_by_top_hypothesis): initial UNHEALTHY (conflicting observations), now HEALTHY\n  - transaction-api (action_target, cited_by_top_hypothesis): initial HEALTHY, now HEALTHY\n\n## Knowledge sources\n\n- `ev-kb-a4bb8fdbc423` Settlement Worker > Settlement Worker > Failure modes (`architecture/settlement-worker.md`, chunk `a4bb8fdb`, v1, sha256 `698731c39247`)\n- `ev-kb-49f90be06498` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Summary (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `49f90be0`, v1, sha256 `91bc10259471`)\n- `ev-kb-3fed9ae2ae0a` Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads (`runbooks/settlement-invalid-payloads.md`, chunk `3fed9ae2`, v2, sha256 `3fb6a3b734dc`)\n- `ev-kb-401986d7ea0b` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `401986d7`, v1, sha256 `d8e01e132355`)\n- `ev-kb-af362726db76` Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads > Containment, resolution, recovery (`runbooks/settlement-invalid-payloads.md`, chunk `af362726`, v2, sha256 `cf98f36ea0aa`)\n- `ev-kb-43d89346ccf2` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Lessons (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `43d89346`, v1, sha256 `e1978d5b01c5`)\n- `ev-kb-060870b4b54c` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID (`errors/error-codes.json`, chunk `060870b4`, v1, sha256 `0b03be182d8e`)\n- `ev-kb-6a9ff07c31e2` Settlement Worker > Settlement Worker (`architecture/settlement-worker.md`, chunk `6a9ff07c`, v1, sha256 `89685e7fe38e`)\n\n## Investigation trace\n\n- Tool calls: 35 (0 non-ok), total tool latency 1.3s\n- LLM calls: 2, total 31.0s, tokens in/out 5979/1073\n- Evidence items: 30; rounds: 1\n",
+  "report_markdown": "# RCA: INC-20261105-0052 \u2014 Settlement dead-letter queue growing; throughput below SLO\n\n- **Outcome:** `mitigated` \u2014 Remediation executed and recovery verified.  \n- **Service:** settlement-worker  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:10:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** queue_backlog (llm)\n\n## Summary\n\nSettlement dead-letter queue growing; throughput below SLO\n\nImpact at analysis time: **ongoing** \u2014 4 unrecovered anomalous metric(s) on settlement-worker.\n\n## Ranked hypotheses\n\n### 1. Deployment_regression: transaction-api 3.18.0 introduced schema change causing validation failures \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe transaction-api deployment introduced a schema change (renaming 'currency' to 'currency_code') which caused validation failures in settlement-worker, leading to dead-letter queue growth.\n\nSupporting evidence:\n- `ev-deploy-bdb260a93f7f` \u2014 transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename currency to currency_code (settlement-event.v4 draft)\"; co\u2026\n- `ev-queue-4c70f9ac987a` \u2014 queue settlement-events (expects settlement-event.v3): consumer settlement-worker running; pending 226, dead-lettered 3242, quarantined 0; producers ['transaction-api']; failures: SETTLEMENT_SCHEMA_INVALID x3242 from pr\u2026\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-3fed9ae2ae0a` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads] Symptoms: settlement-worker logs `SETTLEMENT_SCHEMA_INVALID` and DLQ depth on `settlement-events.\u2026\n- `ev-kb-401986d7ea0b` \u2014 [Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution] transaction-api rolled back; DLQ replayed after validation.\n\n### 2. Configuration_error: settlement-worker max_retries set to 3 causing retry churn \u2014 confidence 75%\n\n*Category:* `configuration_error`\n\nThe settlement-worker configuration change to max_retries=3 caused retry churn, contributing to the dead-letter queue growth.\n\nSupporting evidence:\n- `ev-cfgchg-56713edbbb00` \u2014 settlement-worker config consumer.max_retries 5 -> 3 (id cfg-sw-0081) at 13:10:00Z, 50.0 min before onset; correlation 0.19\n- `ev-log-113d9836431f` \u2014 settlement-worker ERROR x1 (first 14:20:15Z, last 14:20:15Z): Message msg-05e033178300 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-3826f45b1373` \u2014 settlement-worker ERROR x1 (first 14:18:19Z, last 14:18:19Z): Message msg-0311b858294d failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-3c28fed4fe2d` \u2014 settlement-worker ERROR x1 (first 14:21:27Z, last 14:21:27Z): Message msg-107666d9c96b failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-b597d3d799a7` \u2014 settlement-worker ERROR x1 (first 14:21:12Z, last 14:21:12Z): Message msg-085c9d2f036c failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n- `ev-log-d39eee83bbe6` \u2014 settlement-worker ERROR x1 (first 14:11:48Z, last 14:11:48Z): Message msg-030a83fde470 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); moved to settlement-events.dlq\n\n### 3. Dependency_degradation: Bank SFTP upload retry 1/3: connection reset by peer \u2014 confidence 65%\n\n*Category:* `dependency_degradation`\n\nThe Bank SFTP upload retry failure caused connection reset by peer, leading to retry churn and contributing to the dead-letter queue growth.\n\nSupporting evidence:\n- `ev-log-5faa89e2a2d3` \u2014 settlement-worker ERROR x1 (first 14:07:23Z, last 14:07:23Z): Bank SFTP upload retry 1/3: connection reset by peer\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-af362726db76` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads > Containment, resolution, recovery] - **Containment:** `pause_consumer` on settlement-worker stop\u2026\n\n### 4. Bad_payload: transaction-api emitting invalid event schema causing validation failures \u2014 confidence 60%\n\n*Category:* `bad_payload`\n\nThe transaction-api is emitting invalid event schema (settlement-event.v4-draft) which is not compatible with the settlement-worker's expected schema (settlement-event.v3), leading to validation failures.\n\nSupporting evidence:\n- `ev-deploy-bdb260a93f7f` \u2014 transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename currency to currency_code (settlement-event.v4 draft)\"; co\u2026\n- `ev-queue-4c70f9ac987a` \u2014 queue settlement-events (expects settlement-event.v3): consumer settlement-worker running; pending 226, dead-lettered 3242, quarantined 0; producers ['transaction-api']; failures: SETTLEMENT_SCHEMA_INVALID x3242 from pr\u2026\n- `ev-kb-060870b4b54c` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID] - service: settlement-worker - meaning: A settlement event failed settlement-event.v3 schema validation and was dead-\u2026\n- `ev-kb-3fed9ae2ae0a` \u2014 [Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads] Symptoms: settlement-worker logs `SETTLEMENT_SCHEMA_INVALID` and DLQ depth on `settlement-events.\u2026\n- `ev-kb-401986d7ea0b` \u2014 [Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution] transaction-api rolled back; DLQ replayed after validation.\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:58:00Z | transaction-api application 3.18.0 (id dep-ta-3180, previous 3.17.2) finished 13:58:00Z, 2.0 min before anomaly onset; status succeeded; \"Payment events: rename |\n| 2026-11-03 14:00:00Z | settlement-worker consumer_retries_per_min rose from baseline 0 attempts/min to 224 attempts/min starting 14:00:00Z; currently 220 attempts/min |\n| 2026-11-03 14:00:00Z | settlement-worker dlq_depth rose from baseline 12 messages to 3254 messages starting 14:00:00Z; currently 3254 messages |\n| 2026-11-03 14:00:00Z | settlement-worker validation_failures_per_min rose from baseline 0 messages/min to 112 messages/min starting 14:00:00Z; currently 110 messages/min |\n| 2026-11-03 14:06:00Z | settlement-worker queue_depth rose from baseline 44 messages to 266 messages starting 14:06:00Z; currently 266 messages |\n| 2026-11-03 14:07:23. | first error on settlement-worker: Bank SFTP upload retry 1/3: connection reset by peer |\n| 2026-11-03 14:10:00Z | alert fired / incident detected |\n| 2026-11-03 14:11:48. | first error on settlement-worker: Message msg-030a83fde470 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:18:19. | first error on settlement-worker: Message msg-0311b858294d failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:20:15. | first error on settlement-worker: Message msg-05e033178300 failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:21:12. | first error on settlement-worker: Message msg-085c9d2f036c failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n| 2026-11-03 14:21:27. | first error on settlement-worker: Message msg-107666d9c96b failed validation against settlement-event.v3: 'currency' is a required property (attempt 3/3); |\n\n## Remediation\n\n| Step | Action | Role | Parameters | Result |\n|---|---|---|---|---|\n| 1 | `pause_consumer` | containment | {'service': 'settlement-worker'} | succeeded: settlement-worker consumer paused (containment: nothing is processed) |\n| 2 | `rollback_deployment` | resolution | {'service': 'transaction-api', 'deployment_id': 'dep-ta-3180'} | succeeded: rolled back dep-ta-3180 on transaction-api |\n| 3 | `quarantine_messages` | recovery | {'queue': 'settlement-events', 'error_code': 'SETTLEMENT_SCHEMA_INVALID'} | succeeded: quarantined 4317 schema-invalid messages from settlement-events and its DLQ (preserved fo\u2026 |\n| 4 | `resume_consumer` | recovery | {'service': 'settlement-worker'} | succeeded: settlement-worker consumer resumed |\n\n- **Last decision:** approve by cli-operator at 2026-11-05 11:08:28. \u2014 \u201capprove via opspilot investigate\u201d\n- **Verification:** recovered (VERIFIED) \u2014 9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked\n  - settlement-worker (alerting_service, action_target, cited_by_top_hypothesis): initial UNHEALTHY (conflicting observations), now HEALTHY\n  - transaction-api (action_target, cited_by_top_hypothesis): initial HEALTHY, now HEALTHY\n\n## Knowledge sources\n\n- `ev-kb-a4bb8fdbc423` Settlement Worker > Settlement Worker > Failure modes (`architecture/settlement-worker.md`, chunk `a4bb8fdb`, v1, sha256 `698731c39247`)\n- `ev-kb-49f90be06498` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Summary (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `49f90be0`, v1, sha256 `91bc10259471`)\n- `ev-kb-3fed9ae2ae0a` Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads (`runbooks/settlement-invalid-payloads.md`, chunk `3fed9ae2`, v2, sha256 `3fb6a3b734dc`)\n- `ev-kb-401986d7ea0b` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Resolution (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `401986d7`, v1, sha256 `d8e01e132355`)\n- `ev-kb-af362726db76` Runbook: Settlement Failures from Invalid Message Payloads > Runbook: Settlement Failures from Invalid Message Payloads > Containment, resolution, recovery (`runbooks/settlement-invalid-payloads.md`, chunk `af362726`, v2, sha256 `cf98f36ea0aa`)\n- `ev-kb-43d89346ccf2` Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Postmortem PM-2026-011: Settlement stalled by invalid event payloads > Lessons (`incidents/2026-05-21-settlement-poison-messages.md`, chunk `43d89346`, v1, sha256 `e1978d5b01c5`)\n- `ev-kb-060870b4b54c` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > SETTLEMENT_SCHEMA_INVALID (`errors/error-codes.json`, chunk `060870b4`, v1, sha256 `0b03be182d8e`)\n- `ev-kb-6a9ff07c31e2` Settlement Worker > Settlement Worker (`architecture/settlement-worker.md`, chunk `6a9ff07c`, v1, sha256 `89685e7fe38e`)\n\n## Investigation trace\n\n- Tool calls: 35 (0 non-ok), total tool latency 1.6s\n- LLM calls: 2, total 32.3s, tokens in/out 5979/1073\n- Evidence items: 30; rounds: 1\n",
   "error": null,
-  "finished_at": "2026-11-05T09:02:02.836036+00:00"
+  "finished_at": "2026-11-05T11:08:29.212343+00:00"
  }
 }

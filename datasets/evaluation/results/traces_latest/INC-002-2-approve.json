@@ -56,21 +56,21 @@
   "tool_calls": 36,
   "tool_failures": 0,
   "llm_calls": 2,
-  "seconds_to_pause": 33.5,
-  "seconds_total": 34.5,
+  "seconds_to_pause": 33.7,
+  "seconds_total": 34.8,
   "error": null,
   "trial": 2,
   "decision": "approve"
  },
  "run": {
   "scenario": "INC-002",
-  "incident_id": "4b025a66-108b-4e82-a1e0-bd25a375a6e5",
-  "environment_id": "3143a68c-9220-4b72-82ff-cc2c25dd94df",
-  "reference": "INC-20261105-0036",
-  "investigation_id": "81b9097b-65d5-4877-8575-c8ab6e6a3811",
+  "incident_id": "6d0a91a2-a8c7-4bc9-9c3f-e1a96d526c5c",
+  "environment_id": "a5e0c466-d6ae-47b3-8b47-ce4254f047cb",
+  "reference": "INC-20261105-0050",
+  "investigation_id": "d8ce1bc6-1827-4f04-ba0e-6d159f2b7b21",
   "status": "completed",
-  "seconds_to_pause": 33.5,
-  "seconds_total": 34.5,
+  "seconds_to_pause": 33.7,
+  "seconds_total": 34.8,
   "result": {
    "rca": {
     "model": "qwen3:8b",
@@ -180,7 +180,7 @@
    },
    "plan": {
     "notes": [],
-    "planned_at": "2026-11-05T09:00:09.062202+00:00",
+    "planned_at": "2026-11-05T11:06:32.852565+00:00",
     "capabilities": [
      "telemetry",
      "changes",
@@ -207,8 +207,8 @@
    "approval": {
     "comment": "approve via opspilot investigate",
     "decision": "approve",
-    "action_id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
-    "decided_at": "2026-11-05T09:00:40.133292+00:00",
+    "action_id": "f4b382fd-940f-584f-bd04-d42076afdecc",
+    "decided_at": "2026-11-05T11:07:03.968642+00:00",
     "decided_by": "cli-operator",
     "params_hash": "8a9d37ae27e7d2b5ab7e944b43c591c746e8d0ace194cd521ed06f0c0e92ee7f",
     "approval_token": null
@@ -226,9 +226,9 @@
      },
      "message": "rolled back dep-ls-0291 on ledger-service",
      "replayed": false,
-     "action_id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+     "action_id": "f4b382fd-940f-584f-bd04-d42076afdecc",
      "action_type": "rollback_deployment",
-     "executed_at": "2026-11-05T09:00:40.183766Z"
+     "executed_at": "2026-11-05T11:07:04.130547Z"
     }
    ],
    "remediation": {
@@ -241,9 +241,9 @@
     },
     "message": "rolled back dep-ls-0291 on ledger-service",
     "replayed": false,
-    "action_id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+    "action_id": "f4b382fd-940f-584f-bd04-d42076afdecc",
     "action_type": "rollback_deployment",
-    "executed_at": "2026-11-05T09:00:40.183766Z"
+    "executed_at": "2026-11-05T11:07:04.130547Z"
    },
    "verification": {
     "notes": "9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked",
@@ -262,8 +262,8 @@
      {
       "kind": "metric",
       "name": "http_5xx_ratio",
-      "after": 0.00327,
-      "detail": "after 0.003267 (acceptable <= 0.0123)",
+      "after": 0.00266,
+      "detail": "after 0.002663 (acceptable <= 0.0123)",
       "status": "passed",
       "service": "transaction-api",
       "baseline": 0.0023,
@@ -271,13 +271,13 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 0.0123",
       "evidence_id": "ev-metric-3df72375054a",
-      "tool_call_id": "tc-5482e37c41dd48bf"
+      "tool_call_id": "tc-ce8e4b9d6ebf49c7"
      },
      {
       "kind": "metric",
       "name": "p95_latency_ms",
-      "after": 186.58794,
-      "detail": "after 186.6 (acceptable <= 281.2)",
+      "after": 171.06652,
+      "detail": "after 171.1 (acceptable <= 281.2)",
       "status": "passed",
       "service": "transaction-api",
       "baseline": 181.24837,
@@ -285,13 +285,13 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 281.2",
       "evidence_id": "ev-metric-a4ee9579bef8",
-      "tool_call_id": "tc-7453383e13c84528"
+      "tool_call_id": "tc-10a475d95bae4e81"
      },
      {
       "kind": "metric",
       "name": "http_5xx_ratio",
-      "after": 0.001,
-      "detail": "after 0.001003 (acceptable <= 0.01124)",
+      "after": 0.00131,
+      "detail": "after 0.001307 (acceptable <= 0.01124)",
       "status": "passed",
       "service": "ledger-service",
       "baseline": 0.00124,
@@ -299,13 +299,13 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 0.01124",
       "evidence_id": "ev-metric-3f33231d914e",
-      "tool_call_id": "tc-c2893b45afb34755"
+      "tool_call_id": "tc-fc17df6c83f849c0"
      },
      {
       "kind": "metric",
       "name": "p95_latency_ms",
-      "after": 46.64297,
-      "detail": "after 46.64 (acceptable <= 145.2)",
+      "after": 48.74751,
+      "detail": "after 48.75 (acceptable <= 145.2)",
       "status": "passed",
       "service": "ledger-service",
       "baseline": 45.18286,
@@ -313,13 +313,13 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 145.2",
       "evidence_id": "ev-metric-9ba06003b48c",
-      "tool_call_id": "tc-ba7e6e15c22746ce"
+      "tool_call_id": "tc-fb90f37ffee6418b"
      },
      {
       "kind": "metric",
       "name": "db_pool_in_use",
-      "after": 12.33896,
-      "detail": "after 12.34 (acceptable <= 20.1)",
+      "after": 14.17127,
+      "detail": "after 14.17 (acceptable <= 20.1)",
       "status": "passed",
       "service": "ledger-service",
       "baseline": 13.46423,
@@ -327,13 +327,13 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 20.1",
       "evidence_id": "ev-metric-4be36edd2557",
-      "tool_call_id": "tc-a3b60233ac8f4891"
+      "tool_call_id": "tc-f774a866b4484194"
      },
      {
       "kind": "metric",
       "name": "db_pool_wait_ms",
-      "after": 1.42573,
-      "detail": "after 1.426 (acceptable <= 51.97)",
+      "after": 2.46748,
+      "detail": "after 2.467 (acceptable <= 51.97)",
       "status": "passed",
       "service": "ledger-service",
       "baseline": 1.97179,
@@ -341,7 +341,7 @@
       "semantics": "higher_is_bad",
       "acceptable": "<= 51.97",
       "evidence_id": "ev-metric-e2dc87abfbc7",
-      "tool_call_id": "tc-550f6fd9f54a48ea"
+      "tool_call_id": "tc-81dad1b186844c26"
      },
      {
       "kind": "health",
@@ -351,7 +351,7 @@
       "service": "ledger-service",
       "observed": "healthy",
       "evidence_id": "ev-dep-9143fbb9d6ec",
-      "tool_call_id": "tc-078a6d8aec264610"
+      "tool_call_id": "tc-e13b80f956cb4538"
      },
      {
       "kind": "health",
@@ -361,7 +361,7 @@
       "service": "transaction-api",
       "observed": "healthy",
       "evidence_id": "ev-health-f7e713d2af2b",
-      "tool_call_id": "tc-d5bf1bdd78944a42"
+      "tool_call_id": "tc-9fada4fbbe7f4a85"
      },
      {
       "kind": "postcondition",
@@ -371,7 +371,7 @@
       "service": "ledger-service",
       "observed": "rolled_back",
       "evidence_id": "step-1",
-      "tool_call_id": "tc-bab7fd99da294f22"
+      "tool_call_id": "tc-e42bf283d92049ea"
      }
     ],
     "status": "recovered",
@@ -417,7 +417,7 @@
     "risk": "medium",
     "role": "resolution",
     "step": 1,
-    "action_id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+    "action_id": "f4b382fd-940f-584f-bd04-d42076afdecc",
     "plan_size": 1,
     "rationale": "Revert the ledger-service deployment 2.9.1 to its previous version to remove the cause of the connection pool exhaustion.",
     "parameters": {
@@ -427,7 +427,7 @@
     "validation": null,
     "action_type": "rollback_deployment",
     "params_hash": "8a9d37ae27e7d2b5ab7e944b43c591c746e8d0ace194cd521ed06f0c0e92ee7f",
-    "proposed_at": "2026-11-05T09:00:39.870371+00:00",
+    "proposed_at": "2026-11-05T11:07:03.776322+00:00",
     "hypothesis_rank": 1
    },
    "remediation_plan": [
@@ -435,7 +435,7 @@
      "risk": "medium",
      "role": "resolution",
      "step": 1,
-     "action_id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+     "action_id": "f4b382fd-940f-584f-bd04-d42076afdecc",
      "plan_size": 1,
      "rationale": "Revert the ledger-service deployment 2.9.1 to its previous version to remove the cause of the connection pool exhaustion.",
      "parameters": {
@@ -445,13 +445,13 @@
      "validation": null,
      "action_type": "rollback_deployment",
      "params_hash": "8a9d37ae27e7d2b5ab7e944b43c591c746e8d0ace194cd521ed06f0c0e92ee7f",
-     "proposed_at": "2026-11-05T09:00:39.870371+00:00",
+     "proposed_at": "2026-11-05T11:07:03.776322+00:00",
      "hypothesis_rank": 1
     }
    ],
    "rejected_proposals": [
     {
-     "at": "2026-11-05T09:00:39.870388+00:00",
+     "at": "2026-11-05T11:07:03.776365+00:00",
      "reason": "no configuration evidence for ledger-db; pool capacity cannot be verified",
      "details": null,
      "category": "unsafe",
@@ -466,7 +466,7 @@
   },
   "actions": [
    {
-    "id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+    "id": "f4b382fd-940f-584f-bd04-d42076afdecc",
     "type": "rollback_deployment",
     "parameters": {
      "service": "ledger-service",
@@ -476,7 +476,7 @@
    }
   ],
   "action": {
-   "id": "bbc7cd07-ca8b-5325-a2e9-caf4f6e0fbe6",
+   "id": "f4b382fd-940f-584f-bd04-d42076afdecc",
    "type": "rollback_deployment",
    "parameters": {
     "service": "ledger-service",
@@ -491,21 +491,14 @@
     "tool": "get_incident",
     "agent": "intake",
     "status": "ok",
-    "latency_ms": 6.3,
+    "latency_ms": 5.2,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 10.5,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 19.5,
+    "latency_ms": 16.5,
     "error": null
    },
    {
@@ -519,251 +512,258 @@
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 23.5,
+    "latency_ms": 29.7,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 28.9,
+    "latency_ms": 39.0,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 31.5,
+    "latency_ms": 44.4,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 48.2,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 3.8,
+    "latency_ms": 5.8,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 5.4,
+    "latency_ms": 8.0,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 6.6,
+    "latency_ms": 12.6,
     "error": null
    },
    {
     "tool": "inspect_queue",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 8.4,
+    "latency_ms": 19.0,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 4.6,
-    "error": null
-   },
-   {
-    "tool": "get_service_health",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 13.8,
+    "latency_ms": 7.9,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 18.5,
+    "latency_ms": 29.5,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 33.0,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 37.4,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 40.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 44.6,
+    "error": null
+   },
+   {
+    "tool": "get_service_health",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 44.9,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 27.7,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 30.1,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 32.2,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 34.4,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 36.3,
+    "latency_ms": 60.2,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 3.3,
+    "latency_ms": 7.8,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 4.7,
+    "latency_ms": 9.9,
     "error": null
    },
    {
     "tool": "get_datastore_status",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 4.1,
+    "latency_ms": 8.8,
     "error": null
    },
    {
     "tool": "list_recent_deployments",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 3.3,
+    "latency_ms": 9.3,
     "error": null
    },
    {
     "tool": "get_config_changes",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 3.5,
-    "error": null
-   },
-   {
-    "tool": "search_runbooks",
-    "agent": "knowledge",
-    "status": "ok",
-    "latency_ms": 92.4,
+    "latency_ms": 10.0,
     "error": null
    },
    {
     "tool": "get_historical_incidents",
     "agent": "knowledge",
     "status": "ok",
-    "latency_ms": 104.6,
+    "latency_ms": 106.0,
+    "error": null
+   },
+   {
+    "tool": "search_runbooks",
+    "agent": "knowledge",
+    "status": "ok",
+    "latency_ms": 143.4,
     "error": null
    },
    {
     "tool": "execute_remediation",
     "agent": "remediation",
     "status": "ok",
-    "latency_ms": 40.0,
+    "latency_ms": 106.3,
     "error": null
    },
    {
     "tool": "list_recent_deployments",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 21.8,
+    "latency_ms": 63.3,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 28.9,
+    "latency_ms": 74.1,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 75.1,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 76.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 77.1,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 29.3,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 30.7,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 31.2,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 31.6,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "verify",
-    "status": "ok",
-    "latency_ms": 32.3,
+    "latency_ms": 77.4,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 32.1,
+    "latency_ms": 78.0,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "verify",
     "status": "ok",
-    "latency_ms": 32.5,
+    "latency_ms": 79.1,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "verify",
+    "status": "ok",
+    "latency_ms": 79.9,
     "error": null
    }
   ],
   "llm_calls": [
    {
-    "id": "llm-e3ebae4042af",
+    "id": "llm-c0711d4b56b8",
     "purpose": "supervisor.plan",
     "model": "qwen3:8b",
-    "latency_ms": 2136.6,
+    "latency_ms": 2160.3,
     "prompt_tokens": 444,
     "completion_tokens": 80,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:00:06.924532Z"
+    "started_at": "2026-11-05T11:06:30.691893Z"
    },
    {
-    "id": "llm-39bd19b23e0d",
+    "id": "llm-37f631fce2d3",
     "purpose": "rca.analyze",
     "model": "qwen3:8b",
-    "latency_ms": 30489.4,
+    "latency_ms": 30341.9,
     "prompt_tokens": 6148,
     "completion_tokens": 968,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:00:09.374064Z"
+    "started_at": "2026-11-05T11:06:33.412685Z"
    }
   ],
   "evidence_ids": [
@@ -1346,7 +1346,7 @@
     "data": {
      "rank": 1,
      "score": 0.032522,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1362,7 +1362,7 @@
      "passage": "ledger-service uses a pool of 40 connections per replica (`LEDGER_DB_POOL_MAX`). Pool exhaustion\nshows up as `PoolTimeout: couldn't get a connection after 5.00 sec` and rising p95 latency rather\nthan immediate errors.",
      "passage_sha256": "43fe2dc5e7418349f562e81842db44b5f33147efa71fdcec5e9a202c1399480a",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1377,7 +1377,7 @@
     "data": {
      "rank": 2,
      "score": 0.031054,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 7,
@@ -1393,7 +1393,7 @@
      "passage": "Upstream failures are mapped to stable error codes (see the error catalogue). The API never\nreturns raw database errors; a `LEDGER_WRITE_FAILED` code always means the ledger write failed\ndownstream. Errors from ledger-service are logged with `upstream=ledger-service` and the upstream\nstatus code.",
      "passage_sha256": "94e0d76a86f118491987189963fd07ac64b7959c4b30666592f286e69c848c5b",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1408,7 +1408,7 @@
     "data": {
      "rank": 3,
      "score": 0.030366,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 3,
@@ -1424,7 +1424,7 @@
      "passage": "Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show\n`PoolTimeout: couldn't get a connection after 5.00 sec`, and `db_pool_in_use` sits at\n`db_pool_max`. Error rate rises later, as timeouts start.",
      "passage_sha256": "455a0d102e6e9cb9688651650de099a134398a6e32815b6c21713cd91cf8f2d2",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1439,7 +1439,7 @@
     "data": {
      "rank": 4,
      "score": 0.030159,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 10,
@@ -1455,7 +1455,7 @@
      "passage": "- http status: 500\n- service: transaction-api\n- meaning: The synchronous ledger-service write failed. The underlying cause is in ledger-service logs.\n- first steps: Check ledger-service error logs and recent ledger-service deployments or schema migrations.",
      "passage_sha256": "a238052c73207b210b9a937ee20019c682356e8c86f439e476191cf04164c7b2",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.4,
     "observed_at": null
@@ -1470,7 +1470,7 @@
     "data": {
      "rank": 5,
      "score": 0.030118,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 9,
@@ -1486,7 +1486,7 @@
      "passage": "ledger-service records immutable double-entry postings for every payment.",
      "passage_sha256": "850e600732eb7f8a17f54d70206da8d0daf10adecc88603500f8f2f80c243884",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.3,
     "observed_at": null
@@ -1501,7 +1501,7 @@
     "data": {
      "rank": 3,
      "score": 0.030366,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": null,
@@ -1519,7 +1519,7 @@
      "passage": "- A slow query holding connections (missing index after a data growth step).\n- Long transactions or idle-in-transaction sessions.\n- Traffic increase without pool or replica scaling.",
      "passage_sha256": "f9a86db9a1ded2b8ba9dceb666b423877aeca96e132fd77c7a0f231faebc91e2",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.45,
     "observed_at": null
@@ -1534,7 +1534,7 @@
     "data": {
      "rank": 3,
      "score": 0.030366,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": null,
@@ -1552,7 +1552,7 @@
      "passage": "A saturated pool means connections are *held too long*, not that there are too few. Look for what\nholds them: long-running or sequential-scan queries, a new endpoint, a missing index, lock waits.\nIf a recent deployment introduced the slow query, **revert that deployment** \u2014 this removes the cause.",
      "passage_sha256": "2b1775ca68dccaaf73e9f5ea41eefac92a821c1004fd57d69d44aa86aef6932e",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.45,
     "observed_at": null
@@ -1567,7 +1567,7 @@
     "data": {
      "rank": 3,
      "score": 0.030366,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": null,
@@ -1585,7 +1585,7 @@
      "passage": "Never change a pool size without checking the datastore:\n\n`replicas \u00d7 pool_max_per_replica + all other clients \u2264 90% of (max_connections \u2212 reserved)`\n\nIf ledger-db is already near capacity, a larger pool only moves the bottleneck into the database and\ncan exhaust `max_connections` for every client (including admin access). Treat a pool increase as a\nshort-lived containment step, never as the fix.",
      "passage_sha256": "82e58e4d2339eeba860e8e7c35a7da65c048592057acd04a1c9c7f78bbd84fe5",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.45,
     "observed_at": null
@@ -1600,7 +1600,7 @@
     "data": {
      "rank": 3,
      "score": 0.030366,
-     "query_id": "f7428aa6-6de0-4d91-92e1-92829a88f154",
+     "query_id": "4de20573-a8dd-4437-930e-4542c6a2ac96",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": null,
@@ -1618,7 +1618,7 @@
      "passage": "1. Identify long-running queries (datastore status / `pg_stat_activity`).\n2. Revert the change that introduced them, or disable the feature flag.\n3. Only if capacity allows, raise the pool within the bound above, and plan to revert it.\n4. Restarting ledger-service clears stuck connections but only buys time.",
      "passage_sha256": "92382e7182c0b84068fd102a38472c5895d6e7686bb3c33148be29c5eac16643",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.45,
     "observed_at": null
@@ -1633,7 +1633,7 @@
     "data": {
      "rank": 1,
      "score": 0.032002,
-     "query_id": "1d80b399-8a55-483f-b6e2-a11e81c33e17",
+     "query_id": "ff560726-ced3-4b63-82e2-a2ef27408f10",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1649,7 +1649,7 @@
      "passage": "transaction-api p95 latency rose from 180 ms to 4.2 s for 48 minutes. ledger-service connection\npools were saturated by a reporting query missing an index on `ledger_entries(account_id, created_at)`.",
      "passage_sha256": "d6f42644ef08d4d4d19b134cd49be5c7ba9985625eea68699ad38046167b05d9",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1664,7 +1664,7 @@
     "data": {
      "rank": 2,
      "score": 0.031778,
-     "query_id": "1d80b399-8a55-483f-b6e2-a11e81c33e17",
+     "query_id": "ff560726-ced3-4b63-82e2-a2ef27408f10",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 5,
@@ -1680,7 +1680,7 @@
      "passage": "For 23 minutes, 41% of `POST /v1/payments` requests failed with HTTP 500 (`LEDGER_WRITE_FAILED`).\nA ledger-db migration dropped the `posting_ref` column while ledger-service v2.3.1, which still\nwrote `posting_ref`, was serving traffic.",
      "passage_sha256": "99b62265a43e68de54f9a52372e1ee6df8d2b8589a064c3b3a37e8b571516f16",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1695,7 +1695,7 @@
     "data": {
      "rank": 3,
      "score": 0.031545,
-     "query_id": "1d80b399-8a55-483f-b6e2-a11e81c33e17",
+     "query_id": "ff560726-ced3-4b63-82e2-a2ef27408f10",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 1,
@@ -1711,7 +1711,7 @@
      "passage": "A new merchant-statement endpoint issued a sequential scan per request, holding connections ~3 s.",
      "passage_sha256": "b91ce508d6c2ce5db9db7eb3cc7adefa3ba1bdb83921ac250cac6906e2e853bf",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:00:09.360470Z"
+     "retrieved_at": "2026-11-05T11:06:33.381501Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1736,7 +1736,7 @@
     "reason": "no configuration evidence for ledger-db; pool capacity cannot be verified",
     "category": "unsafe",
     "details": null,
-    "at": "2026-11-05T09:00:39.870388+00:00"
+    "at": "2026-11-05T11:07:03.776365+00:00"
    }
   ],
   "outcome": {
@@ -1749,8 +1749,8 @@
    "steps_planned": 1,
    "impact": "ongoing"
   },
-  "report_markdown": "# RCA: INC-20261105-0036 \u2014 transaction-api p95 latency and 5xx above SLO\n\n- **Outcome:** `mitigated` \u2014 Remediation executed and recovery verified.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Summary\n\ntransaction-api p95 latency and 5xx above SLO\n\nImpact at analysis time: **ongoing** \u2014 2 unrecovered anomalous metric(s) on transaction-api.\n\n## Ranked hypotheses\n\n### 1. ledger-service deployment caused connection pool exhaustion \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe ledger-service deployment 2.9.1 introduced a new endpoint that caused sequential scans on ledger_entries, leading to connection pool exhaustion and timeouts.\n\nSupporting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-6b6d2f1c6819` \u2014 [Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause] A new merchant-statement endpoint issued a sequential scan p\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-log-f0cfe4ad6629` \u2014 ledger-service WARN x118 (first 14:00:02Z, last 14:29:56Z): Slow query (2648ms, Seq Scan on ledger_entries): SELECT entry_id, amount, currency, created_at FROM ledger_entries WHERE account_id = $1 AND created_at BETWEEN\u2026\n- `ev-log-90a3f542665d` \u2014 ledger-service WARN x8 (first 11:11:38Z, last 14:17:03Z): Slow query on ledger_entries (543ms)\n\n### 2. ledger-db connection pool reached capacity \u2014 confidence 85%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-db connection pool reached 94% capacity due to a slow query on ledger_entries, causing timeouts and connection pool exhaustion.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 185/200 (94% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 160}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; 140 se\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n### 3. slow query on ledger_entries caused connection pool exhaustion \u2014 confidence 80%\n\n*Category:* `dependency_degradation`\n\nA slow query on ledger_entries caused connection pool exhaustion, leading to timeouts and increased latency.\n\nSupporting evidence:\n- `ev-log-f0cfe4ad6629` \u2014 ledger-service WARN x118 (first 14:00:02Z, last 14:29:56Z): Slow query (2648ms, Seq Scan on ledger_entries): SELECT entry_id, amount, currency, created_at FROM ledger_entries WHERE account_id = $1 AND created_at BETWEEN\u2026\n- `ev-log-90a3f542665d` \u2014 ledger-service WARN x8 (first 11:11:38Z, last 14:17:03Z): Slow query on ledger_entries (543ms)\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n### 4. insufficient connection pool size for ledger-service \u2014 confidence 70%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-service connection pool size was insufficient to handle the increased load, leading to timeouts and connection pool exhaustion.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 185/200 (94% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 160}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; 140 se\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:54:00Z | ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement ex |\n| 2026-11-03 14:00:00Z | ledger-service db_pool_in_use rose from baseline 13 connections to 40 connections starting 14:00:00Z; currently 40 connections |\n| 2026-11-03 14:00:00Z | ledger-service db_pool_wait_ms rose from baseline 2 ms to 4276 ms starting 14:00:00Z; currently 3586 ms |\n| 2026-11-03 14:00:00Z | ledger-service p95_latency_ms rose from baseline 45 ms to 2891 ms starting 14:00:00Z; currently 2784 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 15.95% starting 14:00:00Z; currently 10.23% |\n| 2026-11-03 14:00:00Z | transaction-api p95_latency_ms rose from baseline 181 ms to 2710 ms starting 14:00:00Z; currently 2433 ms |\n| 2026-11-03 14:00:00. | first error on ledger-service: PoolTimeout: couldn't get a connection after 5.00 sec |\n| 2026-11-03 14:00:05. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service timed out after 2500ms code=PAYMENT_TIMEOUT |\n| 2026-11-03 14:01:00Z | ledger-service http_5xx_ratio rose from baseline 0.12% to 11.87% starting 14:01:00Z; currently 9.35% |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n| Step | Action | Role | Parameters | Result |\n|---|---|---|---|---|\n| 1 | `rollback_deployment` | resolution | {'service': 'ledger-service', 'deployment_id': 'dep-ls-0291'} | succeeded: rolled back dep-ls-0291 on ledger-service |\n\n- **Last decision:** approve by cli-operator at 2026-11-05 09:00:40. \u2014 \u201capprove via opspilot investigate\u201d\n- **Verification:** recovered (VERIFIED) \u2014 9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked\n  - ledger-service (action_target, cited_by_top_hypothesis, affected_dependency): initial UNHEALTHY, now HEALTHY\n  - transaction-api (alerting_service): initial UNHEALTHY, now HEALTHY\n- Blocked model proposal `scale_connection_pool` (unsafe): no configuration evidence for ledger-db; pool capacity cannot be verified\n\n## Knowledge sources\n\n- `ev-kb-5a97f5f885b0` Ledger Service Design > Ledger Service Design > Connection pooling (`architecture/ledger-service.md`, chunk `5a97f5f8`, v1, sha256 `43fe2dc5e741`)\n- `ev-kb-040f9cd36425` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `040f9cd3`, v1, sha256 `d6f42644ef08`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`, v1, sha256 `94e0d76a86f1`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`, v1, sha256 `99b62265a43e`)\n- `ev-kb-4081389f6341` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion (`runbooks/db-connection-pool-exhaustion.md`, chunk `4081389f`, v2, sha256 `455a0d102e6e`)\n- `ev-kb-6b6d2f1c6819` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `6b6d2f1c`, v1, sha256 `b91ce508d6c2`)\n- `ev-kb-ff2816361598` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Common causes (`runbooks/db-connection-pool-exhaustion.md`, chunk `ff281636`, v2, sha256 `f9a86db9a1de`)\n- `ev-kb-04e37ecf048c` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom (`runbooks/db-connection-pool-exhaustion.md`, chunk `04e37ecf`, v2, sha256 `2b1775ca68dc`)\n- `ev-kb-9f0c28fa9a07` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change (`runbooks/db-connection-pool-exhaustion.md`, chunk `9f0c28fa`, v2, sha256 `82e58e4d2339`)\n- `ev-kb-f5e9f6654254` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Mitigation (`runbooks/db-connection-pool-exhaustion.md`, chunk `f5e9f665`, v2, sha256 `92382e7182c0`)\n- `ev-kb-c17c54dc3c93` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED (`errors/error-codes.json`, chunk `c17c54dc`, v1, sha256 `a238052c7320`)\n- `ev-kb-662084474408` Ledger Service Design > Ledger Service Design (`architecture/ledger-service.md`, chunk `66208447`, v1, sha256 `850e600732eb`)\n\n## Investigation trace\n\n- Tool calls: 36 (0 non-ok), total tool latency 0.9s\n- LLM calls: 2, total 32.6s, tokens in/out 6592/1048\n- Evidence items: 33; rounds: 1\n",
+  "report_markdown": "# RCA: INC-20261105-0050 \u2014 transaction-api p95 latency and 5xx above SLO\n\n- **Outcome:** `mitigated` \u2014 Remediation executed and recovery verified.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Summary\n\ntransaction-api p95 latency and 5xx above SLO\n\nImpact at analysis time: **ongoing** \u2014 2 unrecovered anomalous metric(s) on transaction-api.\n\n## Ranked hypotheses\n\n### 1. ledger-service deployment caused connection pool exhaustion \u2014 confidence 95%\n\n*Category:* `deployment_regression`\n\nThe ledger-service deployment 2.9.1 introduced a new endpoint that caused sequential scans on ledger_entries, leading to connection pool exhaustion and timeouts.\n\nSupporting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-6b6d2f1c6819` \u2014 [Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause] A new merchant-statement endpoint issued a sequential scan p\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-log-f0cfe4ad6629` \u2014 ledger-service WARN x118 (first 14:00:02Z, last 14:29:56Z): Slow query (2648ms, Seq Scan on ledger_entries): SELECT entry_id, amount, currency, created_at FROM ledger_entries WHERE account_id = $1 AND created_at BETWEEN\u2026\n- `ev-log-90a3f542665d` \u2014 ledger-service WARN x8 (first 11:11:38Z, last 14:17:03Z): Slow query on ledger_entries (543ms)\n\n### 2. ledger-db connection pool reached capacity \u2014 confidence 85%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-db connection pool reached 94% capacity due to a slow query on ledger_entries, causing timeouts and connection pool exhaustion.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 185/200 (94% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 160}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; 140 se\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n### 3. slow query on ledger_entries caused connection pool exhaustion \u2014 confidence 80%\n\n*Category:* `dependency_degradation`\n\nA slow query on ledger_entries caused connection pool exhaustion, leading to timeouts and increased latency.\n\nSupporting evidence:\n- `ev-log-f0cfe4ad6629` \u2014 ledger-service WARN x118 (first 14:00:02Z, last 14:29:56Z): Slow query (2648ms, Seq Scan on ledger_entries): SELECT entry_id, amount, currency, created_at FROM ledger_entries WHERE account_id = $1 AND created_at BETWEEN\u2026\n- `ev-log-90a3f542665d` \u2014 ledger-service WARN x8 (first 11:11:38Z, last 14:17:03Z): Slow query on ledger_entries (543ms)\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n### 4. insufficient connection pool size for ledger-service \u2014 confidence 70%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-service connection pool size was insufficient to handle the increased load, leading to timeouts and connection pool exhaustion.\n\nSupporting evidence:\n- `ev-ds-7784387a9cf3` \u2014 ledger-db connections 185/200 (94% of usable 197); by client {'admin': 2, 'migrations': 0, 'reporting-etl': 18, 'ledger-service': 160}; pool limits {'ledger-service': {'replicas': 4, 'pool_max_per_replica': 40}}; 140 se\u2026\n- `ev-kb-4081389f6341` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion] Symptoms: p95 latency on ledger-service rises sharply, transaction-api latency follows, logs show `PoolTimeout: couldn't get \u2026\n- `ev-kb-04e37ecf048c` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom] A saturated pool means connections are *held too long*, not that there are too few. Lo\u2026\n- `ev-kb-9f0c28fa9a07` \u2014 [Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change] Never change a pool size without checking the datastore: `replicas \u00d7 pool_max_per_rep\u2026\nContradicting evidence:\n- `ev-deploy-98d253c5f56e` \u2014 ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement export endpoint GET /v1/accounts/{id}/statements\"; correlatio\u2026\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:54:00Z | ledger-service application 2.9.1 (id dep-ls-0291, previous 2.8.4) finished 13:54:00Z, 6.0 min before anomaly onset; status succeeded; \"Add merchant statement ex |\n| 2026-11-03 14:00:00Z | ledger-service db_pool_in_use rose from baseline 13 connections to 40 connections starting 14:00:00Z; currently 40 connections |\n| 2026-11-03 14:00:00Z | ledger-service db_pool_wait_ms rose from baseline 2 ms to 4276 ms starting 14:00:00Z; currently 3586 ms |\n| 2026-11-03 14:00:00Z | ledger-service p95_latency_ms rose from baseline 45 ms to 2891 ms starting 14:00:00Z; currently 2784 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 15.95% starting 14:00:00Z; currently 10.23% |\n| 2026-11-03 14:00:00Z | transaction-api p95_latency_ms rose from baseline 181 ms to 2710 ms starting 14:00:00Z; currently 2433 ms |\n| 2026-11-03 14:00:00. | first error on ledger-service: PoolTimeout: couldn't get a connection after 5.00 sec |\n| 2026-11-03 14:00:05. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service timed out after 2500ms code=PAYMENT_TIMEOUT |\n| 2026-11-03 14:01:00Z | ledger-service http_5xx_ratio rose from baseline 0.12% to 11.87% starting 14:01:00Z; currently 9.35% |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n| Step | Action | Role | Parameters | Result |\n|---|---|---|---|---|\n| 1 | `rollback_deployment` | resolution | {'service': 'ledger-service', 'deployment_id': 'dep-ls-0291'} | succeeded: rolled back dep-ls-0291 on ledger-service |\n\n- **Last decision:** approve by cli-operator at 2026-11-05 11:07:03. \u2014 \u201capprove via opspilot investigate\u201d\n- **Verification:** recovered (VERIFIED) \u2014 9 required condition(s): 9 passed, 0 failed, 0 unknown/not checked\n  - ledger-service (action_target, cited_by_top_hypothesis, affected_dependency): initial UNHEALTHY, now HEALTHY\n  - transaction-api (alerting_service): initial UNHEALTHY, now HEALTHY\n- Blocked model proposal `scale_connection_pool` (unsafe): no configuration evidence for ledger-db; pool capacity cannot be verified\n\n## Knowledge sources\n\n- `ev-kb-5a97f5f885b0` Ledger Service Design > Ledger Service Design > Connection pooling (`architecture/ledger-service.md`, chunk `5a97f5f8`, v1, sha256 `43fe2dc5e741`)\n- `ev-kb-040f9cd36425` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `040f9cd3`, v1, sha256 `d6f42644ef08`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`, v1, sha256 `94e0d76a86f1`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`, v1, sha256 `99b62265a43e`)\n- `ev-kb-4081389f6341` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion (`runbooks/db-connection-pool-exhaustion.md`, chunk `4081389f`, v2, sha256 `455a0d102e6e`)\n- `ev-kb-6b6d2f1c6819` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `6b6d2f1c`, v1, sha256 `b91ce508d6c2`)\n- `ev-kb-ff2816361598` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Common causes (`runbooks/db-connection-pool-exhaustion.md`, chunk `ff281636`, v2, sha256 `f9a86db9a1de`)\n- `ev-kb-04e37ecf048c` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom (`runbooks/db-connection-pool-exhaustion.md`, chunk `04e37ecf`, v2, sha256 `2b1775ca68dc`)\n- `ev-kb-9f0c28fa9a07` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change (`runbooks/db-connection-pool-exhaustion.md`, chunk `9f0c28fa`, v2, sha256 `82e58e4d2339`)\n- `ev-kb-f5e9f6654254` Runbook: Database Connection Pool Exhaustion > Runbook: Database Connection Pool Exhaustion > Mitigation (`runbooks/db-connection-pool-exhaustion.md`, chunk `f5e9f665`, v2, sha256 `92382e7182c0`)\n- `ev-kb-c17c54dc3c93` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > LEDGER_WRITE_FAILED (`errors/error-codes.json`, chunk `c17c54dc`, v1, sha256 `a238052c7320`)\n- `ev-kb-662084474408` Ledger Service Design > Ledger Service Design (`architecture/ledger-service.md`, chunk `66208447`, v1, sha256 `850e600732eb`)\n\n## Investigation trace\n\n- Tool calls: 36 (0 non-ok), total tool latency 1.6s\n- LLM calls: 2, total 32.5s, tokens in/out 6592/1048\n- Evidence items: 33; rounds: 1\n",
   "error": null,
-  "finished_at": "2026-11-05T09:00:41.175155+00:00"
+  "finished_at": "2026-11-05T11:07:05.057986+00:00"
  }
 }

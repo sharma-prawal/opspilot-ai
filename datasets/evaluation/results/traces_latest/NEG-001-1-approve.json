@@ -39,21 +39,21 @@
   "tool_calls": 15,
   "tool_failures": 0,
   "llm_calls": 2,
-  "seconds_to_pause": 27.4,
-  "seconds_total": 27.4,
+  "seconds_to_pause": 28.5,
+  "seconds_total": 28.5,
   "error": null,
   "trial": 1,
   "decision": "approve"
  },
  "run": {
   "scenario": "NEG-001",
-  "incident_id": "f5cf714a-4d05-44f4-a7fb-a22a788da741",
-  "environment_id": "65430e4f-79c8-4f2c-b251-83702614ba71",
-  "reference": "INC-20261105-0039",
-  "investigation_id": "a77ccd68-d23d-4453-be2b-a706b3769360",
+  "incident_id": "52d9c870-5cad-4aa7-8537-5df70693a4fd",
+  "environment_id": "b5dfdf56-906e-468a-b02b-b8039db5fd9d",
+  "reference": "INC-20261105-0053",
+  "investigation_id": "bfebf6de-3777-4c95-8a75-01747d920b4b",
   "status": "completed",
-  "seconds_to_pause": 27.4,
-  "seconds_total": 27.4,
+  "seconds_to_pause": 28.5,
+  "seconds_total": 28.5,
   "result": {
    "rca": {
     "model": "qwen3:8b",
@@ -140,7 +140,7 @@
    },
    "plan": {
     "notes": [],
-    "planned_at": "2026-11-05T09:02:05.724481+00:00",
+    "planned_at": "2026-11-05T11:08:32.252957+00:00",
     "capabilities": [
      "telemetry",
      "changes",
@@ -177,7 +177,7 @@
    "remediation_plan": [],
    "rejected_proposals": [
     {
-     "at": "2026-11-05T09:02:29.252761+00:00",
+     "at": "2026-11-05T11:08:56.661408+00:00",
      "reason": "dep-sw-2311 does not correlate with the anomaly onset (correlation 0.00 < 0.3)",
      "details": null,
      "category": "invalid",
@@ -199,132 +199,132 @@
     "tool": "get_incident",
     "agent": "intake",
     "status": "ok",
-    "latency_ms": 3.3,
+    "latency_ms": 6.0,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 8.0,
+    "latency_ms": 7.9,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 12.8,
+    "latency_ms": 12.0,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 18.1,
-    "error": null
-   },
-   {
-    "tool": "query_metrics",
-    "agent": "telemetry",
-    "status": "ok",
-    "latency_ms": 21.1,
+    "latency_ms": 16.3,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 22.0,
+    "latency_ms": 17.1,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 24.5,
+    "latency_ms": 19.8,
+    "error": null
+   },
+   {
+    "tool": "query_metrics",
+    "agent": "telemetry",
+    "status": "ok",
+    "latency_ms": 22.1,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 3.6,
+    "latency_ms": 3.9,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 5.2,
+    "latency_ms": 5.3,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 7.0,
+    "latency_ms": 7.1,
     "error": null
    },
    {
     "tool": "inspect_queue",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 7.2,
-    "error": null
-   },
-   {
-    "tool": "list_recent_deployments",
-    "agent": "changes",
-    "status": "ok",
-    "latency_ms": 3.3,
+    "latency_ms": 8.2,
     "error": null
    },
    {
     "tool": "get_config_changes",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 3.6,
+    "latency_ms": 4.6,
     "error": null
    },
    {
-    "tool": "search_runbooks",
-    "agent": "knowledge",
+    "tool": "list_recent_deployments",
+    "agent": "changes",
     "status": "ok",
-    "latency_ms": 51.8,
+    "latency_ms": 4.9,
     "error": null
    },
    {
     "tool": "get_historical_incidents",
     "agent": "knowledge",
     "status": "ok",
-    "latency_ms": 68.8,
+    "latency_ms": 70.3,
+    "error": null
+   },
+   {
+    "tool": "search_runbooks",
+    "agent": "knowledge",
+    "status": "ok",
+    "latency_ms": 85.7,
     "error": null
    }
   ],
   "llm_calls": [
    {
-    "id": "llm-0a0fd7953e2f",
+    "id": "llm-9654d0e7955b",
     "purpose": "supervisor.plan",
     "model": "qwen3:8b",
-    "latency_ms": 2636.5,
+    "latency_ms": 2744.2,
     "prompt_tokens": 426,
     "completion_tokens": 109,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:02:03.087654Z"
+    "started_at": "2026-11-05T11:08:29.508512Z"
    },
    {
-    "id": "llm-c07834fe2cae",
+    "id": "llm-55097094df3f",
     "purpose": "rca.analyze",
     "model": "qwen3:8b",
-    "latency_ms": 23332.0,
+    "latency_ms": 24153.2,
     "prompt_tokens": 3754,
     "completion_tokens": 697,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T09:02:05.909491Z"
+    "started_at": "2026-11-05T11:08:32.486532Z"
    }
   ],
   "evidence_ids": [
@@ -602,7 +602,7 @@
     "data": {
      "rank": 1,
      "score": 0.032002,
-     "query_id": "7b326f0f-0b96-4fc4-a2c0-8293a9ab3b47",
+     "query_id": "3624e5d6-213c-4b5c-aa09-c5a88527c59a",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 3,
@@ -618,7 +618,7 @@
      "passage": "1. Clients call **transaction-api** `POST /v1/payments`. The API validates the request, performs\n   idempotency checks on the `Idempotency-Key` header, and authorises the payment.\n2. transaction-api synchronously calls **ledger-service** `POST /v1/entries` to record a double-entry\n   ledger posting. A payment is only acknowledged (`201`) once the ledger write succeeds.\n3. transaction-api publishes a `payment.authorized` event to the `settlement-events` queue.\n4. **settlement-worker** consumes `settlement-events`, batches payments per merchant and submits\n   settlement files to the acquiring bank.",
      "passage_sha256": "3d17ece010b99c6fd2db1f4d787ae66990b0d7f04809916b7d57b59ef6531e5e",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -633,7 +633,7 @@
     "data": {
      "rank": 2,
      "score": 0.031778,
-     "query_id": "7b326f0f-0b96-4fc4-a2c0-8293a9ab3b47",
+     "query_id": "3624e5d6-213c-4b5c-aa09-c5a88527c59a",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 5,
@@ -649,7 +649,7 @@
      "passage": "ledger-service uses a pool of 40 connections per replica (`LEDGER_DB_POOL_MAX`). Pool exhaustion\nshows up as `PoolTimeout: couldn't get a connection after 5.00 sec` and rising p95 latency rather\nthan immediate errors.",
      "passage_sha256": "43fe2dc5e7418349f562e81842db44b5f33147efa71fdcec5e9a202c1399480a",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -664,7 +664,7 @@
     "data": {
      "rank": 3,
      "score": 0.03055,
-     "query_id": "7b326f0f-0b96-4fc4-a2c0-8293a9ab3b47",
+     "query_id": "3624e5d6-213c-4b5c-aa09-c5a88527c59a",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 7,
@@ -680,7 +680,7 @@
      "passage": "Upstream failures are mapped to stable error codes (see the error catalogue). The API never\nreturns raw database errors; a `LEDGER_WRITE_FAILED` code always means the ledger write failed\ndownstream. Errors from ledger-service are logged with `upstream=ledger-service` and the upstream\nstatus code.",
      "passage_sha256": "94e0d76a86f118491987189963fd07ac64b7959c4b30666592f286e69c848c5b",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -695,7 +695,7 @@
     "data": {
      "rank": 4,
      "score": 0.029387,
-     "query_id": "7b326f0f-0b96-4fc4-a2c0-8293a9ab3b47",
+     "query_id": "3624e5d6-213c-4b5c-aa09-c5a88527c59a",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 14,
@@ -711,7 +711,7 @@
      "passage": "`POST /v1/entries` inserts two rows (debit + credit) in one transaction. Insert failures return\n`500` with body `{\"code\": \"LEDGER_WRITE_FAILED\"}`; callers must not retry non-idempotently.",
      "passage_sha256": "e738a95ead66bff0170ec83ded709df57a90bf64926253a283e58d9df4cb384a",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.4,
     "observed_at": null
@@ -726,7 +726,7 @@
     "data": {
      "rank": 5,
      "score": 0.02895,
-     "query_id": "7b326f0f-0b96-4fc4-a2c0-8293a9ab3b47",
+     "query_id": "3624e5d6-213c-4b5c-aa09-c5a88527c59a",
      "doc_type": "architecture",
      "doc_status": "current",
      "vector_rank": 2,
@@ -742,7 +742,7 @@
      "passage": "Because the ledger write is synchronous, any ledger-service failure surfaces as HTTP 5xx on\ntransaction-api with error code `LEDGER_WRITE_FAILED`. Read endpoints (`GET /v1/payments/{id}`)\nare served from a replica and usually keep working when writes fail \u2014 a useful discriminator.",
      "passage_sha256": "8ed6ff94214882417e2456ecd5dd48b1aeeab8e6e7fef57d28e0f40fcca02b38",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.3,
     "observed_at": null
@@ -757,7 +757,7 @@
     "data": {
      "rank": 1,
      "score": 0.032522,
-     "query_id": "8ac5e1db-d9f4-4974-9621-319f9c37e497",
+     "query_id": "f7325672-92c2-454c-ad27-18b694c3f234",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 1,
@@ -773,7 +773,7 @@
      "passage": "For 23 minutes, 41% of `POST /v1/payments` requests failed with HTTP 500 (`LEDGER_WRITE_FAILED`).\nA ledger-db migration dropped the `posting_ref` column while ledger-service v2.3.1, which still\nwrote `posting_ref`, was serving traffic.",
      "passage_sha256": "99b62265a43e68de54f9a52372e1ee6df8d2b8589a064c3b3a37e8b571516f16",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -788,7 +788,7 @@
     "data": {
      "rank": 2,
      "score": 0.032266,
-     "query_id": "8ac5e1db-d9f4-4974-9621-319f9c37e497",
+     "query_id": "f7325672-92c2-454c-ad27-18b694c3f234",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 3,
@@ -804,7 +804,7 @@
      "passage": "transaction-api p95 latency rose from 180 ms to 4.2 s for 48 minutes. ledger-service connection\npools were saturated by a reporting query missing an index on `ledger_entries(account_id, created_at)`.",
      "passage_sha256": "d6f42644ef08d4d4d19b134cd49be5c7ba9985625eea68699ad38046167b05d9",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -819,7 +819,7 @@
     "data": {
      "rank": 3,
      "score": 0.031258,
-     "query_id": "8ac5e1db-d9f4-4974-9621-319f9c37e497",
+     "query_id": "f7325672-92c2-454c-ad27-18b694c3f234",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 5,
@@ -835,7 +835,7 @@
      "passage": "A new merchant-statement endpoint issued a sequential scan per request, holding connections ~3 s.",
      "passage_sha256": "b91ce508d6c2ce5db9db7eb3cc7adefa3ba1bdb83921ac250cac6906e2e853bf",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T09:02:05.898363Z"
+     "retrieved_at": "2026-11-05T11:08:32.469500Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -858,7 +858,7 @@
     "reason": "dep-sw-2311 does not correlate with the anomaly onset (correlation 0.00 < 0.3)",
     "category": "invalid",
     "details": null,
-    "at": "2026-11-05T09:02:29.252761+00:00"
+    "at": "2026-11-05T11:08:56.661408+00:00"
    }
   ],
   "outcome": {
@@ -871,8 +871,8 @@
    "steps_planned": 0,
    "impact": "recovered"
   },
-  "report_markdown": "# RCA: INC-20261105-0039 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `no_action_required` \u2014 Impact has ended and no action is required.  \n- **Service:** transaction-api  \n- **Severity:** SEV3  \n- **Detected:** 2026-11-03 14:05:00Z  \n- **Anomaly onset:** \u2014  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Summary\n\nElevated HTTP 5xx ratio on transaction-api due to ledger-service connection reset\n\nImpact at analysis time: **recovered** \u2014 core metrics on transaction-api observed with sufficient data and no ongoing anomaly; health healthy; 1 anomaly(ies) recovered.\n\n## Ranked hypotheses\n\n### 1. Deployment_regression: settlement-worker 2.3.1 caused ledger-service connection reset \u2014 confidence 90%\n\n*Category:* `deployment_regression`\n\nThe deployment of settlement-worker 2.3.1 introduced a change that caused ledger-service connection reset, leading to HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-deploy-692c66e848bd` \u2014 settlement-worker application 2.3.1 (id dep-sw-2311, previous 2.3.0) finished 08:56:00Z, 309.0 min before anomaly onset; status succeeded; \"Batch size tuning for EU merchants\"; correlation 0.00\n- `ev-log-eedd859641d6` \u2014 transaction-api ERROR x11 (first 14:00:06Z, last 14:03:31Z): POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted)\n- `ev-kb-0b3b972f4735` \u2014 [Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary] For 23 minutes, 41% of `POST /v1/payments` requests failed with HTTP 500 \u2026\n\n### 2. Configuration_error: settlement-worker config change caused ledger-service connection reset \u2014 confidence 60%\n\n*Category:* `configuration_error`\n\nThe configuration change in settlement-worker (batch.max_size 500 -> 800) caused ledger-service connection reset, leading to HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-cfgchg-ac46866ab40d` \u2014 settlement-worker config batch.max_size 500 -> 800 (id cfg-sw-0077) at 09:00:00Z, 305.0 min before onset; correlation 0.00\n- `ev-log-eedd859641d6` \u2014 transaction-api ERROR x11 (first 14:00:06Z, last 14:03:31Z): POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted)\n\n### 3. Resource_exhaustion: ledger-service connection pool exhausted \u2014 confidence 50%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-service connection pool was exhausted, leading to connection reset and HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-kb-5a97f5f885b0` \u2014 [Ledger Service Design > Ledger Service Design > Connection pooling] ledger-service uses a pool of 40 connections per replica (`LEDGER_DB_POOL_MAX`). Pool exhaustion shows up as `PoolTimeout: couldn't get a connection a\u2026\n- `ev-kb-040f9cd36425` \u2014 [Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary] transaction-api p95 latency rose from 180 ms to 4.2 s for 48 mi\u2026\n\n### 4. Dependency_degradation: ledger-service became slow/unavailable \u2014 confidence 40%\n\n*Category:* `dependency_degradation`\n\nThe ledger-service became slow or unavailable, leading to connection reset and HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-dep-11dc766ccea1` \u2014 transaction-api -> ledger-service (critical sync_http): ledger-service is healthy; 5xx ratio (5m avg) 0.14%; p95 latency 43 ms\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.22% to 4.93% starting 14:00:00Z; returned to baseline (recovered) |\n| 2026-11-03 14:00:06. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted) |\n| 2026-11-03 14:05:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `rollback_deployment` (invalid): dep-sw-2311 does not correlate with the anomaly onset (correlation 0.00 < 0.3)\n\n## Knowledge sources\n\n- `ev-kb-f467b5c4cd71` Payment Platform Architecture Overview > Payment Platform Architecture Overview > Request path (`architecture/payment-platform-overview.md`, chunk `f467b5c4`, v1, sha256 `3d17ece010b9`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`, v1, sha256 `99b62265a43e`)\n- `ev-kb-5a97f5f885b0` Ledger Service Design > Ledger Service Design > Connection pooling (`architecture/ledger-service.md`, chunk `5a97f5f8`, v1, sha256 `43fe2dc5e741`)\n- `ev-kb-040f9cd36425` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `040f9cd3`, v1, sha256 `d6f42644ef08`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`, v1, sha256 `94e0d76a86f1`)\n- `ev-kb-6b6d2f1c6819` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `6b6d2f1c`, v1, sha256 `b91ce508d6c2`)\n- `ev-kb-f24a46c92caa` Ledger Service Design > Ledger Service Design > Write path (`architecture/ledger-service.md`, chunk `f24a46c9`, v1, sha256 `e738a95ead66`)\n- `ev-kb-75cb4aa27768` Payment Platform Architecture Overview > Payment Platform Architecture Overview > Failure propagation (`architecture/payment-platform-overview.md`, chunk `75cb4aa2`, v1, sha256 `8ed6ff942148`)\n\n## Investigation trace\n\n- Tool calls: 15 (0 non-ok), total tool latency 0.3s\n- LLM calls: 2, total 26.0s, tokens in/out 4180/806\n- Evidence items: 18; rounds: 1\n",
+  "report_markdown": "# RCA: INC-20261105-0053 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `no_action_required` \u2014 Impact has ended and no action is required.  \n- **Service:** transaction-api  \n- **Severity:** SEV3  \n- **Detected:** 2026-11-03 14:05:00Z  \n- **Anomaly onset:** \u2014  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Summary\n\nElevated HTTP 5xx ratio on transaction-api due to ledger-service connection reset\n\nImpact at analysis time: **recovered** \u2014 core metrics on transaction-api observed with sufficient data and no ongoing anomaly; health healthy; 1 anomaly(ies) recovered.\n\n## Ranked hypotheses\n\n### 1. Deployment_regression: settlement-worker 2.3.1 caused ledger-service connection reset \u2014 confidence 90%\n\n*Category:* `deployment_regression`\n\nThe deployment of settlement-worker 2.3.1 introduced a change that caused ledger-service connection reset, leading to HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-deploy-692c66e848bd` \u2014 settlement-worker application 2.3.1 (id dep-sw-2311, previous 2.3.0) finished 08:56:00Z, 309.0 min before anomaly onset; status succeeded; \"Batch size tuning for EU merchants\"; correlation 0.00\n- `ev-log-eedd859641d6` \u2014 transaction-api ERROR x11 (first 14:00:06Z, last 14:03:31Z): POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted)\n- `ev-kb-0b3b972f4735` \u2014 [Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary] For 23 minutes, 41% of `POST /v1/payments` requests failed with HTTP 500 \u2026\n\n### 2. Configuration_error: settlement-worker config change caused ledger-service connection reset \u2014 confidence 60%\n\n*Category:* `configuration_error`\n\nThe configuration change in settlement-worker (batch.max_size 500 -> 800) caused ledger-service connection reset, leading to HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-cfgchg-ac46866ab40d` \u2014 settlement-worker config batch.max_size 500 -> 800 (id cfg-sw-0077) at 09:00:00Z, 305.0 min before onset; correlation 0.00\n- `ev-log-eedd859641d6` \u2014 transaction-api ERROR x11 (first 14:00:06Z, last 14:03:31Z): POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted)\n\n### 3. Resource_exhaustion: ledger-service connection pool exhausted \u2014 confidence 50%\n\n*Category:* `resource_exhaustion`\n\nThe ledger-service connection pool was exhausted, leading to connection reset and HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-kb-5a97f5f885b0` \u2014 [Ledger Service Design > Ledger Service Design > Connection pooling] ledger-service uses a pool of 40 connections per replica (`LEDGER_DB_POOL_MAX`). Pool exhaustion shows up as `PoolTimeout: couldn't get a connection a\u2026\n- `ev-kb-040f9cd36425` \u2014 [Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary] transaction-api p95 latency rose from 180 ms to 4.2 s for 48 mi\u2026\n\n### 4. Dependency_degradation: ledger-service became slow/unavailable \u2014 confidence 40%\n\n*Category:* `dependency_degradation`\n\nThe ledger-service became slow or unavailable, leading to connection reset and HTTP 5xx errors on transaction-api.\n\nSupporting evidence:\n- `ev-dep-11dc766ccea1` \u2014 transaction-api -> ledger-service (critical sync_http): ledger-service is healthy; 5xx ratio (5m avg) 0.14%; p95 latency 43 ms\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.22% to 4.93% starting 14:00:00Z; returned to baseline (recovered) |\n| 2026-11-03 14:00:06. | first error on transaction-api: POST /v1/payments failed: upstream ledger-service connection reset (retry exhausted) |\n| 2026-11-03 14:05:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `rollback_deployment` (invalid): dep-sw-2311 does not correlate with the anomaly onset (correlation 0.00 < 0.3)\n\n## Knowledge sources\n\n- `ev-kb-f467b5c4cd71` Payment Platform Architecture Overview > Payment Platform Architecture Overview > Request path (`architecture/payment-platform-overview.md`, chunk `f467b5c4`, v1, sha256 `3d17ece010b9`)\n- `ev-kb-0b3b972f4735` Postmortem PM-2025-031: Payment failures after ledger column drop > Postmortem PM-2025-031: Payment failures after ledger column drop > Summary (`incidents/2025-08-14-ledger-column-drop.md`, chunk `0b3b972f`, v1, sha256 `99b62265a43e`)\n- `ev-kb-5a97f5f885b0` Ledger Service Design > Ledger Service Design > Connection pooling (`architecture/ledger-service.md`, chunk `5a97f5f8`, v1, sha256 `43fe2dc5e741`)\n- `ev-kb-040f9cd36425` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Summary (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `040f9cd3`, v1, sha256 `d6f42644ef08`)\n- `ev-kb-40ee9a6008d1` Transaction API Service > Transaction API Service > Error handling (`architecture/transaction-api.md`, chunk `40ee9a60`, v1, sha256 `94e0d76a86f1`)\n- `ev-kb-6b6d2f1c6819` Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Postmortem PM-2026-004: Ledger latency from connection pool exhaustion > Root cause (`incidents/2026-02-03-connection-pool-exhaustion.md`, chunk `6b6d2f1c`, v1, sha256 `b91ce508d6c2`)\n- `ev-kb-f24a46c92caa` Ledger Service Design > Ledger Service Design > Write path (`architecture/ledger-service.md`, chunk `f24a46c9`, v1, sha256 `e738a95ead66`)\n- `ev-kb-75cb4aa27768` Payment Platform Architecture Overview > Payment Platform Architecture Overview > Failure propagation (`architecture/payment-platform-overview.md`, chunk `75cb4aa2`, v1, sha256 `8ed6ff942148`)\n\n## Investigation trace\n\n- Tool calls: 15 (0 non-ok), total tool latency 0.3s\n- LLM calls: 2, total 26.9s, tokens in/out 4180/806\n- Evidence items: 18; rounds: 1\n",
   "error": null,
-  "finished_at": "2026-11-05T09:02:30.264983+00:00"
+  "finished_at": "2026-11-05T11:08:57.701997+00:00"
  }
 }
