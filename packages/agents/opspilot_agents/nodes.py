@@ -39,11 +39,16 @@ from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_k
 from opspilot_agents.uncertainty import uncertainty_reasons
 from opspilot_agents.verification import (
     Condition,
+    evaluate_health,
     evaluate_metric,
     evaluate_postcondition,
+    health_conditions,
     metric_conditions,
     overall,
     postcondition_conditions,
+    recovery_scope,
+    split_by_scope,
+    unrecovered_anomalies,
 )
 from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
@@ -1239,14 +1244,16 @@ class InvestigationNodes:
         details = last.get("details") or {}
         start, end = details.get("executed_at_sim"), details.get("sim_now_after")
         evidence = state.get("evidence", {})
-        top = ((state.get("rca") or {}).get("hypotheses") or [{}])[0]
-        culprits = {
-            evidence[i]["service"] for i in top.get("supporting_evidence_ids", []) if evidence.get(i, {}).get("service")
-        }
-        anomalies = [a for a in _anomalies(state, {svc} | culprits) if not a["data"].get("recovered")]
+        # C0-F1: scope comes from the observed incident (alerting service, action targets, unhealthy dependencies
+        # on the affected path); model citations can only add to it. Every anomaly left out is recorded.
+        scope = recovery_scope(dict(state))
+        anomalies, excluded = split_by_scope(unrecovered_anomalies(evidence), scope)
         metric_conds, informational = metric_conditions(anomalies)
+        health_conds = health_conditions(scope, evidence)
         post_conds = postcondition_conditions(executions, state.get("remediation_plan") or [], evidence)
-        required = [*metric_conds, *post_conds]
+        # Enumerated in full *before* the budget is applied: the budget can only turn a condition into
+        # "not_checked", never remove it.
+        required = [*metric_conds, *health_conds, *post_conds]
         calls = _Calls(self.d.tools, state, self.p, "verify")
         budget = min(self.p.max_verification_checks, max(calls.remaining, 0))
         env = state["incident"]["environment_id"]
@@ -1260,6 +1267,8 @@ class InvestigationNodes:
                     "start": start,
                     "end": end,
                 }
+            if c.kind == "health":
+                return "get_service_health", {"environment_id": env, "service": c.service}
             kind = c.name.split(":", 1)[0]
             if kind == "rolled_back":
                 begin = c.spec.get("started_at") or start
@@ -1298,6 +1307,8 @@ class InvestigationNodes:
             if c.kind == "metric":
                 pts = [float(p["value"]) for p in data["points"]] if data else None
                 check = evaluate_metric(c, pts)
+            elif c.kind == "health":
+                check = evaluate_health(c, data, start)
             else:
                 check = evaluate_postcondition(c, data)
             if r is not None:
@@ -1305,7 +1316,7 @@ class InvestigationNodes:
                 if not r.ok:
                     check["detail"] = f"{check.get('detail', '')}; tool error: {r.error}".strip("; ")
             checks.append(check)
-        status = overall(checks)
+        status = overall(checks, len(required))
         failed = [c for c in checks if c["status"] == "failed"]
         unknown = [c for c in checks if c["status"] in ("unknown", "not_checked")]
         notes = (
@@ -1324,13 +1335,19 @@ class InvestigationNodes:
                 "service": svc,
                 "checks": checks,
                 "informational": informational,
+                "excluded": excluded,
+                "scope": scope,
                 "required": len(required),
                 "budget": budget,
                 "omitted": len([c for c in checks if c["status"] == "not_checked"]),
                 "window_start": start,
                 "window_end": end,
                 "notes": notes,
-                "criterion": "every required metric back inside its healthy band and every action postcondition met",
+                "criterion": (
+                    "every in-scope anomalous metric inside its metric-specific healthy range, every in-scope "
+                    "service observed unhealthy before the action observed healthy after it, and every action "
+                    "postcondition met"
+                ),
             },
         }
 

@@ -47,6 +47,20 @@ def impact_state(rca: dict[str, Any]) -> str:
     return "ongoing" if rca.get("impact_ongoing") else "unknown"
 
 
+def verified_recovered(verification: dict[str, Any]) -> bool:
+    """C0-F1 invariant, enforced again at outcome time: "recovered" needs every recorded required condition
+    to have passed. A record claiming recovery with a failed, unknown or unchecked condition is not trusted."""
+    if "status" not in verification:  # legacy (pre-C0) record: only the boolean exists
+        return bool(verification.get("recovered"))
+    if verification.get("status") != "recovered":
+        return False
+    checks = verification.get("checks") or []
+    if not checks or any(c.get("status") != "passed" for c in checks):
+        return False
+    required = verification.get("required")
+    return not isinstance(required, int) or len(checks) >= required
+
+
 def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) -> dict[str, Any]:
     rca = state.get("rca") or {}
     approval = state.get("approval") or {}
@@ -67,9 +81,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     elif executions:
         if executions[-1].get("status") != "succeeded":
             code = "remediation_failed"
-        elif verification.get("status") == "recovered" or (
-            "status" not in verification and verification.get("recovered")
-        ):
+        elif verified_recovered(verification):
             code = "mitigated"
         elif verification.get("status") == "incomplete":
             code = "verification_incomplete"
@@ -220,6 +232,8 @@ def render_report(state: dict[str, Any]) -> str:
             lines.append(
                 f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'} — {ver.get('notes')}"
             )
+            for x in ver.get("excluded") or []:
+                lines.append(f"  - Not a recovery condition: {x['service']} {x['metric']} ({x['reason']})")
     else:
         lines.append("- No remediation executed or proposed for approval.")
     for r in state.get("rejected_proposals") or []:
