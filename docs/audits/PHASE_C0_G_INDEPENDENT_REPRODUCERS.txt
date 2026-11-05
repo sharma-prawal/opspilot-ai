@@ -1,0 +1,211 @@
+C0-G independent release-gate audit programs (no application changes).
+
+Original programs are preserved in PHASE_C0_F_INDEPENDENT_REPRODUCERS.txt and PHASE_C0_INDEPENDENT_REPRODUCERS.txt. Extracted programs were run byte-for-byte. The exact PostgreSQL program exits at its duplicate-cancel cleanup with ConflictError after confirming skipped_terminal=1; a copy suppressing only that cleanup call completes R5. No probe logic or database guard was changed.
+
+These three additional programs exercise only opspilot_test, verify SQL database identity, and must run SEQUENTIALLY with exclusive test-DB access. They run no local LLM inference or approved remediation. The startup-loss program creates two separate test investigations, waits for approval pause, and cancels them; checkpoints are retained. The ingestion program uses only a UUID-named audit source and retires it (no deletion). The process program uses ephemeral loopback ports and scratch reload files, and terminates only its own child processes / owner sessions. Never run against opspilot or alongside Python/E2E tests.
+
+Copy each program to the specified /private/tmp path and execute from the repository root with the existing .venv. For the first two:
+rtk proxy env PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /private/tmp/<name>.py
+For process checks:
+rtk proxy env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /private/tmp/c0g_process_checks.py
+
+The ownership probe accelerates the configured watchdog to 0.1 seconds and gates gateway setup. Its on_owner_lost hook only signals the barrier; it adds no suspension or exit behavior, matching the default CLI/evaluation paths. Both independent database sessions run in one OS process; separate Uvicorn process exclusion is exercised in the third program. The ingestion probe gates deterministic embedding and reranking to control a valid concurrency schedule through the real ingestion/storage/retrieval implementations. Two scratch paths represent two snapshots of one logical source.
+
+===== BEGIN c0g_startup_loss =====
+import os
+os.environ['DB_NAME']='opspilot_test'
+import asyncio,json
+from contextlib import asynccontextmanager
+from pathlib import Path
+from psycopg import AsyncConnection
+from opspilot_api.runtime import AppRuntime
+from opspilot_api.ownership import LOCK_NAMESPACE, LOCK_EXECUTION_OWNER
+from opspilot_shared.config import Settings
+from opspilot_shared.db.session import create_engine,create_session_factory
+from tests.integration.helpers import inprocess_gateways,make_incident
+from tests.fakes.models import ScriptedChatModel,HashEmbedder
+
+async def main():
+ s=Settings().model_copy(update={'execution_owner_check_seconds':.1,'execution_owner_acquire_timeout_seconds':0})
+ assert s.db_name=='opspilot_test'
+ engine=create_engine(s);sf=create_session_factory(engine);embedder=HashEmbedder(s.embedding_dimensions)
+ factory=inprocess_gateways(s,sf,embedder)
+ entered,go,lost,opened,finish=[asyncio.Event() for _ in range(5)]
+ result={};runtimes={}
+ @asynccontextmanager
+ async def slow_gateway(profile):
+  if profile=='read':
+   entered.set();await go.wait()
+  async with factory(profile) as gw:yield gw
+ async def on_lost(reason):lost.set()
+ async def old_runtime():
+  async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=slow_gateway,on_owner_lost=on_lost) as rt:
+   runtimes['old']=rt
+   result['old_held']=rt.ownership.held
+   result['old_lost_reason']=rt.ownership.lost_reason
+   result['old_suspended']=rt.runner.suspended
+   try:
+    slot=rt.runner.reserve();slot.release();result['old_admits_work']=True
+   except Exception as e:result['old_admits_work']=False;result['old_refusal']=type(e).__name__
+   opened.set();await finish.wait()
+ async with await AsyncConnection.connect(s.libpq_dsn(),autocommit=True) as c:
+  assert (await (await c.execute('select current_database()')).fetchone())[0]=='opspilot_test'
+  query="select l.pid from pg_locks l where l.locktype='advisory' and l.classid=%s and l.objid=%s and l.objsubid=2 and l.granted and l.database=(select oid from pg_database where datname=current_database())"
+  assert await (await c.execute(query,(LOCK_NAMESPACE,LOCK_EXECUTION_OWNER))).fetchall()==[]
+  task=asyncio.create_task(old_runtime())
+  try:
+   await asyncio.wait_for(entered.wait(),10)
+   [(pid,)]=await (await c.execute(query,(LOCK_NAMESPACE,LOCK_EXECUTION_OWNER))).fetchall()
+   await c.execute('select pg_terminate_backend(%s)',(pid,))
+   await asyncio.wait_for(lost.wait(),5)
+   async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as new:
+    result['new_held']=new.ownership.held
+    slot=new.runner.reserve();slot.release();result['new_admits_work']=True
+    go.set();await asyncio.wait_for(opened.wait(),10)
+    result['simultaneous_runtime_contexts']=True
+    old=runtimes['old']; invs=[]
+    try:
+     for runtime in (old,new):
+      inc,_=await make_incident(sf)
+      inv=await runtime.investigations.start(inc);invs.append((runtime,inv.id))
+     await asyncio.wait_for(asyncio.gather(*(runtime.runner.wait(iid) for runtime,iid in invs)),20)
+     result['investigations']=[]
+     for runtime,iid in invs:
+      row=await runtime.investigations.get(iid)
+      snap=await runtime.graph.aget_state({'configurable':{'thread_id':str(iid)}})
+      result['investigations'].append({'owner_held':runtime.ownership.held,'status':row.status,'checkpoint_written':bool(snap.values),'executions':len((snap.values or {}).get('executions',[]))})
+    finally:
+     for runtime,iid in invs:
+      row=await runtime.investigations.get(iid)
+      if row.status not in ('completed','failed','cancelled'):await runtime.investigations.cancel(iid,'independent-audit-cleanup')
+    finish.set();await task
+  finally:
+   go.set();finish.set()
+   if not task.done():task.cancel()
+   await asyncio.gather(task,return_exceptions=True)
+   await engine.dispose()
+ print(json.dumps(result,indent=2));Path('/private/tmp/c0g_startup_loss.json').write_text(json.dumps(result,indent=2))
+asyncio.run(main())
+
+===== END c0g_startup_loss =====
+
+===== BEGIN c0g_ingestion_race =====
+import os
+os.environ['DB_NAME']='opspilot_test'
+import asyncio,json,uuid
+from pathlib import Path
+from sqlalchemy import text,select
+from opspilot_shared.config import Settings
+from opspilot_shared.db.session import create_engine,create_session_factory
+from opspilot_shared.db.models import KbDocument
+from opspilot_rag.ingest import IngestionService,document_id_for
+from opspilot_rag.retrieval import HybridRetriever
+from opspilot_shared.domain.knowledge import RetrievalMode,RetrievalFilters,DocType
+from tests.fakes.models import HashEmbedder
+
+async def main():
+ s=Settings();assert s.db_name=='opspilot_test';e=create_engine(s);sf=create_session_factory(e);base=HashEmbedder(s.embedding_dimensions)
+ token='c0gversion'+uuid.uuid4().hex;source='audit/'+token+'.md';did=document_id_for(source)
+ root=Path('/private/tmp')/token;root.mkdir();out={};jobs=[]
+ def doc(marker):return f"---\ntitle: Audit version race\ndoc_type: runbook\nstatus: current\n---\n# Audit version race\n\n## Symptoms\n{token} {marker} signal.\n\n## Mitigation\n{marker} instructions differ by revision.\n"
+ paths=[]
+ for marker in ('BASE','REVISIONA','REVISIONB'):
+  p=root/(marker+'.md');p.write_text(doc(marker));paths.append(p)
+ class GateEmbedder(HashEmbedder):
+  def __init__(self):super().__init__(s.embedding_dimensions);self.enter=asyncio.Event();self.go=asyncio.Event()
+  async def embed_documents(self,texts):self.enter.set();await self.go.wait();return await super().embed_documents(texts)
+ a,b=GateEmbedder(),GateEmbedder()
+ try:
+  async with e.connect() as c:assert (await c.execute(text('select current_database()'))).scalar_one()=='opspilot_test'
+  await IngestionService(sf,base,s)._ingest_file(paths[0],source,reindex=False)
+  ja=asyncio.create_task(IngestionService(sf,a,s)._ingest_file(paths[1],source,reindex=False));jobs.append(ja)
+  jb=asyncio.create_task(IngestionService(sf,b,s)._ingest_file(paths[2],source,reindex=False));jobs.append(jb)
+  await asyncio.wait_for(asyncio.gather(a.enter.wait(),b.enter.wait()),5)
+  a.go.set();ra=await ja
+  class Hook:
+   async def rerank(self,query,results):
+    out['ranked']=[{'version':r.document_version,'text':r.content} for r in results];b.go.set();rb=await jb;out['B_version']=rb.version;return results
+  resp=await HybridRetriever(sf,base,s,reranker=Hook()).search(token,mode=RetrievalMode.KEYWORD,top_k=1,filters=RetrievalFilters(doc_types=[DocType.RUNBOOK]),record=False,expand_sections=4,exclude_obsolete=True)
+  out['A_version']=ra.version;out['results']=[{'version':r.document_version,'text':r.content,'validated':r.metadata.get('lifecycle_validated')} for r in resp.results];out['context']=[{'version':r.document_version,'text':r.content,'validated':r.metadata.get('lifecycle_validated')} for r in resp.context];out['warnings']=resp.warnings
+ finally:
+  a.go.set();b.go.set();await asyncio.gather(*jobs,return_exceptions=True)
+  async with sf() as db,db.begin():
+   row=await db.get(KbDocument,did)
+   if row:row.status='retired'
+  await e.dispose()
+ print(json.dumps(out,indent=2));Path('/private/tmp/c0g_ingestion_race.json').write_text(json.dumps(out,indent=2))
+asyncio.run(main())
+
+===== END c0g_ingestion_race =====
+
+===== BEGIN c0g_process_checks =====
+import os,sys,asyncio,json,signal,time,socket
+from pathlib import Path
+from psycopg import AsyncConnection
+import httpx
+os.environ['DB_NAME']='opspilot_test'
+from opspilot_shared.config import Settings
+from opspilot_api.ownership import LOCK_NAMESPACE,LOCK_EXECUTION_OWNER
+ROOT=Path.cwd();SCRATCH=Path('/private/tmp/c0g-process-checks');SCRATCH.mkdir(exist_ok=True)
+processes=[]
+def port():
+ with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
+def spawn(name,args,extra=None):
+ import subprocess
+ env={**os.environ,'DB_NAME':'opspilot_test','EXECUTION_OWNER_ACQUIRE_TIMEOUT_SECONDS':'0.5','EXECUTION_OWNER_CHECK_SECONDS':'0.2','LOG_LEVEL':'INFO','PYTHONDONTWRITEBYTECODE':'1'}
+ env.pop('WEB_CONCURRENCY',None);env.update(extra or {})
+ f=(SCRATCH/(name+'.log')).open('w');p=subprocess.Popen([sys.executable,'-m','uvicorn',*args],env=env,cwd=ROOT,stdout=f,stderr=f,start_new_session=True);f.close();processes.append(p);return p
+async def stop(p):
+ if p.poll() is None:
+  os.killpg(p.pid,signal.SIGTERM)
+  try:await asyncio.wait_for(asyncio.to_thread(p.wait),15)
+  except TimeoutError:os.killpg(p.pid,signal.SIGKILL);await asyncio.to_thread(p.wait)
+async def alive(p,n):
+ async with httpx.AsyncClient(timeout=.4) as c:
+  for _ in range(150):
+   if p.poll() is not None:raise RuntimeError('server exited '+str(p.returncode))
+   try:
+    if (await c.get(f'http://127.0.0.1:{n}/health/live')).status_code==200:return
+   except Exception:pass
+   await asyncio.sleep(.1)
+ raise TimeoutError('server not live')
+async def main():
+ s=Settings();assert s.db_name=='opspilot_test';out={}
+ async with await AsyncConnection.connect(s.libpq_dsn(),autocommit=True) as c:
+  assert (await (await c.execute('select current_database()')).fetchone())[0]=='opspilot_test'
+  q="select a.application_name from pg_locks l join pg_stat_activity a on a.pid=l.pid where l.locktype='advisory' and l.classid=%s and l.objid=%s and l.objsubid=2 and l.granted and l.database=(select oid from pg_database where datname=current_database())"
+  async def holders():return await (await c.execute(q,(LOCK_NAMESPACE,LOCK_EXECUTION_OWNER))).fetchall()
+  assert await holders()==[]
+  assert (await (await c.execute("select count(*) from ops.investigations where status in ('queued','running','awaiting_approval','interrupted')")).fetchone())[0]==0
+  try:
+   n=port();first=spawn('first',['opspilot_api.main:app','--host','127.0.0.1','--port',str(n),'--workers','1']);await alive(first,n)
+   second=spawn('second',['opspilot_api.main:app','--host','127.0.0.1','--port',str(port()),'--workers','1']);await asyncio.wait_for(asyncio.to_thread(second.wait),15)
+   out['two_api_processes']={'second_exit':second.returncode,'holders':len(await holders()),'refusal_logged':'already owns execution' in (SCRATCH/'second.log').read_text()}
+   await stop(first);out['graceful_shutdown_holders']=len(await holders())
+   n=port();crash=spawn('crash',['opspilot_api.main:app','--host','127.0.0.1','--port',str(n),'--workers','1']);await alive(crash,n)
+   [(label,)]=await holders();owner_pid=int(label.rsplit(':',1)[1]);os.kill(owner_pid,signal.SIGKILL);await asyncio.to_thread(crash.wait)
+   # Stop its audit-owned process group so orphaned MCP children cannot persist.
+   try:os.killpg(crash.pid,signal.SIGTERM)
+   except ProcessLookupError:pass
+   n=port();recover=spawn('recover',['opspilot_api.main:app','--host','127.0.0.1','--port',str(n),'--workers','1']);await alive(recover,n)
+   out['crash_recovery']={'new_process_serving':True,'holders':len(await holders())};await stop(recover)
+   multi=spawn('multi',['opspilot_api.main:app','--host','127.0.0.1','--port',str(port()),'--workers','2']);await asyncio.wait_for(asyncio.to_thread(multi.wait),20)
+   log=(SCRATCH/'multi.log').read_text();out['workers_2']={'exit':multi.returncode,'acquisitions':log.count('execution_owner_acquired'),'refusal_logged':'already owns execution' in log,'holders_after':len(await holders())}
+   web=spawn('web',['opspilot_api.main:app','--host','127.0.0.1','--port',str(port())],{'WEB_CONCURRENCY':'2'});await asyncio.wait_for(asyncio.to_thread(web.wait),20)
+   log=(SCRATCH/'web.log').read_text();out['web_concurrency_2']={'exit':web.returncode,'acquisitions':log.count('execution_owner_acquired'),'refusal_logged':'exactly one API worker' in log,'holders_after':len(await holders())}
+   mod=SCRATCH/'c0g_reload_app.py';mod.write_text('from opspilot_api.main import app\n')
+   n=port();reload=spawn('reload',['c0g_reload_app:app','--app-dir',str(SCRATCH),'--host','127.0.0.1','--port',str(n),'--reload','--reload-dir',str(SCRATCH)])
+   await alive(reload,n);[(before,)]=await holders();mod.write_text('from opspilot_api.main import app\n# audit reload\n')
+   changed=False
+   for _ in range(150):
+    rows=await holders()
+    if rows and rows[0][0]!=before:changed=True;break
+    await asyncio.sleep(.1)
+   await alive(reload,n);out['reload']={'owner_pid_changed':changed,'holders':len(await holders())};await stop(reload)
+  finally:
+   for p in processes:await stop(p)
+  out['final_holders']=len(await holders())
+ print(json.dumps(out,indent=2));(SCRATCH/'results.json').write_text(json.dumps(out,indent=2))
+asyncio.run(main())
+
+===== END c0g_process_checks =====

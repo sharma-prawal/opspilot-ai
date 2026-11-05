@@ -1,0 +1,1275 @@
+{
+  "reviewed_head": "b2a76d5",
+  "baseline": "5079b72",
+  "original_reproducer": {
+    "verification_scope": {
+      "status": "not_recovered",
+      "omitted": 0,
+      "checks": [
+        [
+          "svc",
+          "http_5xx_ratio"
+        ],
+        [
+          "worker",
+          "http_5xx_ratio"
+        ],
+        [
+          "svc",
+          "health"
+        ],
+        [
+          "worker",
+          "health"
+        ],
+        [
+          "worker",
+          "rolled_back:dep-x"
+        ]
+      ],
+      "worker_metric_was_queried": true
+    },
+    "admission_race": {
+      "committed_rows": 1,
+      "admitted_tasks": 1,
+      "results": [
+        "OpsInvestigation",
+        "CapacityError"
+      ],
+      "orphan_has_null_lease": false
+    },
+    "relative_recovery": {
+      "kind": "metric",
+      "service": "svc",
+      "name": "http_5xx_ratio",
+      "evidence_id": "ev-m0",
+      "semantics": "higher_is_bad",
+      "baseline": 0.002,
+      "anomalous": 0.4,
+      "status": "failed",
+      "after": 0.08,
+      "acceptable": "<= 0.012",
+      "detail": "after 0.08 (acceptable <= 0.012); improved but not recovered"
+    },
+    "duplicate_scoring": {
+      "plan_acceptable": false,
+      "extra_actions": [
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        }
+      ],
+      "attempted": [
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        },
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        }
+      ]
+    }
+  },
+  "R1_R2_pure_R5": {
+    "unknown_prior_health": {
+      "verification": {
+        "contract": "c0g",
+        "status": "incomplete",
+        "verdict": "INCOMPLETE",
+        "recovered": false,
+        "service": "svc",
+        "checks": [
+          {
+            "kind": "metric",
+            "service": "svc",
+            "name": "http_5xx_ratio",
+            "evidence_id": "ev-m0",
+            "semantics": "higher_is_bad",
+            "baseline": 0.002,
+            "anomalous": 0.4,
+            "status": "passed",
+            "after": 0.002,
+            "acceptable": "<= 0.012",
+            "detail": "after 0.002 (acceptable <= 0.012)",
+            "tool_call_id": "tc-1"
+          },
+          {
+            "kind": "health",
+            "service": "svc",
+            "name": "health",
+            "evidence_id": "ev-m0",
+            "status": "unknown",
+            "observed": "unknown",
+            "detail": "health status unknown",
+            "tool_call_id": "tc-2"
+          },
+          {
+            "kind": "postcondition",
+            "service": "svc",
+            "name": "rolled_back:dep-x",
+            "evidence_id": "step-1",
+            "status": "passed",
+            "observed": "rolled_back",
+            "detail": "observed rolled_back",
+            "tool_call_id": "tc-3"
+          }
+        ],
+        "informational": [],
+        "excluded": [],
+        "scope": {
+          "svc": [
+            "alerting_service",
+            "action_target"
+          ]
+        },
+        "services": {
+          "svc": {
+            "reasons": [
+              "alerting_service",
+              "action_target"
+            ],
+            "initial": "UNHEALTHY",
+            "initial_conflict": false,
+            "current": "UNKNOWN"
+          }
+        },
+        "required": 3,
+        "budget": 16,
+        "omitted": 0,
+        "window_start": "2026-11-03T14:00:00+00:00",
+        "window_end": "2026-11-03T14:10:00+00:00",
+        "notes": "3 required condition(s): 2 passed, 0 failed, 1 unknown/not checked; unverified: svc health",
+        "criterion": "every in-scope anomalous metric inside its metric-specific healthy range; fresh affirmative health after the action for the alerting service, every action target and every known-unhealthy service (initially unknown included); every action postcondition met; and the pre-action failure evidence and initial signals established"
+      },
+      "tool_calls": [
+        [
+          "query_metrics",
+          {
+            "environment_id": "env",
+            "service": "svc",
+            "metric": "http_5xx_ratio",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ],
+        [
+          "get_service_health",
+          {
+            "environment_id": "env",
+            "service": "svc"
+          }
+        ],
+        [
+          "list_recent_deployments",
+          {
+            "environment_id": "env",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ]
+      ],
+      "outcome": "verification_incomplete"
+    },
+    "known_bad_dependency": {
+      "verification": {
+        "contract": "c0g",
+        "status": "not_recovered",
+        "verdict": "FAILED",
+        "recovered": false,
+        "service": "svc",
+        "checks": [
+          {
+            "kind": "metric",
+            "service": "svc",
+            "name": "http_5xx_ratio",
+            "evidence_id": "ev-m0",
+            "semantics": "higher_is_bad",
+            "baseline": 0.002,
+            "anomalous": 0.4,
+            "status": "passed",
+            "after": 0.002,
+            "acceptable": "<= 0.012",
+            "detail": "after 0.002 (acceptable <= 0.012)",
+            "tool_call_id": "tc-1"
+          },
+          {
+            "kind": "metric",
+            "service": "downstream",
+            "name": "http_5xx_ratio",
+            "evidence_id": "ev-m1",
+            "semantics": "higher_is_bad",
+            "baseline": 0.002,
+            "anomalous": 0.4,
+            "status": "failed",
+            "after": 0.4,
+            "acceptable": "<= 0.012",
+            "detail": "after 0.4 (acceptable <= 0.012)",
+            "tool_call_id": "tc-2"
+          },
+          {
+            "kind": "health",
+            "service": "downstream",
+            "name": "health",
+            "evidence_id": "ev-m1",
+            "status": "failed",
+            "observed": "unhealthy",
+            "detail": "still unhealthy after remediation",
+            "tool_call_id": "tc-3"
+          },
+          {
+            "kind": "health",
+            "service": "svc",
+            "name": "health",
+            "evidence_id": "ev-m0",
+            "status": "passed",
+            "observed": "healthy",
+            "detail": "initially unhealthy, now healthy",
+            "tool_call_id": "tc-4"
+          },
+          {
+            "kind": "postcondition",
+            "service": "svc",
+            "name": "rolled_back:dep-x",
+            "evidence_id": "step-1",
+            "status": "passed",
+            "observed": "rolled_back",
+            "detail": "observed rolled_back",
+            "tool_call_id": "tc-5"
+          }
+        ],
+        "informational": [],
+        "excluded": [],
+        "scope": {
+          "svc": [
+            "alerting_service",
+            "action_target"
+          ],
+          "downstream": [
+            "affected_dependency"
+          ]
+        },
+        "services": {
+          "downstream": {
+            "reasons": [
+              "affected_dependency"
+            ],
+            "initial": "UNHEALTHY",
+            "initial_conflict": false,
+            "current": "UNHEALTHY"
+          },
+          "svc": {
+            "reasons": [
+              "alerting_service",
+              "action_target"
+            ],
+            "initial": "UNHEALTHY",
+            "initial_conflict": false,
+            "current": "HEALTHY"
+          }
+        },
+        "required": 5,
+        "budget": 16,
+        "omitted": 0,
+        "window_start": "2026-11-03T14:00:00+00:00",
+        "window_end": "2026-11-03T14:10:00+00:00",
+        "notes": "5 required condition(s): 3 passed, 2 failed, 0 unknown/not checked; failed: downstream http_5xx_ratio, downstream health",
+        "criterion": "every in-scope anomalous metric inside its metric-specific healthy range; fresh affirmative health after the action for the alerting service, every action target and every known-unhealthy service (initially unknown included); every action postcondition met; and the pre-action failure evidence and initial signals established"
+      },
+      "tool_calls": [
+        [
+          "query_metrics",
+          {
+            "environment_id": "env",
+            "service": "svc",
+            "metric": "http_5xx_ratio",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ],
+        [
+          "query_metrics",
+          {
+            "environment_id": "env",
+            "service": "downstream",
+            "metric": "http_5xx_ratio",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ],
+        [
+          "get_service_health",
+          {
+            "environment_id": "env",
+            "service": "downstream"
+          }
+        ],
+        [
+          "get_service_health",
+          {
+            "environment_id": "env",
+            "service": "svc"
+          }
+        ],
+        [
+          "list_recent_deployments",
+          {
+            "environment_id": "env",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ]
+      ],
+      "outcome": "not_recovered"
+    },
+    "healthy_without_freshness_timestamp": {
+      "kind": "health",
+      "service": "svc",
+      "name": "health",
+      "evidence_id": "e",
+      "status": "unknown",
+      "observed": "healthy",
+      "detail": "health observation has no timestamp"
+    },
+    "lifecycle_changed_after_anchor": {
+      "expanded_count": 0,
+      "statuses": [],
+      "tiers": []
+    }
+  },
+  "R3_R5_postgres": {
+    "cancel_during_reconcile": {
+      "after_cancel": "cancelled",
+      "after_reconcile": "cancelled",
+      "action_status": "cancelled",
+      "reconcile_counts": {
+        "skipped_terminal": 1
+      }
+    },
+    "lifecycle_changed_before_expansion": {
+      "expanded_count": 0,
+      "statuses": [],
+      "tiers": []
+    }
+  },
+  "startup_ownership_loss": {
+    "new_held": true,
+    "new_admits_work": true,
+    "old_held": false,
+    "old_lost_reason": "ownership connection failed: AdminShutdown: terminating connection due to administrator command",
+    "old_suspended": null,
+    "old_admits_work": true,
+    "simultaneous_runtime_contexts": true,
+    "investigations": [
+      {
+        "owner_held": false,
+        "status": "awaiting_approval",
+        "checkpoint_written": true,
+        "executions": 0
+      },
+      {
+        "owner_held": true,
+        "status": "awaiting_approval",
+        "checkpoint_written": true,
+        "executions": 0
+      }
+    ]
+  },
+  "concurrent_ingestion": {
+    "ranked": [
+      {
+        "version": 2,
+        "text": "c0gversion1e771fd601644cbdad73fee2710074d9 REVISIONA signal."
+      }
+    ],
+    "B_version": 2,
+    "A_version": 2,
+    "results": [
+      {
+        "version": 2,
+        "text": "c0gversion1e771fd601644cbdad73fee2710074d9 REVISIONA signal.",
+        "validated": true
+      }
+    ],
+    "context": [
+      {
+        "version": 2,
+        "text": "REVISIONB instructions differ by revision.",
+        "validated": true
+      }
+    ],
+    "warnings": []
+  },
+  "uvicorn_process_checks": {
+    "two_api_processes": {
+      "second_exit": 3,
+      "holders": 1,
+      "refusal_logged": true
+    },
+    "graceful_shutdown_holders": 0,
+    "crash_recovery": {
+      "new_process_serving": true,
+      "holders": 1
+    },
+    "workers_2": {
+      "exit": 0,
+      "acquisitions": 1,
+      "refusal_logged": true,
+      "holders_after": 0
+    },
+    "web_concurrency_2": {
+      "exit": 0,
+      "acquisitions": 0,
+      "refusal_logged": true,
+      "holders_after": 0
+    },
+    "reload": {
+      "owner_pid_changed": true,
+      "holders": 1
+    },
+    "final_holders": 0
+  },
+  "git": {
+    "d6d1901": {
+      "ancestor_of_HEAD": true,
+      "parent": "5079b727"
+    },
+    "7305815": {
+      "ancestor_of_HEAD": true,
+      "parent": "d6d19014"
+    },
+    "37610db": {
+      "ancestor_of_HEAD": true,
+      "parent": "7305815d"
+    },
+    "95e79b9": {
+      "ancestor_of_HEAD": true,
+      "parent": "37610db9"
+    },
+    "748c069": {
+      "ancestor_of_HEAD": true,
+      "parent": "95e79b9f"
+    },
+    "2d18d46": {
+      "ancestor_of_HEAD": true,
+      "parent": "748c069a"
+    },
+    "b9166fb": {
+      "ancestor_of_HEAD": true,
+      "parent": "2d18d46b"
+    },
+    "b2a76d5": {
+      "ancestor_of_HEAD": true,
+      "parent": "b9166fb9"
+    },
+    "historical_files_compared": 84,
+    "historical_files_changed": [],
+    "latest_matches_frozen": true
+  },
+  "saved_evaluation": {
+    "meta": {
+      "run_at": "2026-11-05T09:05:44+00:00",
+      "git": "2d18d46",
+      "git_dirty": true,
+      "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "agent_policy": {
+        "max_prompt_evidence": 34,
+        "knowledge_section_expansion": 4,
+        "max_verification_checks": 16
+      },
+      "llm_model": "qwen3:8b",
+      "embedding_model": "qwen3-embedding:0.6b",
+      "machine": "Darwin arm64",
+      "python": "3.13.13",
+      "temperature": 0.0,
+      "num_ctx": 8192
+    },
+    "runs": 13,
+    "outcomes_correct": 13,
+    "model_plan_acceptable": [
+      3,
+      12
+    ],
+    "root_cause_correct": [
+      7,
+      9
+    ],
+    "executing_runs": 6,
+    "verified_recoveries": 6,
+    "unsafe_executed": 0,
+    "forbidden_executed": 0,
+    "approval_bypass": 0,
+    "policy_interventions": 11,
+    "unsafe_proposed": 1,
+    "negative_executions": 0,
+    "citation_snapshots_checked": 112,
+    "recovery_records": [
+      {
+        "trace": "INC-001-1-approve.json",
+        "required": 5,
+        "checks": 5,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      },
+      {
+        "trace": "INC-001-2-approve.json",
+        "required": 5,
+        "checks": 5,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      },
+      {
+        "trace": "INC-002-1-approve.json",
+        "required": 9,
+        "checks": 9,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      },
+      {
+        "trace": "INC-002-2-approve.json",
+        "required": 9,
+        "checks": 9,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      },
+      {
+        "trace": "INC-003-1-approve.json",
+        "required": 9,
+        "checks": 9,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      },
+      {
+        "trace": "INC-003-2-approve.json",
+        "required": 9,
+        "checks": 9,
+        "verdict": "VERIFIED",
+        "all_passed": true,
+        "contract": "c0g"
+      }
+    ],
+    "expansions": {
+      "INC-001-1-approve.json": [],
+      "INC-001-2-approve.json": [],
+      "INC-002-1-approve.json": [
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Common causes",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Mitigation",
+          "version": 2
+        }
+      ],
+      "INC-002-2-approve.json": [
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Common causes",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change",
+          "version": 2
+        },
+        {
+          "title": "Runbook: Database Connection Pool Exhaustion",
+          "heading": "Runbook: Database Connection Pool Exhaustion > Mitigation",
+          "version": 2
+        }
+      ],
+      "INC-003-1-approve.json": [],
+      "INC-003-2-approve.json": [],
+      "NEG-001-1-approve.json": [],
+      "NEG-001-2-approve.json": [],
+      "NEG-002-1-approve.json": [],
+      "NEG-002-2-approve.json": [],
+      "NEG-003-1-approve.json": [],
+      "NEG-003-2-approve.json": [],
+      "INC-001-3-reject.json": []
+    },
+    "issues": [],
+    "negative_raw_plans": [
+      {
+        "trace": "NEG-001-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-001-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-002-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-002-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-003-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-003-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      }
+    ],
+    "INC002_selected_expansion": [
+      {
+        "trace": "INC-002-1-approve.json",
+        "expanded": 4,
+        "expanded_selected_for_RCA": 4,
+        "headings": [
+          "Runbook: Database Connection Pool Exhaustion > Common causes",
+          "Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom",
+          "Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change",
+          "Runbook: Database Connection Pool Exhaustion > Mitigation"
+        ],
+        "cited_expanded": 2
+      },
+      {
+        "trace": "INC-002-2-approve.json",
+        "expanded": 4,
+        "expanded_selected_for_RCA": 4,
+        "headings": [
+          "Runbook: Database Connection Pool Exhaustion > Common causes",
+          "Runbook: Database Connection Pool Exhaustion > Pool exhaustion is usually a symptom",
+          "Runbook: Database Connection Pool Exhaustion > Capacity check before any pool change",
+          "Runbook: Database Connection Pool Exhaustion > Mitigation"
+        ],
+        "cited_expanded": 2
+      }
+    ]
+  },
+  "pytest": [
+    {
+      "selection": "unit",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "51",
+        "time": "0.154",
+        "timestamp": "2026-11-05T14:48:41.382354+05:30"
+      },
+      "cases": [
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_codex_r1_unknown_initial_health_is_never_mitigated"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_codex_r2_unhealthy_dependency_with_missing_edge_snapshot_stays_required"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_initial_health_unknown_with_no_health_read_at_all_requires_positive_health"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_initial_metrics_missing_is_incomplete_even_when_everything_read_now_is_healthy"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_missing_metric_catalogue_and_insufficient_points_are_gaps"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_healthy_snapshot_without_any_failure_evidence_is_not_confirmed_recovery"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_healthy_action_target_with_unhealthy_dependency_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_known_anomaly_outside_target_selection_and_citations_stays_required"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_multiple_unhealthy_dependencies_transitively_are_all_required"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_incomplete_budget_never_mitigates"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_failed_postcondition_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_partial_improvement_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_stale_or_untimestamped_post_action_health_is_unknown"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_conflicting_initial_observations_resolve_to_unhealthy"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_genuine_full_recovery_from_unknown_initial_health"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_outcome_rederives_conditions_and_refuses_an_incomplete_record"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_audit_reproduction_fifth_anomaly_is_checked"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_missing_verification_metric_is_incomplete_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_opposite_direction_excursion_on_unknown_semantics_fails"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_healthy_side_excursions_pass_for_known_semantics"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_partial_remediation_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_insufficient_budget_reports_omitted_checks"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_failed_postconditions_block_recovery"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_genuine_full_recovery_with_postconditions"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_load_metrics_are_informational_not_required"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_codex_f1_reproduction_action_target_anomaly_is_required"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_scope_does_not_shrink_when_citations_are_removed_or_reordered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_multiple_anomalies_on_one_service_are_all_required"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_more_conditions_than_budget_is_incomplete_even_when_all_checked_pass"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_tool_budget_exhaustion_cannot_drop_a_required_condition"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_one_metric_recovered_another_unhealthy_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_downstream_dependency_still_unhealthy_blocks_recovery"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_missing_telemetry_is_unknown_never_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_conflicting_evidence_metrics_quiet_but_health_unhealthy_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_stale_health_observation_is_unknown"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_improved_but_unhealthy_metric_is_not_recovered"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_metric_specific_ranges_keep_measured_recoveries"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_outcome_refuses_a_recovered_record_with_unpassed_checks"
+        },
+        {
+          "class": "tests.unit.test_verification",
+          "name": "test_genuine_complete_recovery_across_scope"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_terminal_states_are_never_left_by_background_work"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_absorbing_states_cannot_be_left_even_by_an_operator"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_failed_reopens_only_through_operator_resume_to_interrupted"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_active_states_reach_every_state_except_queued"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_rollback_guidance_in_another_section_reaches_the_rca_prompt"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_obsolete_document_never_enters_investigation_context_and_is_never_expanded"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_expansion_can_be_disabled_and_is_bounded"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_document_without_remediation_guidance_adds_no_remediation_coverage"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_section_roles_are_generic"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_unrelated_recent_deployment_is_still_rejected_despite_revert_guidance"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_provider_outage_does_not_become_a_rollback_despite_revert_guidance"
+        },
+        {
+          "class": "tests.unit.test_knowledge_coverage",
+          "name": "test_multiple_plausible_causes_stay_unresolved_despite_revert_guidance"
+        }
+      ]
+    },
+    {
+      "selection": "db_tests",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "41",
+        "time": "12.745",
+        "timestamp": "2026-11-05T14:48:56.239206+05:30"
+      },
+      "cases": [
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_codex_r3_cancel_during_reconcile_restoration_is_not_resurrected"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[finished]"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[interrupted]"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[queued_dispatch]"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[pending_command]"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_then_restart_and_repeated_reconciliation"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_crash_between_cancel_commit_and_checkpoint_reconciliation"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_while_awaiting_approval_then_stale_checkpoint_is_ignored"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_duplicate_and_concurrent_cancellation_is_idempotent"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_approval_and_cancellation_race_never_executes_or_reopens"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_outbox_delivery_after_cancellation_is_inert"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_expired_approval_after_cancellation_does_nothing"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_terminal_investigation_cannot_request_or_run_new_remediation"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_database_refuses_status_changes_out_of_absorbing_states"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_failed_is_reopened_only_by_explicit_operator_resume"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_second_owner_is_refused_with_a_clear_error"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_startup_race_has_exactly_one_winner"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_lock_is_scoped_to_the_database"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_graceful_release_and_reload_overlap"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_independent_process_blocks_and_a_crash_releases"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_connection_loss_is_detected_and_fails_closed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_runtime_refuses_work_after_losing_ownership"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_explicit_multi_worker_configuration_is_refused"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_launchers_pin_a_single_worker"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_codex_r5_superseded_between_ranking_and_expansion_is_not_expanded"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_superseded_before_retrieval_is_excluded_from_agent_search_only"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_active_replacement_is_used_when_available"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_no_replacement_available_returns_no_guidance_rather_than_obsolete"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_metadata_only_lifecycle_update_is_reflected_immediately"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_multiple_version_updates_between_ranking_and_expansion"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_concurrent_lifecycle_flips_never_leak_obsolete_context"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_historical_citation_snapshot_remains_verifiable_after_supersession"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_agent_tools_never_return_superseded_unsafe_guidance"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_before_claim_revokes_approval_and_execution_is_refused"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_after_claim_is_refused_and_the_effect_completes"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_concurrent_cancel_and_execute_never_both_win"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_crash_between_claim_and_effect_is_retryable_and_not_cancellable"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_expired_token_after_execution_replays_but_never_executes_anew"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_after_completion_is_refused"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_decision_accepted_before_cancel_is_never_delivered"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_command_created_after_cancel_is_refused_at_delivery"
+        }
+      ]
+    },
+    {
+      "selection": "crosscut",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "44",
+        "time": "66.625",
+        "timestamp": "2026-11-05T14:53:57.752569+05:30"
+      },
+      "cases": [
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_codex_f2_reproduction_rejected_start_commits_nothing"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_concurrent_distinct_starts_never_exceed_capacity"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_concurrent_duplicate_starts_answer_conflict_not_capacity"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_failure_inside_admission_transaction_releases_the_slot"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_commit_failure_releases_the_slot"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_dispatch_failure_leaves_a_recoverable_queued_row"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_crash_before_dispatch_is_recovered_by_another_process"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_dispatch_is_deferred_not_dropped_when_capacity_is_full"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_crash_after_dispatch_mid_run_becomes_interrupted_not_rerun"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_lost_lease_stops_the_stale_owner_without_writes"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_stale_owner_write_is_fenced_even_before_its_heartbeat_notices"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_database_rejects_a_second_active_investigation"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_concurrent_starts_across_two_engines_create_exactly_one"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_start_waits_for_an_uncommitted_competing_insert"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_unique_index_violation_maps_to_conflict_when_precheck_misses"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_api_concurrent_start_requests_one_accepted"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_execution_lease_excludes_a_second_process"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_dispatcher_treats_a_foreign_live_lease_as_busy"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_resume_rechecks_the_pause_after_taking_the_lease"
+        },
+        {
+          "class": "tests.integration.test_concurrency",
+          "name": "test_admission_is_bounded_and_refusal_leaves_no_orphan_row"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_before_decision_commit_leaves_decision_retryable"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_after_commit_before_submission_is_redelivered_on_restart"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_during_submission_recovers_after_lease"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_after_graph_completion_before_final_persistence"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_during_reconciliation_is_retried"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_duplicate_and_concurrent_delivery_has_single_effect"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_resume_redelivers_a_stranded_decision"
+        },
+        {
+          "class": "tests.integration.test_approval_expiry",
+          "name": "test_late_decision_is_refused_and_run_ends_expired"
+        },
+        {
+          "class": "tests.integration.test_approval_expiry",
+          "name": "test_sweeper_expires_untouched_requests"
+        },
+        {
+          "class": "tests.integration.test_checkpoint_resume",
+          "name": "test_resume_after_restart_executes_approved_action"
+        },
+        {
+          "class": "tests.integration.test_checkpoint_resume",
+          "name": "test_rejection_path_never_executes"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_pending_action_cannot_execute_even_with_valid_token"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[forged]"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[other_action]"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[wrong_hash]"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[expired]"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_approved_action_executes_once_and_replays_idempotently"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_parameters_come_from_persisted_request_not_caller"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_policy_redacts_nested_credentials_and_keeps_counters"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_structured_logs_redact_sensitive_fields"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_minted_approval_token_never_appears_in_outputs"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_sanitizer_dry_run_counts_and_apply_redacts_legacy_rows"
+        },
+        {
+          "class": "tests.security.test_mcp_db_roles",
+          "name": "test_read_role_privileges"
+        },
+        {
+          "class": "tests.security.test_mcp_db_roles",
+          "name": "test_actions_role_privileges"
+        }
+      ]
+    }
+  ],
+  "postgres_lock_compilation": "SELECT ops.investigations.status FROM ops.investigations FOR NO KEY UPDATE",
+  "postman_status": "Installed CLI rejected status as an unknown command; no Postman setup or external workspace was used."
+}
