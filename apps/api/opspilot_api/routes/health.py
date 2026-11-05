@@ -42,6 +42,13 @@ async def _checks(rt: Any) -> dict[str, dict[str, Any]]:
         out["ollama"] = {"ok": want <= models, "version": version, "missing_models": sorted(want - models)}
     except Exception as exc:
         out["ollama"] = {"ok": False, "error": str(exc)[:300]}
+    own = getattr(rt, "ownership", None)
+    out["execution_owner"] = {  # C0-G4: this process holds the database's single execution-owner lock
+        "ok": bool(own is not None and own.held),
+        "owner": getattr(own, "label", None),
+        "database": getattr(own, "database", None),
+        "lost_reason": getattr(own, "lost_reason", None),
+    }
     for name, gw in (("mcp_read", rt.read_tools), ("mcp_actions", rt.action_tools)):
         connected = getattr(gw, "connected", True)
         out[name] = {

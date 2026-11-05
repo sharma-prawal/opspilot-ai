@@ -17,8 +17,14 @@ from opspilot_shared.db.models import (
     OpsIncident,
     OpsInvestigation,
     OpsToolInvocation,
+    OpsWorkflowCommand,
     OpsWorkflowEvent,
 )
+from opspilot_shared.domain.investigation import can_transition
+from opspilot_shared.logging import get_logger
+from opspilot_shared.redaction import redact
+
+_log = get_logger(__name__)
 
 
 async def next_incident_reference(s: AsyncSession, day: datetime) -> str:
@@ -36,7 +42,11 @@ async def add_event(
     node: str | None,
     payload: dict[str, Any] | None = None,
 ) -> None:
-    s.add(OpsWorkflowEvent(investigation_id=investigation_id, event_type=event_type, node=node, payload=payload or {}))
+    s.add(
+        OpsWorkflowEvent(
+            investigation_id=investigation_id, event_type=event_type, node=node, payload=redact(payload or {})
+        )
+    )
 
 
 async def audit(
@@ -83,7 +93,7 @@ async def insert_tool_calls(s: AsyncSession, investigation_id: uuid.UUID, calls:
             "tool": c["tool"],
             "server": c["server"],
             "agent": c["agent"],
-            "arguments": c["arguments"],
+            "arguments": redact(c["arguments"]),
             "status": c["status"],
             "latency_ms": c["latency_ms"],
             "result_summary": c.get("result_summary"),
@@ -96,7 +106,75 @@ async def insert_tool_calls(s: AsyncSession, investigation_id: uuid.UUID, calls:
 
 
 async def set_investigation(s: AsyncSession, investigation_id: uuid.UUID, **values: Any) -> None:
+    """Non-status columns only; status changes go through ``transition_investigation`` (C0-G2)."""
+    if "status" in values:
+        raise ValueError("investigation status must change through transition_investigation")
     await s.execute(update(OpsInvestigation).where(OpsInvestigation.id == investigation_id).values(**values))
+
+
+async def transition_investigation(
+    s: AsyncSession,
+    investigation_id: uuid.UUID,
+    target: str,
+    *,
+    operator: bool = False,
+    reason: str = "",
+    **values: Any,
+) -> str | None:
+    """C0-G2: the only way to change an investigation's status. Locks the row, checks the transition policy
+    (``domain.investigation.can_transition``) against the *committed* status, and writes only if it is legal.
+    Returns the previous status, or None when the transition was refused (nothing is written; a refusal is logged).
+    Must run inside the caller's transaction so dependent writes commit or roll back with it.
+
+    The row lock is ``FOR NO KEY UPDATE``: it serialises status writers but does not block foreign-key checks
+    (``FOR KEY SHARE``) of concurrent inserts referencing the investigation (events, commands), so the lock order
+    "investigation, then its actions" cannot deadlock with a decision that holds its action row."""
+    current = (
+        await s.execute(
+            select(OpsInvestigation.status)
+            .where(OpsInvestigation.id == investigation_id)
+            .with_for_update(key_share=True)
+        )
+    ).scalar_one_or_none()
+    if current is None or not can_transition(current, target, operator=operator):
+        _log.warning(
+            "investigation_transition_refused",
+            investigation_id=str(investigation_id),
+            current=current,
+            target=target,
+            reason=reason,
+        )
+        return None
+    await s.execute(
+        update(OpsInvestigation).where(OpsInvestigation.id == investigation_id).values(status=target, **values)
+    )
+    return str(current)
+
+
+async def locked_status(s: AsyncSession, investigation_id: uuid.UUID) -> str | None:
+    """The committed status, with the row locked for the rest of the caller's transaction."""
+    return (
+        await s.execute(
+            select(OpsInvestigation.status)
+            .where(OpsInvestigation.id == investigation_id)
+            .with_for_update(key_share=True)
+        )
+    ).scalar_one_or_none()
+
+
+async def revoke_commands(s: AsyncSession, investigation_id: uuid.UUID, *, reason: str) -> int:
+    """Invalidate every undelivered decision command of an investigation (C0-G2: cancellation). A revoked command
+    is never claimed or delivered again; its claim release is conditional on ``delivering`` (commands.py)."""
+    res = await s.execute(
+        update(OpsWorkflowCommand)
+        .where(
+            OpsWorkflowCommand.investigation_id == investigation_id,
+            OpsWorkflowCommand.status.in_(["pending", "delivering"]),
+        )
+        .values(status="cancelled", last_error=reason[:2000])
+        .returning(OpsWorkflowCommand.id)
+    )
+    return len(res.all())
 
 
 async def set_incident_status(s: AsyncSession, incident_id: uuid.UUID, status: str) -> None:

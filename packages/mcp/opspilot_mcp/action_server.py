@@ -3,8 +3,15 @@
 Defence in depth — this server does not trust its caller. Before executing it:
 1. verifies the HMAC approval token (signature, expiry) and that it names this action_id;
 2. loads the persisted action request and requires status ``approved`` and a matching params hash;
-3. executes with the *persisted* parameters (the caller cannot supply parameters at all);
-4. relies on the simulator's per-action idempotency ledger so replays never re-execute.
+3. **claims** the action (``approved -> executing``) under a row lock, in its own committed transaction.
+   The claim is the non-cancellable boundary (audit suspected risk / finding H): cancellation takes the same
+   row lock and revokes only ``pending``/``approved`` requests, so either the cancel wins and execution is
+   refused, or the claim wins and the cancel is refused. ``executing`` is re-entrant so a crash between claim
+   and effect can be retried with the same token;
+4. executes with the *persisted* parameters (the caller cannot supply parameters at all);
+5. relies on the simulator's per-action idempotency ledger so replays never re-execute.
+
+The claim is the only write this server makes outside the ``sim`` schema (ops.action_requests.status).
 """
 
 from __future__ import annotations
@@ -16,6 +23,8 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 
 from opspilot_mcp.backend import OpsBackend
 from opspilot_mcp.schemas import ExecutionOutcome
@@ -58,7 +67,9 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
     ) -> ExecutionOutcome:
         """Execute a previously approved remediation action in the sandbox environment."""
         try:
-            claims = verify_token(key, approval_token)
+            # Signature always required. Expiry is enforced below, after the ledger lookup, so a crash-recovered
+            # workflow can learn the result of an action that already executed (audit suspected risk).
+            claims = verify_token(key, approval_token, allow_expired=True)
         except OpsPilotError as exc:
             _log.warning("action_rejected", action_id=str(action_id), reason=str(exc))
             raise ToolError(f"approval: {exc}") from exc
@@ -71,14 +82,36 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
             raise ToolError("approval: no persisted action request")
         if prior is not None:
             return _outcome(prior, replayed=True)
+        if claims.expired:
+            raise ToolError("approval: approval token expired")
         computed = action_params_hash(req.action_type, req.parameters)
-        if req.status != "approved":
-            raise ToolError(f"approval: action status is {req.status!r}, not 'approved'")
         if not (req.params_hash == claims.params_hash == computed):
             raise ToolError("approval: parameters do not match the approved parameters")
         spec = REMEDIATION_CATALOG.get(ActionType(req.action_type))
         if spec is None or not spec.implemented:
             raise ToolError(f"unsupported action type {req.action_type!r}")
+        if claims.epoch is None or claims.owner_pid is None:
+            raise ToolError("approval: token is not bound to an execution owner")
+        # Execution claim: authorisation is re-read under a row lock and committed before any effect. C0-H2: in the
+        # same transaction the database confirms that the owner that minted the token is still the current
+        # execution owner (FOR SHARE on its epoch until commit), so a stale owner can never start a new effect.
+        async with backend.session_factory() as s, s.begin():
+            try:
+                async with s.begin_nested():
+                    await s.execute(
+                        text("SELECT ops.execution_fence(:epoch, :pid)"),
+                        {"epoch": claims.epoch, "pid": claims.owner_pid},
+                    )
+            except DBAPIError as exc:
+                _log.warning("action_rejected_stale_owner", action_id=str(action_id), epoch=claims.epoch)
+                raise ToolError("approval: the execution owner that issued this token is no longer current") from exc
+            locked = (
+                await s.execute(select(OpsActionRequest).where(OpsActionRequest.id == action_id).with_for_update())
+            ).scalar_one()
+            if locked.status not in ("approved", "executing"):
+                raise ToolError(f"approval: action status is {locked.status!r}, not 'approved'")
+            locked.status = "executing"
+        _log.info("action_claimed", action_id=str(action_id))
         try:
             row = await backend.store.execute_action(
                 req.environment_id,

@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     test_db_name: str = "opspilot_test"
     db_user: str = "opspilot_app"
     db_password: SecretStr = SecretStr("")
+    # Least-privilege roles for the MCP server processes (audit suspected risk / C0 item O). Provisioned by
+    # scripts/db-roles.sh; when no password is configured the children fall back to the application role.
+    mcp_read_db_user: str = "opspilot_mcp_read"
+    mcp_read_db_password: SecretStr = SecretStr("")
+    mcp_actions_db_user: str = "opspilot_mcp_actions"
+    mcp_actions_db_password: SecretStr = SecretStr("")
     db_pool_size: int = Field(default=5, ge=1, le=50)
 
     # Ollama / models
@@ -53,6 +59,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(default=1024, ge=32, le=4096)
     embedding_batch_size: int = Field(default=16, ge=1, le=256)
     embedding_timeout_seconds: float = Field(default=60.0, gt=0)
+    embedding_max_concurrency: int = Field(default=2, ge=1, le=16)  # in-flight /api/embed requests per process
 
     # RAG
     knowledge_dir: Path = REPO_ROOT / "datasets/synthetic/knowledge"
@@ -68,6 +75,9 @@ class Settings(BaseSettings):
     rca_confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
     tool_timeout_seconds: float = Field(default=20.0, gt=0)
     max_concurrent_investigations: int = Field(default=1, ge=1, le=8)
+    # Admission bound: graph segments running + waiting for a slot. Beyond it, new work is refused (HTTP 429)
+    # instead of accumulating unbounded waiting tasks (C0 item P).
+    max_pending_investigations: int = Field(default=4, ge=1, le=64)
     langgraph_strict_msgpack: bool = True
 
     # MCP
@@ -83,6 +93,12 @@ class Settings(BaseSettings):
     action_signing_key: SecretStr = SecretStr("")
     approval_token_ttl_seconds: int = Field(default=900, ge=30, le=86400)
     approval_request_ttl_seconds: int = Field(default=3600, ge=30, le=7 * 86400)
+    command_lease_seconds: float = Field(default=120.0, gt=0, le=3600)  # redeliver stale in-flight commands
+    run_lease_seconds: float = Field(default=60.0, gt=0, le=3600)  # execution ownership lease, renewed while running
+    # C0-G4 single execution owner per database (PostgreSQL advisory lock): how long start-up waits for a previous
+    # owner (reload / crash being reaped) and how often the held lock is probed.
+    execution_owner_acquire_timeout_seconds: float = Field(default=10.0, ge=0, le=300)
+    execution_owner_check_seconds: float = Field(default=5.0, gt=0, le=300)
 
     # Observability
     otel_exporter: Literal["none", "console", "otlp"] = "none"
@@ -116,4 +132,10 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    # MCP server children are started with an explicit, minimal environment and must not read the secrets in
+    # .env behind it (C0 item O). This is the only place that consults os.environ for configuration loading.
+    import os
+
+    if os.environ.get("OPSPILOT_NO_DOTENV") == "1":
+        return Settings(_env_file=None)  # type: ignore[call-arg]
     return Settings()

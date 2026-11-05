@@ -12,7 +12,8 @@ os.environ["DB_NAME"] = os.environ.get("TEST_DB_NAME", "opspilot_test")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("LOG_FORMAT", "console")
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
 import pytest
 from sqlalchemy import text
@@ -25,9 +26,20 @@ from tests.fakes.models import HashEmbedder
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--run-live", action="store_true", help="run tests that need a live Ollama model")
+    parser.addoption(
+        "--shuffle-seed",
+        type=int,
+        default=None,
+        help="run tests in a seeded random order (order-independence check, C0-F4)",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    seed = config.getoption("--shuffle-seed")
+    if seed is not None:
+        import random
+
+        random.Random(seed).shuffle(items)
     if config.getoption("--run-live"):
         return
     skip = pytest.mark.skip(reason="needs --run-live (local Ollama models)")
@@ -51,6 +63,20 @@ def migrated(settings: Settings) -> Settings:
     return settings
 
 
+@pytest.fixture
+async def owner(migrated: Settings) -> AsyncIterator[object]:
+    """C0-H2: this test owns execution of the test database (advisory lock + fresh epoch), so its checkpoint writes
+    and action executions pass the database's owner fence. Do not combine with a test app (it acquires its own)."""
+    from opspilot_api.ownership import ExecutionOwnership
+
+    o = ExecutionOwnership(migrated.model_copy(update={"execution_owner_acquire_timeout_seconds": 10}))
+    await o.acquire()
+    try:
+        yield o
+    finally:
+        await o.release()
+
+
 @pytest.fixture(scope="session")
 async def session_factory(migrated: Settings) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_engine(migrated)
@@ -61,6 +87,62 @@ async def session_factory(migrated: Settings) -> AsyncIterator[async_sessionmake
         pytest.skip(f"PostgreSQL not reachable ({exc}); run make infra-up")
     yield create_session_factory(engine)
     await engine.dispose()
+
+
+# Fixtures through which a test reaches the shared test database (directly or via an application stack).
+DB_FIXTURES = frozenset({"session_factory", "ingested", "client", "migrated", "owner"})
+_stale_work_retired = False
+
+
+def _run_isolated(settings: Settings, fn: Any) -> Any:
+    """Run ``fn(session_factory)`` on its own engine and event loop (fixtures here must not touch the test loop)."""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    async def main() -> Any:
+        engine = create_engine(settings)
+        try:
+            return await fn(create_session_factory(engine))
+        finally:
+            await engine.dispose()
+
+    with ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, main()).result()
+
+
+@pytest.fixture(autouse=True)
+def _owned_test_work(request: pytest.FixtureRequest) -> Iterator[None]:
+    """A test owns the workflows it creates (C0-F4): unfinished work from earlier sessions is retired once before
+    the first database test, and whatever a test leaves unfinished is retired after it. See tests/isolation.py."""
+    global _stale_work_retired
+    if not DB_FIXTURES & set(request.fixturenames):
+        yield
+        return
+    from tests.isolation import db_now, retire_unfinished
+
+    settings: Settings = request.getfixturevalue("migrated")
+    started = _run_isolated(settings, db_now)
+    if not _stale_work_retired:
+        _run_isolated(
+            settings,
+            lambda sf: retire_unfinished(
+                sf,
+                created_since=None,
+                created_before=started,
+                reason="retired by the test harness: left unfinished by an earlier test session",
+            ),
+        )
+        _stale_work_retired = True
+    yield
+    _run_isolated(
+        settings,
+        lambda sf: retire_unfinished(
+            sf,
+            created_since=started,
+            created_before=None,
+            reason=f"retired by the test harness after {request.node.nodeid}",
+        ),
+    )
 
 
 @pytest.fixture(scope="session")

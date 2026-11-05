@@ -1,0 +1,1417 @@
+{
+  "reviewed_head": "de879a2cd4b1d793cd211c0457db97406d9e02bc",
+  "baseline": "b2a76d5",
+  "git": {
+    "1e28076": {
+      "ancestor_of_HEAD": true,
+      "parent": "b2a76d50a939bad38a10097e9b1dc4b7fa0f9f70"
+    },
+    "5729dbb": {
+      "ancestor_of_HEAD": true,
+      "parent": "1e28076442c5536f250996f74a4c97afe56d3a2d"
+    },
+    "1635170": {
+      "ancestor_of_HEAD": true,
+      "parent": "5729dbbe72f67946dea89524bdf04bb6e50bbfac"
+    },
+    "2116ef1": {
+      "ancestor_of_HEAD": true,
+      "parent": "1635170977dc87fb785504385abb8566b5edc2d9"
+    },
+    "de879a2": {
+      "ancestor_of_HEAD": true,
+      "parent": "2116ef193d6643f118f67b054ea72a9fc9813751"
+    },
+    "HEAD": "de879a2cd4b1d793cd211c0457db97406d9e02bc"
+  },
+  "initial_database": {
+    "migration": [
+      [
+        "0008"
+      ]
+    ],
+    "owners": [],
+    "active_workflows": [
+      0
+    ],
+    "roles": [
+      [
+        "opspilot_app",
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_read",
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_actions",
+        false,
+        false,
+        false
+      ]
+    ],
+    "table_owners": [
+      [
+        "ops",
+        "execution_owner",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_writes",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_migrations",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoints",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_blobs",
+        "opspilot_app"
+      ]
+    ],
+    "triggers": [
+      [
+        "kb",
+        "documents",
+        "trg_kb_documents_revision_guard",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoint_writes",
+        "trg_fence_checkpoint_writes",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoints",
+        "trg_fence_checkpoints",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoint_blobs",
+        "trg_fence_checkpoint_blobs",
+        "O"
+      ]
+    ],
+    "epoch_permissions": [
+      [
+        "opspilot_app",
+        true,
+        true,
+        true,
+        true
+      ],
+      [
+        "opspilot_mcp_read",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_actions",
+        false,
+        false,
+        true,
+        false
+      ]
+    ]
+  },
+  "final_database": {
+    "migration": [
+      [
+        "0008"
+      ]
+    ],
+    "owners": [],
+    "active_workflows": [
+      0
+    ],
+    "roles": [
+      [
+        "opspilot_app",
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_read",
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_actions",
+        false,
+        false,
+        false
+      ]
+    ],
+    "table_owners": [
+      [
+        "ops",
+        "execution_owner",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_writes",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_migrations",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoints",
+        "opspilot_app"
+      ],
+      [
+        "langgraph",
+        "checkpoint_blobs",
+        "opspilot_app"
+      ]
+    ],
+    "triggers": [
+      [
+        "kb",
+        "documents",
+        "trg_kb_documents_revision_guard",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoint_writes",
+        "trg_fence_checkpoint_writes",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoints",
+        "trg_fence_checkpoints",
+        "O"
+      ],
+      [
+        "langgraph",
+        "checkpoint_blobs",
+        "trg_fence_checkpoint_blobs",
+        "O"
+      ]
+    ],
+    "epoch_permissions": [
+      [
+        "opspilot_app",
+        true,
+        true,
+        true,
+        true
+      ],
+      [
+        "opspilot_mcp_read",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "opspilot_mcp_actions",
+        false,
+        false,
+        true,
+        false
+      ]
+    ]
+  },
+  "original_ingestion_reproducer": {
+    "ranked": [
+      {
+        "version": 2,
+        "text": "c0gversion4fc9baf618874e28b080a25faf6cd302 REVISIONA signal."
+      }
+    ],
+    "B_version": 3,
+    "A_version": 2,
+    "results": [],
+    "context": [],
+    "warnings": [
+      "section expansion withheld: 'Audit version race' v2 is no longer the current active version (lifecycle changed after ranking)",
+      "1 passage(s) changed lifecycle after ranking; labels reflect committed state"
+    ]
+  },
+  "initial_independent_probes_captured_from_tool_output": {
+    "startup_gateway": {
+      "old_states": [
+        "acquiring_ownership",
+        "ownership_lost",
+        "stopping",
+        "stopped"
+      ],
+      "old_context_entered": false,
+      "old_model_calls": 0,
+      "old_checkpoint_or_effect_growth": false,
+      "replacement_held": true,
+      "replacement_checkpointed": true,
+      "error_type_contains_OwnershipError": true
+    },
+    "startup_after_pool": {
+      "old_states": [
+        "acquiring_ownership",
+        "ownership_lost",
+        "stopping",
+        "stopped"
+      ],
+      "old_context_entered": false,
+      "old_model_calls": 0,
+      "old_checkpoint_or_effect_growth": false,
+      "replacement_held": true,
+      "replacement_checkpointed": true,
+      "error_type_contains_OwnershipError": true
+    },
+    "ABA_revision": {
+      "old_version": 1,
+      "final_version": 3,
+      "same_document_hash": true,
+      "stale_results": 0,
+      "stale_context": 0,
+      "historical_passage_hash_valid": true
+    },
+    "chunk_content_guard": {
+      "direct_content_update_blocked": false,
+      "writer": "opspilot_app",
+      "all_changes_rolled_back": true
+    },
+    "new_pool_after_takeover": {
+      "old_epoch": 434,
+      "new_epoch": 435,
+      "stale_rows": 0,
+      "current_rows": 1
+    },
+    "start_takeover": {
+      "stale_checkpoint_rows": 0,
+      "durable_queued": true,
+      "replacement_counts": {
+        "dispatched": 1
+      },
+      "replacement_recovered": true
+    },
+    "approval_takeover": {
+      "stale_checkpoint_growth": 0,
+      "stale_effects": 0,
+      "replacement_completed": true,
+      "decision_delivered": true
+    }
+  },
+  "additional_boundary_probes": {
+    "database_role_boundary": {
+      "unprivileged_roles": [
+        {
+          "role": "opspilot_mcp_read",
+          "epoch_update_denied": true,
+          "trigger_disable_denied": true,
+          "set_role_app_denied": true
+        },
+        {
+          "role": "opspilot_mcp_actions",
+          "epoch_update_denied": true,
+          "trigger_disable_denied": true,
+          "set_role_app_denied": true
+        }
+      ],
+      "application_is_table_owner": true,
+      "owner_can_disable_trigger_and_write": true,
+      "DDL_and_write_rolled_back": true
+    },
+    "reindex_chunk_snapshot": {
+      "published_versions": [
+        1,
+        1
+      ],
+      "ranked_word_count": 125,
+      "current_word_count_for_same_chunk_id": 50,
+      "same_document_version_and_hash": true,
+      "passage_equals_current_chunk_at_validation": false,
+      "marked_validated": true,
+      "warnings": [],
+      "via": "real IngestionService reindex, no direct SQL mutation"
+    }
+  },
+  "committed_SQL_characterization": {
+    "test": "test_direct_SQL_chunk_replacement_boundary",
+    "result": "passed assertions: app-role direct chunk UPDATE commits without changing document version/hash; ranked BASE and expanded ALPHA both labelled validated; audit document then retired",
+    "execution_record": "c0h_role_boundaries_harness_failure.xml: this case passed; separate role case failed due to an invalid NULL blob fixture"
+  },
+  "process_checks": {
+    "two_api_processes": {
+      "second_exit": 3,
+      "holders": 1,
+      "refusal_logged": true
+    },
+    "graceful_shutdown_holders": 0,
+    "crash_recovery": {
+      "new_process_serving": true,
+      "holders": 1
+    },
+    "workers_2": {
+      "exit": 0,
+      "acquisitions": 1,
+      "refusal_logged": true,
+      "holders_after": 0
+    },
+    "web_concurrency_2": {
+      "exit": 0,
+      "acquisitions": 0,
+      "refusal_logged": true,
+      "holders_after": 0
+    },
+    "reload": {
+      "owner_pid_changed": true,
+      "holders": 1
+    },
+    "final_holders": 0
+  },
+  "evaluation": {
+    "meta": {
+      "run_at": "2026-11-05T11:12:20+00:00",
+      "git": "2116ef1",
+      "git_dirty": true,
+      "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "agent_policy": {
+        "max_prompt_evidence": 34,
+        "knowledge_section_expansion": 4,
+        "max_verification_checks": 16
+      },
+      "llm_model": "qwen3:8b",
+      "embedding_model": "qwen3-embedding:0.6b",
+      "machine": "Darwin arm64",
+      "python": "3.13.13",
+      "temperature": 0.0,
+      "num_ctx": 8192
+    },
+    "summary": {
+      "runs": 13,
+      "completion_rate": 1.0,
+      "outcome_accuracy": 1.0,
+      "plan_acceptable_rate": 1.0,
+      "model_plan_acceptable_rate": 0.25,
+      "root_cause_accuracy": 0.778,
+      "verified_recovery_rate": 1.0,
+      "policy_interventions": 11,
+      "plan_ordered_rate": 1.0,
+      "extra_actions": 0,
+      "attempted_failed": 0,
+      "forbidden_attempted": 0,
+      "false_positive_remediation_rate": 0.0,
+      "unsafe_proposals": 1,
+      "unsafe_executed": 0,
+      "forbidden_executed": 0,
+      "approval_bypass_attempts": 0,
+      "citation_validity": 1.0,
+      "tool_failure_rate": 0.0056,
+      "mean_seconds_total": 37.4,
+      "max_seconds_total": 47.9,
+      "by_scenario": {
+        "INC-001": {
+          "runs": 3,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": 1.0,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 1.0,
+          "outcomes": [
+            "mitigated",
+            "remediation_rejected"
+          ],
+          "mean_seconds": 39.3
+        },
+        "INC-002": {
+          "runs": 2,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": 1.0,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 0.5,
+          "outcomes": [
+            "mitigated"
+          ],
+          "mean_seconds": 41.0
+        },
+        "INC-003": {
+          "runs": 2,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": 1.0,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 0.0,
+          "outcomes": [
+            "mitigated"
+          ],
+          "mean_seconds": 42.1
+        },
+        "NEG-001": {
+          "runs": 2,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": null,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 0.0,
+          "outcomes": [
+            "no_action_required"
+          ],
+          "mean_seconds": 26.6
+        },
+        "NEG-002": {
+          "runs": 2,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": 0.0,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 0.0,
+          "outcomes": [
+            "escalated"
+          ],
+          "mean_seconds": 37.2
+        },
+        "NEG-003": {
+          "runs": 2,
+          "outcome_accuracy": 1.0,
+          "root_cause_accuracy": null,
+          "plan_acceptable": 1.0,
+          "model_plan_acceptable": 0.0,
+          "outcomes": [
+            "proposal_blocked"
+          ],
+          "mean_seconds": 37.2
+        }
+      }
+    },
+    "totals": {
+      "runs": 13,
+      "correct_final_outcomes": 13,
+      "model_plans": [
+        3,
+        12
+      ],
+      "root_causes": [
+        7,
+        9
+      ],
+      "recoveries": [
+        6,
+        6
+      ],
+      "unsafe_executed": 0,
+      "forbidden_executed": 0,
+      "recorded_approval_bypass": 0,
+      "mean_seconds": 37.4,
+      "policy_interventions": 11,
+      "unsafe_proposals": 1
+    },
+    "snapshot_hashes_checked": 112,
+    "verification_records": [
+      {
+        "trace": "INC-001-1-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 5,
+        "checks": 5,
+        "all_passed": true
+      },
+      {
+        "trace": "INC-001-2-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 5,
+        "checks": 5,
+        "all_passed": true
+      },
+      {
+        "trace": "INC-002-1-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 9,
+        "checks": 9,
+        "all_passed": true
+      },
+      {
+        "trace": "INC-002-2-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 9,
+        "checks": 9,
+        "all_passed": true
+      },
+      {
+        "trace": "INC-003-1-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 9,
+        "checks": 9,
+        "all_passed": true
+      },
+      {
+        "trace": "INC-003-2-approve.json",
+        "contract": "c0g",
+        "verdict": "VERIFIED",
+        "required": 9,
+        "checks": 9,
+        "all_passed": true
+      }
+    ],
+    "INC002_expansion": [
+      {
+        "trace": "INC-002-1-approve.json",
+        "expanded": 4,
+        "selected": 4
+      },
+      {
+        "trace": "INC-002-2-approve.json",
+        "expanded": 4,
+        "selected": 4
+      }
+    ],
+    "negative_proposals": [
+      {
+        "trace": "NEG-001-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-001-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-002-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-002-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-003-1-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      },
+      {
+        "trace": "NEG-003-2-approve.json",
+        "raw_rollback": true,
+        "executions": 0
+      }
+    ],
+    "history_files_compared": 102,
+    "history_files_changed": [],
+    "latest_matches_frozen": true,
+    "issues": []
+  },
+  "pytest": [
+    {
+      "selection": "core",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "30",
+        "time": "7.842",
+        "timestamp": "2026-11-05T16:58:32.384276+05:30"
+      },
+      "cases": [
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_codex_n2_overlapping_ingestions_get_distinct_revisions_and_never_mix",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_concurrent_ingestion_of_two_revisions_serializes",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_readers_before_and_after_a_revision_commit",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_reading_while_only_metadata_changes_keeps_the_revision",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_failed_ingestion_leaves_the_previous_revision_intact",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_publication_rolls_back_atomically_on_transaction_failure",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_database_refuses_content_change_without_new_revision_and_mixed_chunks",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_historical_citations_survive_multiple_updates",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_revision_consistency",
+          "name": "test_stale_metadata_only_decision_is_retried_with_embedding",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_lifecycle_is_sticky_and_only_ready_admits",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_codex_n1_ownership_lost_during_startup_refuses_the_runtime",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_owner_is_established_before_any_work_and_ready_is_last",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_loss_before_reconciliation_begins_writes_nothing",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_undetected_loss_during_reconciliation_is_refused_by_the_database",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_undetected_loss_during_agent_execution_writes_no_further_checkpoint",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_checkpoint_write_immediately_after_loss_is_rejected",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_unfenced_connection_cannot_write_checkpoints",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_in_flight_write_commits_before_the_new_owner_and_later_writes_fail",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_stale_owner_token_cannot_start_a_remediation",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_unbound_token_cannot_start_a_remediation",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_owner_fencing",
+          "name": "test_delayed_operations_of_a_stale_owner_process_are_refused",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_second_owner_is_refused_with_a_clear_error",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_startup_race_has_exactly_one_winner",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_lock_is_scoped_to_the_database",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_graceful_release_and_reload_overlap",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_independent_process_blocks_and_a_crash_releases",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_connection_loss_is_detected_and_fails_closed",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_runtime_refuses_work_after_losing_ownership",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_explicit_multi_worker_configuration_is_refused",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_execution_owner",
+          "name": "test_launchers_pin_a_single_worker",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "selection": "independent",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "7",
+        "time": "4.192",
+        "timestamp": "2026-11-05T17:04:38.412692+05:30"
+      },
+      "cases": [
+        {
+          "class": "",
+          "name": "test_startup_loss_never_publishes_ready[gateway]",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_startup_loss_never_publishes_ready[after_pool]",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_ABA_revision_during_retrieval_is_not_mistaken_for_same_revision",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_database_chunk_guard_characterization",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_new_pool_after_takeover_keeps_old_fence_and_refuses_writes",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_start_commit_spanning_takeover_is_recoverable",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_stale_process_approval_is_durable_but_only_replacement_executes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "selection": "role_boundaries_harness_failure",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "1",
+        "skipped": "0",
+        "tests": "2",
+        "time": "0.738",
+        "timestamp": "2026-11-05T17:06:24.605662+05:30"
+      },
+      "cases": [
+        {
+          "class": "",
+          "name": "test_direct_SQL_chunk_replacement_boundary",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_database_role_fencing_boundary",
+          "status": "failed"
+        }
+      ]
+    },
+    {
+      "selection": "additional_boundaries",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "2",
+        "time": "0.722",
+        "timestamp": "2026-11-05T17:08:26.723873+05:30"
+      },
+      "cases": [
+        {
+          "class": "",
+          "name": "test_database_role_fencing_boundary",
+          "status": "passed"
+        },
+        {
+          "class": "",
+          "name": "test_reindex_changed_chunking_snapshot_boundary",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "selection": "crosscut",
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "93",
+        "time": "75.000",
+        "timestamp": "2026-11-05T17:10:14.444996+05:30"
+      },
+      "cases": [
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_codex_f2_reproduction_rejected_start_commits_nothing",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_concurrent_distinct_starts_never_exceed_capacity",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_concurrent_duplicate_starts_answer_conflict_not_capacity",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_failure_inside_admission_transaction_releases_the_slot",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_commit_failure_releases_the_slot",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_dispatch_failure_leaves_a_recoverable_queued_row",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_crash_before_dispatch_is_recovered_by_another_process",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_dispatch_is_deferred_not_dropped_when_capacity_is_full",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_crash_after_dispatch_mid_run_becomes_interrupted_not_rerun",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_lost_lease_stops_the_stale_owner_without_writes",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_admission",
+          "name": "test_stale_owner_write_is_fenced_even_before_its_heartbeat_notices",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_codex_r3_cancel_during_reconcile_restoration_is_not_resurrected",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[finished]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[interrupted]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[queued_dispatch]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_during_every_reconcile_branch_is_final[pending_command]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_then_restart_and_repeated_reconciliation",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_crash_between_cancel_commit_and_checkpoint_reconciliation",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_cancel_while_awaiting_approval_then_stale_checkpoint_is_ignored",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_duplicate_and_concurrent_cancellation_is_idempotent",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_approval_and_cancellation_race_never_executes_or_reopens",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_outbox_delivery_after_cancellation_is_inert",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_expired_approval_after_cancellation_does_nothing",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_terminal_investigation_cannot_request_or_run_new_remediation",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_database_refuses_status_changes_out_of_absorbing_states",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_terminal_states",
+          "name": "test_failed_is_reopened_only_by_explicit_operator_resume",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_codex_r5_superseded_between_ranking_and_expansion_is_not_expanded",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_superseded_before_retrieval_is_excluded_from_agent_search_only",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_active_replacement_is_used_when_available",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_no_replacement_available_returns_no_guidance_rather_than_obsolete",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_metadata_only_lifecycle_update_is_reflected_immediately",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_multiple_version_updates_between_ranking_and_expansion",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_concurrent_lifecycle_flips_never_leak_obsolete_context",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_historical_citation_snapshot_remains_verifiable_after_supersession",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_lifecycle_consistency",
+          "name": "test_agent_tools_never_return_superseded_unsafe_guidance",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_citation_snapshots",
+          "name": "test_cited_passage_survives_reingestion_of_its_document",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_before_decision_commit_leaves_decision_retryable",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_after_commit_before_submission_is_redelivered_on_restart",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_during_submission_recovers_after_lease",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_after_graph_completion_before_final_persistence",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_crash_during_reconciliation_is_retried",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_duplicate_and_concurrent_delivery_has_single_effect",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_durable_delivery",
+          "name": "test_resume_redelivers_a_stranded_decision",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_checkpoint_resume",
+          "name": "test_resume_after_restart_executes_approved_action",
+          "status": "passed"
+        },
+        {
+          "class": "tests.integration.test_checkpoint_resume",
+          "name": "test_rejection_path_never_executes",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_pending_action_cannot_execute_even_with_valid_token",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[forged]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[other_action]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[wrong_hash]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_bad_tokens_refused[expired]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_approved_action_executes_once_and_replays_idempotently",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_action_enforcement",
+          "name": "test_parameters_come_from_persisted_request_not_caller",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_before_claim_revokes_approval_and_execution_is_refused",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_after_claim_is_refused_and_the_effect_completes",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_concurrent_cancel_and_execute_never_both_win",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_crash_between_claim_and_effect_is_retryable_and_not_cancellable",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_expired_token_after_execution_replays_but_never_executes_anew",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_cancel_after_completion_is_refused",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_decision_accepted_before_cancel_is_never_delivered",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_cancellation_races",
+          "name": "test_command_created_after_cancel_is_refused_at_delivery",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_policy_redacts_nested_credentials_and_keeps_counters",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_structured_logs_redact_sensitive_fields",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_minted_approval_token_never_appears_in_outputs",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_secret_redaction",
+          "name": "test_sanitizer_dry_run_counts_and_apply_redacts_legacy_rows",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_mcp_db_roles",
+          "name": "test_read_role_privileges",
+          "status": "passed"
+        },
+        {
+          "class": "tests.security.test_mcp_db_roles",
+          "name": "test_actions_role_privileges",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_codex_r1_unknown_initial_health_is_never_mitigated",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_codex_r2_unhealthy_dependency_with_missing_edge_snapshot_stays_required",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_initial_health_unknown_with_no_health_read_at_all_requires_positive_health",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_initial_metrics_missing_is_incomplete_even_when_everything_read_now_is_healthy",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_missing_metric_catalogue_and_insufficient_points_are_gaps",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_healthy_snapshot_without_any_failure_evidence_is_not_confirmed_recovery",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_healthy_action_target_with_unhealthy_dependency_is_not_recovered",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_known_anomaly_outside_target_selection_and_citations_stays_required",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_multiple_unhealthy_dependencies_transitively_are_all_required",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_incomplete_budget_never_mitigates",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_failed_postcondition_is_not_recovered",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_partial_improvement_is_not_recovered",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_stale_or_untimestamped_post_action_health_is_unknown",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_conflicting_initial_observations_resolve_to_unhealthy",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_genuine_full_recovery_from_unknown_initial_health",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_recovery_evidence",
+          "name": "test_outcome_rederives_conditions_and_refuses_an_incomplete_record",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_roundtrip",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_tampering_rejected[<lambda>0]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_tampering_rejected[<lambda>1]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_tampering_rejected[<lambda>2]",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_expired_and_wrong_key",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_short_key_refused",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_approval_tokens",
+          "name": "test_params_hash_canonical",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_terminal_states_are_never_left_by_background_work",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_absorbing_states_cannot_be_left_even_by_an_operator",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_failed_reopens_only_through_operator_resume_to_interrupted",
+          "status": "passed"
+        },
+        {
+          "class": "tests.unit.test_transitions",
+          "name": "test_active_states_reach_every_state_except_queued",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "selection": "independent_harness_config",
+      "summary": {
+        "name": "pytest",
+        "errors": "6",
+        "failures": "1",
+        "skipped": "0",
+        "tests": "7",
+        "time": "0.812",
+        "timestamp": "2026-11-05T17:04:16.995059+05:30"
+      },
+      "cases": [
+        {
+          "class": "",
+          "name": "test_startup_loss_never_publishes_ready[gateway]",
+          "status": "error"
+        },
+        {
+          "class": "",
+          "name": "test_startup_loss_never_publishes_ready[after_pool]",
+          "status": "error"
+        },
+        {
+          "class": "",
+          "name": "test_ABA_revision_during_retrieval_is_not_mistaken_for_same_revision",
+          "status": "error"
+        },
+        {
+          "class": "",
+          "name": "test_database_chunk_guard_characterization",
+          "status": "error"
+        },
+        {
+          "class": "",
+          "name": "test_new_pool_after_takeover_keeps_old_fence_and_refuses_writes",
+          "status": "failed"
+        },
+        {
+          "class": "",
+          "name": "test_start_commit_spanning_takeover_is_recoverable",
+          "status": "error"
+        },
+        {
+          "class": "",
+          "name": "test_stale_process_approval_is_durable_but_only_replacement_executes",
+          "status": "error"
+        }
+      ]
+    }
+  ],
+  "harness_notes": [
+    "Scratch import initially lacked PYTHONPATH (exit 4).",
+    "Scratch collection initially did not select pyproject.toml: one unsupported-async failure and six fixture-setup errors; no product guarantee was exercised.",
+    "First role-boundary checkpoint INSERT used NULL for a NOT NULL blob; it was corrected to bytes in the audit fixture only; the DDL and row transaction rolled back.",
+    "Separate pytest processes overwrote the initial scratch JSON; its contents were retained from captured tool output in this evidence artifact. JUnit case records independently retain execution results."
+  ]
+}

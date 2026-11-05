@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -13,17 +15,20 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from opspilot_api.ownership import validate_worker_config
 from opspilot_api.routes import approvals, health, incidents, investigations, knowledge, system
 from opspilot_api.runtime import AppRuntime
 from opspilot_shared.config import Settings, get_settings
 from opspilot_shared.errors import (
     ApprovalError,
     AuthorizationError,
+    CapacityError,
     ConflictError,
     EmbeddingError,
     LLMUnavailableError,
     NotFoundError,
     OpsPilotError,
+    OwnershipError,
     ValidationFailure,
 )
 from opspilot_shared.logging import bind_context, configure_logging, get_logger
@@ -39,6 +44,8 @@ STATUS_BY_ERROR: dict[type[OpsPilotError], int] = {
     ValidationFailure: 422,
     EmbeddingError: 503,
     LLMUnavailableError: 503,
+    CapacityError: 429,
+    OwnershipError: 503,
 }
 
 
@@ -48,29 +55,54 @@ def create_app(
     chat: Any | None = None,
     gateways: Any | None = None,
     embedder: Any | None = None,
+    exit_on_owner_loss: bool = False,
 ) -> FastAPI:
+    """``exit_on_owner_loss``: the served application terminates its own process if it ever loses the execution-owner
+    lock (C0-G4), after execution has already been stopped; in-process test apps only stop execution."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_format)
     configure_tracing(settings.otel_service_name, settings.otel_exporter, settings.otel_exporter_otlp_endpoint)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        async with AppRuntime.open(settings, chat=chat, gateways=gateways, embedder=embedder) as rt:
-            orphans = await rt.investigations.mark_orphans_interrupted()
-            if orphans:
-                _log.warning("orphaned_investigations_marked_interrupted", count=orphans)
+        validate_worker_config()  # C0-G4: an explicit multi-worker configuration is refused before anything starts
+
+        async def owner_lost(reason: str) -> None:
+            if exit_on_owner_loss:
+                _log.error("exiting_after_execution_owner_loss", reason=reason)
+                os.kill(os.getpid(), signal.SIGTERM)
+
+        async with AppRuntime.open(
+            settings, chat=chat, gateways=gateways, embedder=embedder, on_owner_lost=owner_lost
+        ) as rt:
+            # Reconcile checkpoints, decisions and application rows left by a previous process (audit H3).
+            reconciled = await rt.investigations.reconcile()
+            if reconciled:
+                _log.warning("startup_reconciliation", **reconciled)
             app.state.runtime = rt
 
             async def sweep() -> None:  # bounded background maintenance: expire stale approval requests
+                # Start-up reconciliation has just run, so the first pass waits one interval. This also keeps the
+                # sweep from racing start-up work (C0-F4: a test's explicit reconciliation competed with it).
                 while True:
+                    await asyncio.sleep(15)
+                    if not rt.ownership.lifecycle.ready:  # C0-H2: maintenance only while this process owns execution
+                        return
                     try:
                         if n := await rt.approvals.expire_stale():
                             _log.warning("approval_requests_expired", count=n)
+                        await rt.dispatcher.dispatch_due()  # retry undelivered decisions (at-least-once)
+                        await rt.investigations.reconcile(expired_leases_only=True)  # owners that died mid-run
                     except Exception:
-                        _log.exception("approval_sweep_failed")
-                    await asyncio.sleep(60)
+                        _log.exception("maintenance_sweep_failed")
 
             sweeper = asyncio.create_task(sweep(), name="approval-sweeper")
+
+            def stop_maintenance(state: Any, _reason: str | None) -> None:
+                if str(state) == "ownership_lost":  # synchronous with the loss: no further reconciliation/delivery
+                    sweeper.cancel()
+
+            rt.ownership.lifecycle.on_change(stop_maintenance)
             try:
                 yield
             finally:
@@ -135,7 +167,7 @@ def create_app(
 
 
 def app_factory() -> FastAPI:
-    return create_app()
+    return create_app(exit_on_owner_loss=True)
 
 
 app = app_factory()

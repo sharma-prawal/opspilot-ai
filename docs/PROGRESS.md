@@ -121,6 +121,169 @@ NEG-002 root cause is ranked second by the model; retrieval ignores document sta
 
 **Next (Phase C):** see `docs/ROADMAP.md`.
 
+## Status — 2026-11-04, end of Phase C0 (hardening) — CONDITIONAL
+
+**Branch:** `hardening/phase-c0` (from `9ec857c` = v0.2.0); not merged, pushed, tagged or released.
+**Scope:** remediation of the Codex audit (`docs/audits/CODEX_AUDIT_9ec857c.md`, preserved verbatim). Per-finding
+evidence and the verification matrix: `docs/audits/PHASE_C0_REMEDIATION.md`. Draft release notes:
+`docs/releases/V0.2.1_NOTES.md`.
+
+**Milestones:** C0-A (H1–H4) ✅ · C0-B (E–H) ✅ · C0-C (I–M) ✅ · C0-D (N–P) ✅ · C0-E (regression, evaluation,
+docs) ✅ with one open measured regression.
+
+**Verified by execution:**
+- `make lint` clean;
+- `make test`: 180 passed, 3 live skipped, and 30 web tests;
+- `make test-live`: 3 passed;
+- `make e2e`: 4 passed, 3 screenshot specs skipped, with dev-DB row counts unchanged; pointing it at the dev
+  ports aborts before any test;
+- `make doctor` passes;
+- `make evaluate` (`TRIALS=2`, 13 runs, `cc275d7`) — results in `docs/evaluation/BASELINE.md`, frozen under
+  `datasets/evaluation/history/phase-c0-cc275d7/`:
+  - outcome accuracy 12/13;
+  - 0 unsafe, forbidden or unauthorized actions executed;
+  - citation validity 1.0;
+- live smoke through the BFF on the restarted dev stack: sign-in, CSRF, investigation, approval, execution,
+  verified recovery, RCA, and no credentials in 31 responses.
+
+**Open (see the remediation record):**
+1. **INC-002 regression.**
+   - Official run 1/2 mitigated; supplementary run 1/5; Phase B 2/2.
+   - A controlled ablation (Phase B ranking): 5/5.
+   - Cause: the lifecycle-ranking fix (I) changes the model's context. The failure is safe — the gates blocked
+     everything and the incident escalated.
+   - Not tuned away, by policy.
+2. **58 legacy dev-DB rows with expired approval tokens.** They need the owner's authorization for
+   `sanitize-secrets --apply`; a backup and rollback procedure is documented.
+3. **MCP OS-user separation** is not done (DB roles and environment are).
+
+**Machine state changes this phase (additive only):**
+- migrations 0004 and 0005 on `opspilot` and `opspilot_test`;
+- roles `opspilot_mcp_read` and `opspilot_mcp_actions`, with grants;
+- `.env` gained the web session/passphrase and MCP role passwords;
+- dev API and web restarted on the C0 code.
+
+Nothing was deleted.
+
+**Next:** independent Codex verification of the branch. Then, only with authorization: merge, tag `v0.2.1`, and
+publish. Phase C1 is not started.
+
+## Status — 2026-11-05, end of Phase C0-F (independent audit remediation)
+
+**Input:** independent Codex verification of `29d019c` (verdict FAIL), preserved verbatim in `docs/audits/`
+(`PHASE_C0_INDEPENDENT_*`). Record: `docs/audits/PHASE_C0_F_REMEDIATION.md`. Decisions D49–D54.
+
+**Commits:** `c33d28f` F1 recovery scope/health/ranges · `9ada7d7` F2 atomic admission, durable dispatch, lease
+fencing · `1d67597` F3 current-runbook section coverage · `7ead2af` F4 test-workflow ownership · `62a9e21` F5 INC-003
+specification check, occurrence/order-aware scoring, separated metrics · docs/results commit.
+
+**Verified by execution (code at `62a9e21`):** `make doctor` ✓; `make lint` clean; `make test` 229 passed + 3 live
+skipped, web 30; integration+security stable in 4 orders (91 passed each); `make test-live` 3 passed; `make e2e`
+4 passed / 3 skipped with dev-DB counts unchanged; audit reproducer: all four defects gone.
+
+**Evaluation** (`history/phase-c0f-62a9e21/`): official 13/13 correct outcomes, 0 unsafe/forbidden/unauthorised
+executions; INC-002 12/12 mitigated (2 official + 10 supplementary; C0 was 2/7); negatives 15/15 correct with no
+execution, but the raw model still proposes a rollback in every negative run (as in Phase B and C0). Model-plan
+acceptability (before gates) 3/12 in the official run.
+
+**Open:** no sealed unseen scenario set (novel cases not evaluated); multi-worker deployment unsupported
+(per-process admission, unfenced checkpointer writes); INC-003 key verified by a same-author specification, so an
+independent human review is recommended; 58 expired legacy tokens await the owner's `sanitize-secrets --apply`
+decision; MCP OS-user separation.
+
+**Machine state changes this phase:** test DB: 755 stale unfinished test workflows retired (terminal, nothing
+deleted); dev API/web restarted on the new code; evaluation rows added to the dev DB (additive).
+
+**Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
+Phase C1 is not started.
+
+## Status — 2026-11-05, end of Phase C0-H (third independent audit remediation)
+
+**Input:** third independent Codex verification of `b2a76d5` (FAIL: N1 start-up ownership loss, N2 revision reuse),
+preserved verbatim (`PHASE_C0_G_INDEPENDENT_*`, committed `2116ef1`). Record: `docs/audits/PHASE_C0_H_REMEDIATION.md`.
+Decisions D60–D63.
+
+**Commits:** `1e28076` H1 immutable serialized document revisions (migration 0007) · `5729dbb` H2 runtime lifecycle +
+epoch-based database fencing of checkpoints, runner writes and remediation claims (migration 0008) · `1635170` H3
+concurrency/fault-injection suites · `2116ef1` audit artifacts · docs/results commit.
+
+**Verified by execution:** both new reproducers reproduced on `b2a76d5` and no longer succeed; audit process checks pass;
+earlier R1/R2/R3/R5 still corrected. `make lint` clean; `make test` 304 passed + 3 live skipped, web 30; shuffled
+integration/security 153 passed in each of 3 orders; `make doctor` ✓ (head 0008); `make test-live` 3; `make e2e` 4 passed /
+3 skipped, dev-DB counts unchanged; `make evaluate` 13/13 correct outcomes, 0 unsafe executions, identical quality metrics
+to C0-G (`history/phase-c0h-2116ef1/`).
+
+**Open:** as C0-G (no unseen scenario set; multi-worker unsupported; R6 partial plan metric; default residual limits;
+58 expired legacy tokens awaiting the owner's decision; MCP OS-user separation; terminal-row growth) plus: old document
+revisions are not archived (citation snapshots are the record); unfenced operator API writes from a process in the
+instant between ownership loss and exit (CAS-protected, not execution).
+
+**Machine state changes this phase:** migrations 0007 and 0008 applied to the dev and test DBs (additive; dev API
+stopped first) and `make db-roles` re-run (fence EXECUTE for the action role); evaluation rows added to the dev DB; dev
+API/web restarted on the new code.
+
+**Next:** final independent verification. Merge, tag `v0.2.1` and publish only with authorisation. Phase C1 not started.
+
+## Status — 2026-11-05, v0.2.1 release preparation (Phase C0 closure)
+
+**Input:** final independent Codex verification of `de879a2`. Verdict **CONDITIONAL**: H1/H2 verified closed, no
+supported-path release blocker. Two claim qualifications apply: physical chunk IDs are not immutable (revision
+identity is logical), and the `opspilot_app` owner credential is trusted. Artifacts are preserved verbatim in
+`docs/audits/PHASE_C0_H_INDEPENDENT_*`. Decision D64.
+
+**Release documentation:**
+- `docs/releases/V0.2.1_NOTES.md` finalized with the nine disclosed limitations;
+- README brought in line with it (capabilities, v0.2.1 numbers, Limitations section);
+- the RAG, deployment and security pages scoped to the audit's qualifications;
+- ROADMAP: v0.2.1 row and the Phase C1 starting point.
+
+**Verified by execution (code unchanged since `2116ef1`; documentation-only commits since):**
+- `make lint` clean;
+- `make test`: 304 passed + 3 live skipped, and 30 web tests;
+- `make doctor` ✓, migrations at head `0008` on the dev and test DBs;
+- secret scan of every commit since `main` and the new audit artifacts: no `.env` value, approval token, key or
+  home path found.
+
+The full LLM evaluation was not re-run, because no code changed. The official results are `history/phase-c0h-2116ef1/`.
+
+**Publication plan:** push `hardening/phase-c0`, open a PR to `main`, and wait for CI and the owner's approval.
+Then merge with a merge commit, tag `v0.2.1` on the verified `main` commit and publish the GitHub release. The
+closure record is added after publication.
+
+## Status — 2026-11-05, end of Phase C0-G (second independent audit remediation)
+
+**Input:** second independent Codex verification of `5079b72` (verdict FAIL), preserved verbatim in `docs/audits/`
+(`PHASE_C0_F_INDEPENDENT_*`, committed `2d18d46`). Record: `docs/audits/PHASE_C0_G_REMEDIATION.md`. Decisions D55–D59.
+
+**Commits:** `d6d1901` G1 evidence-complete recovery verification · `7305815` G2 monotonic terminal states (transition
+policy, locked CAS, migration 0006 trigger, command revocation) · `37610db` G3 lifecycle-validated retrieval, no obsolete
+guidance in investigations · `95e79b9` G4 single execution owner per database (advisory lock, watchdog, launchers pinned
+to one worker) · `748c069` G3 fixture cleanup · `2d18d46` audit artifacts · docs/results commit.
+
+**Verified by execution:** all four audit reproducers reproduced the defects on `5079b72` and no longer do (R4 by
+real-process validation; the audit's static Uvicorn-config probe is unchanged by design). `make lint` clean; `make test`
+283 passed + 3 live skipped, web 30; integration+security stable under shuffle seeds 11/22/137 (132 passed each);
+`make doctor` ✓; `make test-live` 3 passed; `make e2e` 4 passed / 3 skipped with dev-DB counts unchanged.
+
+**Evaluation** (`history/phase-c0g-2d18d46/`): official 13/13 correct outcomes; 0 unsafe/forbidden/unauthorised
+executions; verified recovery 6/6 under the stricter conditions; model-plan acceptability 3/12, root cause 7/9 (both
+unchanged from C0-F); the raw model still proposes a rollback in every negative run; INC-002 still receives the current
+runbook's sections.
+
+**Deployment restriction (now enforced):** one execution owner per database. Stop the dev API before `make evaluate`
+or the CLI demo; Python tests and E2E cannot run at the same time.
+
+**Open:** no sealed unseen scenario set; multi-worker execution unsupported (C1); raw model-plan metric is partial
+pattern conformance (audit R6); residual limits are defaults, not SLOs; 58 expired legacy tokens await the owner's
+`sanitize-secrets --apply` decision; MCP OS-user separation; terminal rows/checkpoints accumulate.
+
+**Machine state changes this phase:** migration 0006 applied to the dev and test DBs (additive trigger); dev API/web
+stopped for the evaluation and restarted on the new code (now holding the dev DB's owner lock); evaluation rows added to
+the dev DB (additive); test DB: audit-reproducer and test rows left terminal, test-owned KB fixtures removed.
+
+**Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
+Phase C1 is not started.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

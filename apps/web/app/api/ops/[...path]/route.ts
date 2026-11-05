@@ -1,35 +1,93 @@
-// Backend-for-frontend proxy. Forwards a strict allowlist of API paths to the OpsPilot API and
-// injects the operator token server-side for state-changing requests. The browser never sees it.
+// Backend-for-frontend proxy (audit finding H1).
+//
+// Every request requires a valid session. Mutations also require same-origin, a session-bound CSRF token
+// and application/json. Authorization is per route: viewers may read and search; operator actions require
+// the operator role. The backend operator token is attached server-side only after these checks and is
+// never returned to the browser. Operator identity for decisions/cancellations comes from the session,
+// not from the request body.
 import type { NextRequest } from "next/server";
+import {
+  AuthError, assertSafeMutation, cookieValue, errorResponse, readSession, type Role, type Session,
+} from "@/lib/server/auth";
+import { redact } from "@/lib/server/redact";
 
 const API = process.env.OPSPILOT_API_URL ?? "http://127.0.0.1:8000";
-const ALLOWED = /^(api\/v1\/(system|knowledge|incidents|investigations|approvals)(\/[\w\-./]*)?|health\/(live|ready|dependencies))$/;
+const READABLE = /^(api\/v1\/(system|knowledge|incidents|investigations|approvals)(\/[\w\-./]*)?|health\/(live|ready|dependencies))$/;
 
-async function forward(req: NextRequest, ctx: RouteContext<"/api/ops/[...path]">): Promise<Response> {
-  const { path } = await ctx.params;
-  const joined = path.join("/");
-  if (!ALLOWED.test(joined) || joined.includes("..")) {
-    return Response.json({ error: { class: "not_found", message: "unknown API path" } }, { status: 404 });
-  }
+interface Rule { pattern: RegExp; role: Role; identity?: "decided_by" | "actor" }
+const MUTATIONS: Rule[] = [
+  { pattern: /^api\/v1\/knowledge\/search$/, role: "viewer" },
+  { pattern: /^api\/v1\/knowledge\/ingest$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/simulate$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/investigations$/, role: "operator" },
+  { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/resume$/, role: "operator" },
+  { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/cancel$/, role: "operator", identity: "actor" },
+  { pattern: /^api\/v1\/approvals\/[0-9a-f-]{36}\/decision$/, role: "operator", identity: "decided_by" },
+];
+const RANK: Record<Role, number> = { viewer: 0, operator: 1 };
+
+function authenticate(req: Request): Session {
+  const session = readSession(cookieValue(req));
+  if (!session) throw new AuthError(401, "unauthenticated", "sign in required");
+  return session;
+}
+
+async function upstream(req: NextRequest, joined: string, body: string | undefined): Promise<Response> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   const rid = req.headers.get("x-request-id");
-  if (rid) headers["x-request-id"] = rid;
-  if (req.method === "POST" && process.env.OPERATOR_TOKEN) headers.authorization = `Bearer ${process.env.OPERATOR_TOKEN}`;
+  if (rid && /^[\w-]{1,64}$/.test(rid)) headers["x-request-id"] = rid;
+  if (req.method === "POST") {
+    const token = process.env.OPERATOR_TOKEN ?? "";
+    if (token.length < 16) throw new AuthError(503, "backend_auth_not_configured", "OPERATOR_TOKEN not configured");
+    headers.authorization = `Bearer ${token}`;
+  }
   try {
-    const upstream = await fetch(`${API}/${joined}${req.nextUrl.search}`, {
-      method: req.method,
-      headers,
-      body: req.method === "POST" ? await req.text() : undefined,
-      cache: "no-store",
-    });
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
-    });
+    const res = await fetch(`${API}/${joined}${req.nextUrl.search}`, { method: req.method, headers, body, cache: "no-store" });
+    // Only status, content-type and body are relayed; no upstream headers (e.g. cookies) pass through.
+    // JSON bodies pass the shared redaction policy (finding E).
+    const type = res.headers.get("content-type") ?? "application/json";
+    let out: BodyInit | null = res.body;
+    if (type.includes("json")) {
+      const raw = await res.text();
+      try { out = JSON.stringify(redact(JSON.parse(raw))); } catch { out = raw; }
+    }
+    return new Response(out, { status: res.status, headers: { "content-type": type, "cache-control": "no-store" } });
   } catch {
-    return Response.json({ error: { class: "unavailable", message: `OpsPilot API unreachable at ${API}` } }, { status: 502 });
+    return Response.json({ error: { class: "unavailable", message: "OpsPilot API unreachable" } }, { status: 502 });
   }
 }
 
-export const GET = forward;
-export const POST = forward;
+async function handle(req: NextRequest, ctx: RouteContext<"/api/ops/[...path]">): Promise<Response> {
+  try {
+    const { path } = await ctx.params;
+    const joined = path.join("/");
+    if (!READABLE.test(joined) || joined.includes("..")) {
+      return Response.json({ error: { class: "not_found", message: "unknown API path" } }, { status: 404 });
+    }
+    const session = authenticate(req);
+    if (req.method === "GET") return await upstream(req, joined, undefined);
+
+    const rule = MUTATIONS.find((r) => r.pattern.test(joined));
+    if (!rule) return Response.json({ error: { class: "not_found", message: "unknown API path" } }, { status: 404 });
+    assertSafeMutation(req, session);
+    if (RANK[session.role] < RANK[rule.role]) {
+      throw new AuthError(403, "forbidden", `role ${session.role} may not perform this operation`);
+    }
+    let payload: unknown = {};
+    const raw = await req.text();
+    if (raw) {
+      try { payload = JSON.parse(raw); } catch { throw new AuthError(415, "unsupported_media_type", "invalid JSON body"); }
+    }
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+      throw new AuthError(415, "unsupported_media_type", "JSON object body required");
+    }
+    if (rule.identity) (payload as Record<string, unknown>)[rule.identity] = session.sub; // attributable, not spoofable
+    return await upstream(req, joined, JSON.stringify(payload));
+  } catch (e) {
+    if (e instanceof AuthError) return errorResponse(e);
+    throw e;
+  }
+}
+
+export const GET = handle;
+export const POST = handle;

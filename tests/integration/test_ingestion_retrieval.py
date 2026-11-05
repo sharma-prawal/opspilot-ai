@@ -145,3 +145,77 @@ async def test_hybrid_degrades_to_keyword_when_embeddings_unavailable(ingested, 
     assert trace is not None and trace.warnings == resp.warnings
     with pytest.raises(EmbeddingError):  # vector-only mode has nothing to fall back to
         await r.search("LEDGER_WRITE_FAILED", mode=RetrievalMode.VECTOR)
+
+
+class CountingEmbedder:
+    def __init__(self, inner) -> None:  # type: ignore[no-untyped-def]
+        self.inner, self.documents_embedded = inner, 0
+        self.model_name, self.dimensions = inner.model_name, inner.dimensions
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        self.documents_embedded += len(texts)
+        return await self.inner.embed_documents(texts)
+
+    async def embed_query(self, text: str) -> list[float]:
+        return await self.inner.embed_query(text)
+
+
+async def test_metadata_only_lifecycle_change_is_applied_without_reembedding(  # type: ignore[no-untyped-def]
+    tmp_path: Path, session_factory, embedder, settings, ingested
+) -> None:
+    """Audit finding 7: status/version edits used to hash identically and were silently skipped."""
+    root = tmp_path / "kb"
+    shutil.copytree(settings.knowledge_dir, root)
+    target = root / "runbooks" / "legacy-ledger-pool-tuning.md"
+    original = target.read_text()
+    counting = CountingEmbedder(embedder)
+    svc = IngestionService(session_factory, counting, settings)
+    async with session_factory() as s:
+        before = (
+            await s.execute(select(KbDocument).where(KbDocument.source_uri == target.relative_to(root).as_posix()))
+        ).scalar_one()
+        chunk_ids = set((await s.execute(select(KbChunk.id).where(KbChunk.document_id == before.id))).scalars())
+    try:
+        target.write_text(
+            original.replace("status: superseded", "status: withdrawn").replace("version: 1", "version: 2")
+        )
+        report = await svc.ingest_directory(root)
+        [item] = [i for i in report.items if i.source_uri == "runbooks/legacy-ledger-pool-tuning.md"]
+        assert item.outcome.value == "metadata_updated" and counting.documents_embedded == 0
+        others = {i.outcome.value for i in report.items if i is not item}
+        assert report.stats["metadata_updated"] == 1 and others <= {"unchanged", "duplicate"}
+        async with session_factory() as s:
+            after = await s.get(KbDocument, before.id)
+            assert after is not None and after.metadata_["status"] == "withdrawn" and after.metadata_["version"] == 2
+            assert after.version == before.version and after.content_hash == before.content_hash
+            assert (
+                set((await s.execute(select(KbChunk.id).where(KbChunk.document_id == before.id))).scalars())
+                == chunk_ids
+            )
+    finally:
+        target.write_text(original)
+        restored = await svc.ingest_directory(root)
+    assert [i.outcome.value for i in restored.items if i.source_uri.endswith("legacy-ledger-pool-tuning.md")] == [
+        "metadata_updated"
+    ]
+
+
+async def test_lifecycle_policy_is_applied_before_truncation(  # type: ignore[no-untyped-def]
+    ingested, session_factory, embedder, settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Obsolete and unreviewed guidance can no longer displace current guidance in the top-k."""
+    from opspilot_rag import retrieval as retrieval_mod
+
+    r = HybridRetriever(session_factory, embedder, settings)
+    query = "ledger connection pool tuning max connections legacy settings"
+    tier = retrieval_mod.lifecycle_tier
+    with_policy = await r.search(query, top_k=5, record=False)
+    monkeypatch.setattr(retrieval_mod, "lifecycle_tier", lambda _status: 0)  # policy off: raw fused order
+    without = await r.search(query, top_k=5, record=False)
+
+    tiers = [hit.metadata["lifecycle_tier"] for hit in with_policy.results]
+    assert tiers == sorted(tiers), tiers  # current < unreviewed < obsolete, order kept within a tier
+    raw = [h.source_uri for h in without.results]
+    assert tier(without.results[0].metadata["status"]) > 0, raw  # premise: an obsolete doc ranks first without policy
+    first_current = next(h.source_uri for h in with_policy.results if h.metadata["lifecycle_tier"] == 0)
+    assert with_policy.results[0].source_uri == first_current

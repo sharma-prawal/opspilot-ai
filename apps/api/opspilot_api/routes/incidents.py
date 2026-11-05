@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from opspilot_api.deps import Runtime
+from opspilot_api.deps import Operator, Runtime
 from opspilot_api.schemas import InvestigationOut, OperationAccepted, SimulateRequest
 from opspilot_shared.domain.incidents import Incident, IncidentStatus
 
@@ -21,7 +21,7 @@ async def list_incidents(rt: Runtime, status: IncidentStatus | None = None, limi
     return await rt.incidents.list(status=status, limit=min(limit, 200))
 
 
-@router.post("/simulate", status_code=status.HTTP_201_CREATED)
+@router.post("/simulate", status_code=status.HTTP_201_CREATED, dependencies=[Operator])
 async def simulate(rt: Runtime, body: SimulateRequest) -> Incident:
     return await rt.incidents.simulate(body.scenario)
 
@@ -37,7 +37,7 @@ async def incident_investigations(rt: Runtime, incident_id: uuid.UUID) -> list[I
     return [InvestigationOut.model_validate(i) for i in await rt.investigations.list_for_incident(incident_id)]
 
 
-@router.post("/{incident_id}/investigations", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/{incident_id}/investigations", status_code=status.HTTP_202_ACCEPTED, dependencies=[Operator])
 async def start_investigation(rt: Runtime, incident_id: uuid.UUID) -> OperationAccepted:
     inv = await rt.investigations.start(incident_id)
     return OperationAccepted(investigation_id=inv.id, status=inv.status, status_url=f"/api/v1/investigations/{inv.id}")

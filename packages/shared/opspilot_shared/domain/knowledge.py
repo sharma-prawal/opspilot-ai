@@ -8,6 +8,18 @@ from pydantic import Field
 
 from opspilot_shared.domain.common import Contract
 
+# Document lifecycle (audit finding 7, C0-G3). Tier 0: current; tier 1: unreviewed / unknown status; tier 2: obsolete
+# (superseded, withdrawn, ...). Ranking puts lower tiers first; normal incident investigation (the agent-facing MCP
+# tools) never receives tier-2 guidance; explicitly authorised historical search (operator API) still can.
+OBSOLETE_STATUSES = frozenset({"superseded", "deprecated", "retired", "withdrawn", "obsolete", "archived"})
+
+
+def lifecycle_tier(status: object) -> int:
+    s = str(status or "current").lower()
+    if s == "current":
+        return 0
+    return 2 if s in OBSOLETE_STATUSES else 1
+
 
 class DocType(StrEnum):
     RUNBOOK = "runbook"
@@ -44,6 +56,8 @@ class RetrievedChunk(Contract):
     vector_rank: int | None = None
     keyword_rank: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    content: str | None = Field(default=None, description="complete chunk text (citation snapshot)")
+    content_sha256: str | None = None
 
 
 class SearchResponse(Contract):
@@ -53,3 +67,11 @@ class SearchResponse(Contract):
     results: list[RetrievedChunk]
     latency_ms: float
     warnings: list[str] = Field(default_factory=list, description="e.g. degraded to keyword-only")
+    effective_mode: RetrievalMode | None = Field(
+        default=None, description="mode actually used; differs from ``mode`` when hybrid degraded to keyword-only"
+    )
+    context: list[RetrievedChunk] = Field(
+        default_factory=list,
+        description="other sections of the top-ranked current operational document (same version), when requested "
+        "with expand_sections; never from non-current documents",
+    )

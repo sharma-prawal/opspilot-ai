@@ -142,7 +142,7 @@ async def test_multi_step_plan_gets_ordered_stable_action_ids() -> None:
         "investigation_id": "00000000-0000-0000-0000-000000000009",
         "incident": {"service": "settlement-worker"},
         "evidence": evidence(QUEUE, dep, anom),
-        "rca": {"remediation_plan": plan},
+        "rca": {"remediation_plan": plan, "hypotheses": [{"confidence": 0.9}]},  # confident diagnosis
     }
     out = await nodes.propose(st)
     steps = out["remediation_plan"]
@@ -231,6 +231,17 @@ async def test_no_remediation_when_impact_has_ended() -> None:
         "investigation_id": "00000000-0000-0000-0000-000000000010",
         "incident": {"service": "transaction-api"},
         "evidence": evidence(recovered, dep_ev("e1", "dep-x", "transaction-api", 0.9)),
+        # Genuine recovery requires complete, healthy observations (H2), not merely a recovered anomaly.
+        "telemetry_coverage": {
+            "transaction-api": {
+                "metrics_requested": ["http_5xx_ratio", "p95_latency_ms"],
+                "metrics_ok": ["http_5xx_ratio", "p95_latency_ms"],
+                "metrics_failed": {},
+                "metrics_insufficient": [],
+                "health_status": "healthy",
+                "catalog_failed": False,
+            }
+        },
         "rca": {"remediation_plan": [{"action_type": "rollback_deployment", "deployment_id": "dep-x"}]},
     }
     out = await nodes.propose(st)
@@ -244,7 +255,10 @@ async def test_policy_appends_resume_for_paused_consumer() -> None:
         "investigation_id": "00000000-0000-0000-0000-000000000011",
         "incident": {"service": "settlement-worker"},
         "evidence": evidence(QUEUE, anom),
-        "rca": {"remediation_plan": [{"action_type": "pause_consumer", "service": "settlement-worker"}]},
+        "rca": {
+            "remediation_plan": [{"action_type": "pause_consumer", "service": "settlement-worker"}],
+            "hypotheses": [{"confidence": 0.9}],  # confident diagnosis (uncertainty gate is tested separately)
+        },
     }
     plan = (await nodes.propose(st))["remediation_plan"]
     assert [p["action_type"] for p in plan] == ["pause_consumer", "resume_consumer"]

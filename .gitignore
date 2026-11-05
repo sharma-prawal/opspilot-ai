@@ -20,6 +20,7 @@ htmlcov/
 # Node / Next.js
 node_modules/
 apps/web/.next/
+apps/web/.next-e2e/
 apps/web/out/
 apps/web/next-env.d.ts
 apps/web/test-results/

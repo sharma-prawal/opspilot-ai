@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
+from opspilot_agents.verification import condition_key, required_conditions
+
 OUTCOMES = {
     "mitigated": "Remediation executed and recovery verified.",
     "not_recovered": "Remediation executed but recovery was NOT verified.",
@@ -20,6 +23,8 @@ OUTCOMES = {
     "inconclusive": "Evidence was insufficient to determine the cause; escalated.",
     "no_action_required": "Impact has ended and no action is required.",
     "no_action_proposed": "Impact is ongoing but no catalogue action applies; escalated.",
+    "impact_unknown": "Impact could not be established from the available evidence; escalated.",
+    "verification_incomplete": "Remediation executed but not every recovery condition could be checked; escalated.",
     "failed": "The investigation did not complete.",
 }
 ESCALATE = {
@@ -31,8 +36,45 @@ ESCALATE = {
     "escalated",
     "inconclusive",
     "no_action_proposed",
+    "impact_unknown",
+    "verification_incomplete",
     "failed",
 }
+
+
+def impact_state(rca: dict[str, Any]) -> str:
+    """Impact state recorded by the RCA node. Legacy records without it are treated conservatively."""
+    impact = rca.get("impact")
+    if isinstance(impact, dict) and impact.get("state"):
+        return str(impact["state"])
+    return "ongoing" if rca.get("impact_ongoing") else "unknown"
+
+
+def verified_recovered(verification: dict[str, Any], state: dict[str, Any] | None = None) -> bool:
+    """C0-F1/C0-G1 invariant, enforced again at outcome time: "recovered" needs every required condition to have
+    passed. A record claiming recovery with a failed, unknown or unchecked condition is not trusted.
+
+    For records written under the C0-G contract the required conditions are *re-derived* from the recorded state
+    (``verification.required_conditions``), so recovery also fails closed if condition generation was ever
+    incomplete: every re-derived condition must have a passed check. Without the state to re-derive from, a C0-G
+    record is not trusted."""
+    if "status" not in verification:  # legacy (pre-C0) record: only the boolean exists
+        return bool(verification.get("recovered"))
+    if verification.get("status") != "recovered":
+        return False
+    checks = verification.get("checks") or []
+    if not checks or any(c.get("status") != "passed" for c in checks):
+        return False
+    required = verification.get("required")
+    if isinstance(required, int) and len(checks) < required:
+        return False
+    if verification.get("contract") != VERIFICATION_CONTRACT:
+        return True  # C0-F record: count/status invariant above (documented legacy path)
+    if not state or not state.get("incident"):
+        return False
+    passed = {condition_key(c.get("kind"), c.get("service"), c.get("name"), c.get("evidence_id")) for c in checks}
+    req = required_conditions(state)
+    return all(condition_key(c.kind, c.service, c.name, c.evidence_id) in passed for c in req.conditions)
 
 
 def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) -> dict[str, Any]:
@@ -43,6 +85,9 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     esc = rca.get("escalation") or {}
     hyps = rca.get("hypotheses") or []
     top = hyps[0]["confidence"] if hyps else 0.0
+    impact = impact_state(rca)
+    verification = state.get("verification") or {}
+    withheld = [r for r in state.get("rejected_proposals") or [] if r.get("category") == "withheld_uncertain"]
     if state.get("status") == "failed":
         code = "failed"
     elif approval.get("decision") == "expired":
@@ -52,19 +97,31 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     elif executions:
         if executions[-1].get("status") != "succeeded":
             code = "remediation_failed"
+        elif verified_recovered(verification, state):
+            code = "mitigated"
+        elif verification.get("status") == "incomplete":
+            code = "verification_incomplete"
         else:
-            code = "mitigated" if (state.get("verification") or {}).get("recovered") else "not_recovered"
-    elif rca.get("impact_ongoing") is False:
+            code = "not_recovered"
+    elif esc.get("required"):  # an explicit escalation request is never overridden
+        code = "escalated"
+    elif impact == "recovered":  # requires affirmative, sufficient recovery evidence
         code = "no_action_required"
+    elif impact == "unknown":
+        code = "impact_unknown"
+    elif withheld:  # a valid plan existed but the diagnosis was too uncertain to propose it
+        code = "inconclusive"
     elif rca.get("remediation_plan") and not plan:
         code = "proposal_blocked"
-    elif esc.get("required"):
-        code = "escalated"
     elif top < confidence_threshold:
         code = "inconclusive"
     else:
         code = "no_action_proposed"
     reason = esc.get("reason") or OUTCOMES[code]
+    if code == "inconclusive" and withheld:
+        reason = withheld[0]["reason"]
+    if code == "impact_unknown":
+        reason = "; ".join((rca.get("impact") or {}).get("reasons") or [OUTCOMES[code]])
     return {
         "code": code,
         "summary": OUTCOMES[code],
@@ -73,6 +130,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         "reason": reason,
         "actions_executed": len(executions),
         "steps_planned": len(plan),
+        "impact": impact,
     }
 
 
@@ -119,8 +177,9 @@ def render_report(state: dict[str, Any]) -> str:
         ]
     if rca.get("summary"):
         lines += ["## Summary", "", rca["summary"], ""]
-        if "impact_ongoing" in rca:
-            lines += [f"Impact ongoing at analysis time: **{'yes' if rca['impact_ongoing'] else 'no'}**.", ""]
+        if rca.get("impact"):
+            imp = rca["impact"]
+            lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
     if hyps:
         lines += ["## Ranked hypotheses", ""]
         for h in hyps:
@@ -187,8 +246,16 @@ def render_report(state: dict[str, Any]) -> str:
         ver = state.get("verification")
         if ver:
             lines.append(
-                f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'} — {ver.get('notes')}"
+                f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'}"
+                f"{' (' + ver['verdict'] + ')' if ver.get('verdict') else ''} — {ver.get('notes')}"
             )
+            for svc, x in (ver.get("services") or {}).items():
+                lines.append(
+                    f"  - {svc} ({', '.join(x['reasons'])}): initial {x['initial']}"
+                    f"{' (conflicting observations)' if x.get('initial_conflict') else ''}, now {x['current']}"
+                )
+            for x in ver.get("excluded") or []:
+                lines.append(f"  - Not a recovery condition: {x['service']} {x['metric']} ({x['reason']})")
     else:
         lines.append("- No remediation executed or proposed for approval.")
     for r in state.get("rejected_proposals") or []:
@@ -214,9 +281,12 @@ def render_report(state: dict[str, Any]) -> str:
                 continue
             seen.add(c["chunk_id"])
             status = e["data"].get("doc_status")
+            snapshot = (
+                f", v{c['document_version']}, sha256 `{c['passage_sha256'][:12]}`" if c.get("passage_sha256") else ""
+            )
             lines.append(
                 f"- `{e['id']}` {c['title']} > {c['heading_path']} (`{c['source_uri']}`, chunk "
-                f"`{c['chunk_id'][:8]}`)" + (f" — **{status}**" if status and status != "current" else "")
+                f"`{c['chunk_id'][:8]}`{snapshot})" + (f" — **{status}**" if status and status != "current" else "")
             )
         lines.append("")
 

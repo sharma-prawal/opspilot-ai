@@ -9,12 +9,37 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+export interface SessionInfo { authenticated: boolean; sub?: string; role?: "viewer" | "operator"; csrf?: string }
+
+let sessionCache: SessionInfo | null = null;
+
+export async function getSession(force = false): Promise<SessionInfo> {
+  if (sessionCache && !force) return sessionCache;
+  const res = await fetch("/api/session", { cache: "no-store" });
+  sessionCache = res.ok ? ((await res.json()) as SessionInfo) : { authenticated: false };
+  return sessionCache;
+}
+
+export function clearSession(): void { sessionCache = null; }
+
+export const UNAUTHENTICATED_EVENT = "opspilot:unauthenticated";
+
+function toLogin(): void {
+  // Handled by <Providers>, which navigates with the Next router.
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api/ops/${path}`, {
-    ...init,
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-  });
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (init?.method === "POST") {
+    const s = await getSession();
+    if (s.csrf) headers["x-opspilot-csrf"] = s.csrf;
+  }
+  const res = await fetch(`/api/ops/${path}`, { ...init, headers, cache: "no-store" });
+  if (res.status === 401) {
+    clearSession();
+    toLogin();
+  }
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
     try {
@@ -45,9 +70,10 @@ export const api = {
   actions: (id: string) => request<ActionRequest[]>(`api/v1/investigations/${id}/actions`),
   report: (id: string) => request<{ markdown: string; status: string }>(`api/v1/investigations/${id}/report`),
   resume: (id: string) => post(`api/v1/investigations/${id}/resume`),
-  cancel: (id: string, actor: string) => post(`api/v1/investigations/${id}/cancel`, { actor }),
+  cancel: (id: string) => post(`api/v1/investigations/${id}/cancel`, {}),
   approvals: (status = "pending") => request<ActionRequest[]>(`api/v1/approvals?status=${status}`),
-  decide: (actionId: string, body: { decision: "approve" | "reject"; params_hash: string; decided_by: string; comment?: string }) =>
+  // decided_by / actor are set server-side from the signed-in session; any client value is overwritten.
+  decide: (actionId: string, body: { decision: "approve" | "reject"; params_hash: string; comment?: string }) =>
     post<ActionRequest>(`api/v1/approvals/${actionId}/decision`, body),
   search: (query: string, mode: string, top_k = 8) => post<SearchResponse>("api/v1/knowledge/search", { query, mode, top_k }),
   documents: () => request<KbDocument[]>("api/v1/knowledge/documents"),

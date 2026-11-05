@@ -20,6 +20,7 @@ from opspilot_shared.config import Settings
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.evidence import ToolCallRecord, ToolCallStatus
 from opspilot_shared.logging import get_logger, log_context
+from opspilot_shared.redaction import redact
 from opspilot_shared.tracing import get_tracer
 
 _log = get_logger(__name__)
@@ -88,7 +89,7 @@ class McpToolGateway:
                 tool=tool,
                 server=self._server,
                 agent=agent,
-                arguments=args,
+                arguments=redact(args),
                 status=status,
                 latency_ms=latency,
                 started_at=started,
@@ -99,9 +100,68 @@ class McpToolGateway:
         return ToolResult(tool=tool, ok=status is ToolCallStatus.OK, data=data, error=error, record=record)
 
 
-def stdio_params(profile: Profile) -> StdioServerParameters:
+# Process-level variables a Python child needs; everything else is rebuilt from Settings below.
+_PASSTHROUGH = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TMPDIR",
+    "VIRTUAL_ENV",
+    "SYSTEMROOT",
+    "OPSPILOT_INSTANCE",
+)
+_SECRET_FIELDS = frozenset(
+    {
+        "db_user",
+        "db_password",
+        "operator_token",
+        "action_signing_key",
+        "mcp_read_db_password",
+        "mcp_actions_db_password",
+    }
+)
+
+
+def child_env(settings: Settings, profile: Profile) -> dict[str, str]:
+    """Minimal environment for an MCP server child (C0 item O).
+
+    Non-secret settings are passed explicitly; the child does not read ``.env`` (``OPSPILOT_NO_DOTENV``) and
+    does not inherit the parent's environment. Secrets are added per profile: each server gets its own DB role
+    (when provisioned) and only the action server receives the approval-token verification key. The operator
+    token, web session secrets and the database superuser password are never passed to either server.
+    """
+    env = {k: v for k in _PASSTHROUGH if (v := os.environ.get(k))}
+    env.update({k: v for k, v in os.environ.items() if k.startswith("OTEL_")})
+    for name in Settings.model_fields:
+        value = getattr(settings, name)
+        if name in _SECRET_FIELDS or value is None:
+            continue
+        env[name.upper()] = ("true" if value else "false") if isinstance(value, bool) else str(value)
+    env["OPSPILOT_NO_DOTENV"] = "1"
+    user, password = (
+        (settings.mcp_read_db_user, settings.mcp_read_db_password)
+        if profile == "read"
+        else (settings.mcp_actions_db_user, settings.mcp_actions_db_password)
+    )
+    if password.get_secret_value():
+        env["DB_USER"], env["DB_PASSWORD"] = user, password.get_secret_value()
+    else:  # roles not provisioned (scripts/db-roles.sh): keep working on the application role
+        env["DB_USER"], env["DB_PASSWORD"] = settings.db_user, settings.db_password.get_secret_value()
+        _log.warning("mcp_child_uses_app_db_role", profile=profile, hint="run scripts/db-roles.sh")
+    if profile == "actions":
+        env["ACTION_SIGNING_KEY"] = settings.action_signing_key.get_secret_value()
+    return env
+
+
+def stdio_params(profile: Profile, settings: Settings | None = None) -> StdioServerParameters:
+    from opspilot_shared.config import get_settings
+
     return StdioServerParameters(
-        command=sys.executable, args=["-m", "opspilot_mcp.cli", "serve", "--profile", profile], env=dict(os.environ)
+        command=sys.executable,
+        args=["-m", "opspilot_mcp.cli", "serve", "--profile", profile],
+        env=child_env(settings or get_settings(), profile),
     )
 
 
@@ -230,7 +290,7 @@ class SupervisedMcpGateway:
             tool=tool,
             server=self.server_label,
             agent=agent,
-            arguments=json.loads(json.dumps(arguments, default=str)),
+            arguments=redact(json.loads(json.dumps(arguments, default=str))),
             status=ToolCallStatus.ERROR,
             latency_ms=0.0,
             started_at=utcnow(),
@@ -246,7 +306,7 @@ async def connect_gateway(settings: Settings, profile: Profile) -> AsyncIterator
     from opspilot_mcp.read_server import READ_TOOLS
 
     if settings.mcp_transport == "stdio":
-        target: Any = stdio_params(profile)
+        target: Any = stdio_params(profile, settings)
     else:
         port = settings.mcp_http_port + (0 if profile == "read" else 1)
         target = f"http://{settings.mcp_http_host}:{port}/mcp"

@@ -113,7 +113,11 @@ async def client(settings, session_factory, embedder, ingested) -> AsyncIterator
     task = asyncio.create_task(host())
     await asyncio.wait_for(started.wait(), 30)
     try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            headers={"Authorization": f"Bearer {settings.operator_token.get_secret_value()}"},  # BFF-equivalent caller
+        ) as c:
             yield c
     finally:
         stop.set()
@@ -153,7 +157,9 @@ async def test_duplicate_resume_and_concurrent_approvals_have_single_effect(clie
     assert n == 1
 
 
-async def test_verification_failure_is_reported_accurately(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_verification_failure_is_reported_accurately(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
     """An executed action that does not fix the incident must end as not_recovered + escalate, not success."""
 
     def restart_only(messages):  # type: ignore[no-untyped-def]
@@ -196,7 +202,7 @@ async def test_verification_failure_is_reported_accurately(settings, session_fac
 
     from opspilot_shared.approvals import issue_token
 
-    async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings) as saver:
+    async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings, fence=owner.fence) as saver:
         g = build_graph(AgentDeps(chat=chat, tools=r, actions=a), saver)
         await g.ainvoke({"investigation_id": str(inv), "incident_id": str(inc_id)}, cfg)
         act = (await g.aget_state(cfg)).tasks[0].interrupts[0].value["action"]
@@ -224,6 +230,8 @@ async def test_verification_failure_is_reported_accurately(settings, session_fac
             params_hash=act["params_hash"],
             approved_by="t",
             ttl_seconds=60,
+            epoch=owner.fence[0],
+            owner_pid=owner.fence[1],
         )
         await g.ainvoke(
             Command(

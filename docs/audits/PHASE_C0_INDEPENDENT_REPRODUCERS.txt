@@ -1,0 +1,65 @@
+Independent audit in-memory reproductions. No network/DB calls or remediation.
+Copy the Python below to /private/tmp/opspilot_c0_reproduce.py, then from the repository root run:
+rtk proxy env PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /private/tmp/opspilot_c0_reproduce.py
+
+import asyncio, json, uuid
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
+from opspilot_agents.nodes import AgentDeps, InvestigationNodes
+from opspilot_agents.report import determine_outcome
+from tests.unit.test_verification import anomaly, make_state, series, T
+from tests.fakes.gateway import ScriptedGateway
+from opspilot_eval.agent_eval import score_run
+
+async def verification_scope():
+    dep={"id":"ev-deploy","kind":"deployment","service":"worker","relevance":0.9,"summary":"worker release","data":{"id":"dep-x","service":"worker","started_at":T.isoformat()}}
+    plan=[{"step":1,"action_type":"rollback_deployment","parameters":{"service":"worker","deployment_id":"dep-x"}}]
+    st=make_state([anomaly(0,"http_5xx_ratio",baseline=.002,extreme=.4),anomaly(1,"http_5xx_ratio",baseline=.002,extreme=.4,service="worker"),dep],plan)
+    st["rca"]["hypotheses"][0]["supporting_evidence_ids"]=["ev-m0"]
+    st["executions"][0]["step"]=1
+    gw=ScriptedGateway({"query_metrics":lambda a: series(.002 if a["service"]=="svc" else .4),"list_recent_deployments":lambda a:{"deployments":[{"id":"dep-x","status":"rolled_back"}]}})
+    out=await InvestigationNodes(AgentDeps(chat=None,tools=gw,actions=None)).verify(st)
+    return {"status":out["verification"]["status"],"omitted":out["verification"]["omitted"],"checks":[(c["service"],c["name"]) for c in out["verification"]["checks"]],"worker_metric_was_queried":any(a.get("service")=="worker" and t=="query_metrics" for t,a in gw.calls)}
+
+async def admission():
+    committed=[]
+    class Session:
+        async def __aenter__(self): return self
+        async def __aexit__(self,*a): return False
+        def begin(self): return self
+        async def get(self,*a,**k):
+            await asyncio.sleep(0)
+            return SimpleNamespace(id=a[1])
+        async def execute(self,*a,**k):return SimpleNamespace(scalars=lambda:SimpleNamespace(first=lambda:None))
+        def add(self,row):committed.append(row)
+        async def flush(self): await asyncio.sleep(0)
+    sf=lambda:Session()
+    runner=InvestigationRunner(sf,None,1,max_pending=1)
+    release=asyncio.Event()
+    async def hold(*a,**k):await release.wait()
+    runner.run=hold
+    svc=InvestigationService(sf,runner,None,"audit")
+    svc._started=AsyncMock()
+    results=await asyncio.gather(svc.start(uuid.uuid4()),svc.start(uuid.uuid4()),return_exceptions=True)
+    out={"committed_rows":len(committed),"admitted_tasks":runner.pending,"results":[type(r).__name__ for r in results],"orphan_has_null_lease":any(r.run_lease_until is None for r in committed)}
+    release.set()
+    await asyncio.gather(*list(runner._tasks.values()))
+    return out
+
+def relative_recovery():
+    from opspilot_agents.verification import metric_conditions,evaluate_metric
+    [c],_=metric_conditions([anomaly(0,"http_5xx_ratio",baseline=.002,extreme=.4)])
+    return evaluate_metric(c,[.08]*3)
+
+def duplicate_scoring():
+    p={"action_type":"rollback_deployment","parameters":{"service":"svc","deployment_id":"dep-x"}}
+    result={"remediation_plan":[dict(p,step=1),dict(p,step=2)],"executions":[{"step":1,"action_type":p["action_type"],"status":"succeeded"},{"step":2,"action_type":p["action_type"],"status":"succeeded"}]}
+    gt={"scenario":"AUDIT","root_cause":{},"acceptable_plans":[[p]],"requires_no_execution":False,"expected_outcomes":["mitigated"]}
+    r=score_run({"result":result,"status":"completed","outcome":{"code":"mitigated"},"seconds_to_pause":0,"seconds_total":0},gt)
+    return {k:r[k] for k in ("plan_acceptable","extra_actions","attempted")}
+
+async def main():
+    out={"verification_scope":await verification_scope(),"admission_race":await admission(),"relative_recovery":relative_recovery(),"duplicate_scoring":duplicate_scoring()}
+    print(json.dumps(out,indent=2));__import__("pathlib").Path("/private/tmp/opspilot_c0_audit_repros.json").write_text(json.dumps(out,indent=2))
+asyncio.run(main())

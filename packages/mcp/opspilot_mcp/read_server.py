@@ -58,6 +58,7 @@ Service = Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{1,62}$", description="S
 EnvId = Annotated[uuid.UUID, Field(description="Environment ID from the incident record")]
 Query = Annotated[str, Field(min_length=3, max_length=500)]
 TopK = Annotated[int, Field(ge=1, le=10)]
+ExpandSections = Annotated[int, Field(ge=0, le=4, description="extra sections of the top current runbook (0-4)")]
 
 
 async def _guard[T](fn: Callable[[], Awaitable[T]]) -> T:
@@ -212,18 +213,50 @@ def build_read_server(backend: OpsBackend) -> MCPServer:
         """Upstream and downstream dependencies of a service, with criticality."""
         return await _guard(lambda: store.dependencies(environment_id, service))
 
-    async def _search(query: str, top_k: int, filters: RetrievalFilters, caller: str) -> KnowledgeHits:
-        resp = await backend.retriever.search(query, top_k=top_k, filters=filters, caller=caller)
-        return KnowledgeHits(query_id=resp.query_id, query=resp.query, results=resp.results)
+    async def _search(
+        query: str, top_k: int, filters: RetrievalFilters, caller: str, expand_sections: int = 0
+    ) -> KnowledgeHits:
+        # C0-G3: agent-facing search is normal incident investigation, never historical analysis: superseded or
+        # withdrawn documents are not candidates, and the response is lifecycle-validated before it is returned.
+        resp = await backend.retriever.search(
+            query,
+            top_k=top_k,
+            filters=filters,
+            caller=caller,
+            expand_sections=expand_sections,
+            exclude_obsolete=True,
+        )
+        return KnowledgeHits(
+            query_id=resp.query_id,
+            query=resp.query,
+            results=resp.results,
+            mode=resp.mode.value,
+            effective_mode=(resp.effective_mode or resp.mode).value,
+            warnings=resp.warnings,
+            context=resp.context,
+        )
 
     @mcp.tool(title="Search runbooks and docs", annotations=READ_ONLY)
     async def search_runbooks(
-        query: Query, top_k: TopK = 5, doc_types: list[DocType] | None = None, services: list[Service] | None = None
+        query: Query,
+        top_k: TopK = 5,
+        doc_types: list[DocType] | None = None,
+        services: list[Service] | None = None,
+        expand_sections: ExpandSections = 0,
     ) -> KnowledgeHits:
-        """Hybrid (vector + keyword) search over runbooks, architecture, policies and error codes."""
+        """Hybrid (vector + keyword) search over runbooks, architecture, policies and error codes.
+
+        ``expand_sections`` (0-4) also returns up to that many further sections of the top-ranked current runbook
+        or troubleshooting document (same version) in ``context``."""
         types = doc_types or [d for d in DocType if d is not DocType.INCIDENT_REPORT]
         return await _guard(
-            lambda: _search(query, top_k, RetrievalFilters(doc_types=types, services=services), "mcp.search_runbooks")
+            lambda: _search(
+                query,
+                top_k,
+                RetrievalFilters(doc_types=types, services=services),
+                "mcp.search_runbooks",
+                expand_sections,
+            )
         )
 
     @mcp.tool(title="Historical incidents", annotations=READ_ONLY)

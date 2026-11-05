@@ -7,9 +7,12 @@ import uuid
 import pytest
 from mcp import Client, StdioServerParameters
 
+from opspilot_agents.nodes import AgentDeps, InvestigationNodes
 from opspilot_mcp.action_server import ACTION_TOOLS, build_action_server
 from opspilot_mcp.gateway import McpToolGateway
 from opspilot_mcp.read_server import READ_TOOLS, build_read_server
+from opspilot_shared.errors import EmbeddingError
+from tests.fakes.gateway import ScriptedGateway
 from tests.integration.helpers import backend, make_incident
 
 pytestmark = pytest.mark.integration
@@ -89,3 +92,43 @@ async def test_stdio_transport_subprocess(settings, session_factory) -> None:  #
         assert c.server_info.name == "opspilot-ops-read"
         res = await c.call_tool("get_service_health", {"environment_id": str(env), "service": "ledger-service"})
     assert not res.is_error and res.structured_content["status"] == "unhealthy"
+
+
+class FailingEmbedder:
+    """Embedding model down: hybrid retrieval must degrade to keyword-only and say so."""
+
+    def __init__(self, dim: int) -> None:
+        self.dimensions = dim
+        self.model_name = "down"
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        raise EmbeddingError("embedding model unavailable")
+
+    async def embed_query(self, text: str) -> list[float]:
+        raise EmbeddingError("embedding model unavailable")
+
+
+async def test_retrieval_degradation_survives_the_mcp_contract(settings, session_factory, ingested) -> None:  # type: ignore[no-untyped-def]
+    """Audit finding 11: warnings and the effective mode reach the caller and the agent's observation."""
+    b = backend(settings, session_factory, FailingEmbedder(settings.embedding_dimensions))
+    async with Client(build_read_server(b)) as c:
+        runbooks = await c.call_tool("search_runbooks", {"query": "ledger connection pool exhausted", "top_k": 5})
+        history = await c.call_tool("get_historical_incidents", {"query": "ledger migration", "top_k": 3})
+    for res in (runbooks, history):
+        data = res.structured_content
+        assert not res.is_error and data["mode"] == "hybrid" and data["effective_mode"] == "keyword"
+        assert data["warnings"] and "keyword-only" in data["warnings"][0]
+    assert runbooks.structured_content["results"]  # keyword results still returned
+
+    gw = ScriptedGateway(
+        {
+            "search_runbooks": lambda _a: runbooks.structured_content,
+            "get_historical_incidents": lambda _a: history.structured_content,
+        }
+    )
+    nodes = InvestigationNodes(AgentDeps(chat=None, tools=gw, actions=None))  # type: ignore[arg-type]
+    out = await nodes.knowledge(
+        {"incident": {"title": "ledger errors", "service": "ledger-service"}, "evidence": {}, "tool_calls": []}  # type: ignore[arg-type]
+    )
+    [obs] = out["observations"]
+    assert "retrieval degraded" in obs["finding"] and obs["retrieval"]["degraded_to"] == ["keyword"]

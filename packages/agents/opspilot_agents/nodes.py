@@ -30,16 +30,31 @@ from opspilot_agents.analysis import (
     lexical_overlap_bonus,
     mean,
 )
+from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages
 from opspilot_agents.remediation import enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
+from opspilot_agents.uncertainty import uncertainty_reasons
+from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
+from opspilot_agents.verification import (
+    VERDICTS,
+    Condition,
+    evaluate_baseline,
+    evaluate_health,
+    evaluate_metric,
+    evaluate_postcondition,
+    overall,
+    required_conditions,
+    service_summary,
+)
 from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.evidence import Citation, Evidence, EvidenceKind, ToolCallStatus
-from opspilot_shared.domain.incidents import IncidentCategory
+from opspilot_shared.domain.incidents import ImpactState, IncidentCategory
+from opspilot_shared.domain.knowledge import lifecycle_tier
 from opspilot_shared.errors import ApprovalError, LLMError
 from opspilot_shared.ids import short_hash, stable_uuid
 from opspilot_shared.llm.ports import ChatModel
@@ -72,11 +87,14 @@ class AgentPolicy:
     max_llm_calls: int = 6
     max_rounds: int = 2
     confidence_threshold: float = 0.6
+    ambiguity_margin: float = 0.1  # top-two hypotheses closer than this with disjoint evidence => withheld
     lookback_hours: float = 3.0
     change_horizon_hours: float = 6.0
     recovery_threshold: float = 0.01
-    recovery_position: float = 0.25  # metric must return to within 25% of its excursion from baseline
+    max_verification_checks: int = 16  # explicit budget; unchecked required conditions => incomplete
     max_prompt_evidence: int = 34
+    # C0-F3: further sections of the top-ranked current runbook (same version) added to the knowledge evidence.
+    knowledge_section_expansion: int = 4
 
 
 @dataclass(slots=True)
@@ -196,10 +214,9 @@ def _enqueue(state: State, new: list[Task], task: Task) -> None:
         new.append(task)
 
 
-def _impact_ongoing(state: State) -> bool:
-    """Deterministic: an unrecovered anomaly on the alerting service means customer impact is ongoing."""
-    svc = state["incident"]["service"]
-    return any(not a["data"].get("recovered") for a in _anomalies(state, {svc}))
+def _impact(state: State) -> dict[str, Any]:
+    """Tri-state, evidence-based impact on the alerting service (see impact.py)."""
+    return assess_impact(dict(state)).model_dump(mode="json")
 
 
 def _anomalies(state: State, services: set[str] | None = None) -> list[dict[str, Any]]:
@@ -352,11 +369,50 @@ class InvestigationNodes:
         new_tasks: list[Task] = []
         onset: datetime | None = None
 
+        coverage: dict[str, Any] = {
+            "metrics_requested": chosen,
+            "metrics_ok": [],
+            "metrics_failed": {},
+            "metrics_insufficient": [],
+            "health_status": None,
+            "catalog_failed": not (catalog_res and catalog_res.ok),
+        }
+        if coverage["catalog_failed"]:
+            eid, ev = _evidence(
+                id=f"ev-toolerr-{short_hash(svc, 'list_service_metrics')}",
+                kind=EvidenceKind.TOOL_ERROR,
+                source_tool="list_service_metrics",
+                collected_by="telemetry",
+                service=svc,
+                relevance=0.7,
+                summary=f"Metric catalogue for {svc} unavailable: "
+                f"{catalog_res.error if catalog_res else 'tool budget exhausted'}. Metric evidence is missing.",
+                data={"tool": "list_service_metrics", "error": catalog_res.error if catalog_res else "budget"},
+            )
+            evidence[eid] = ev
         for metric, res in zip(chosen, metric_results, strict=True):
             if not res or not res.ok or not res.data:
+                err = res.error if res else "tool budget exhausted"
+                coverage["metrics_failed"][metric] = err
+                eid, ev = _evidence(
+                    id=f"ev-toolerr-{short_hash(svc, 'query_metrics', metric)}",
+                    kind=EvidenceKind.TOOL_ERROR,
+                    source_tool="query_metrics",
+                    collected_by="telemetry",
+                    service=svc,
+                    relevance=0.7,
+                    summary=f"Metric {metric} for {svc} could not be retrieved: {err}. "
+                    "This is not evidence of recovery.",
+                    data={"tool": "query_metrics", "metric": metric, "error": err},
+                )
+                evidence[eid] = ev
                 continue
             unit = catalog.get(metric, "")
             pts = [(_dt(p["ts"]), float(p["value"])) for p in res.data["points"]]
+            if len(pts) < MIN_POINTS:
+                coverage["metrics_insufficient"].append(metric)
+                continue
+            coverage["metrics_ok"].append(metric)
             sh = detect_shift(pts, metric=metric, unit=unit)
             if sh:
                 if not sh.recovered and (onset is None or sh.onset < onset):
@@ -450,6 +506,7 @@ class InvestigationNodes:
 
         if rhealth and rhealth.ok and rhealth.data:
             h = rhealth.data
+            coverage["health_status"] = h["status"]
             eid, ev = _evidence(
                 id=f"ev-health-{short_hash(svc, h['as_of'])}",
                 kind=EvidenceKind.SERVICE_HEALTH,
@@ -489,6 +546,7 @@ class InvestigationNodes:
             "evidence": evidence,
             "observations": [obs],
             "window": window,
+            "telemetry_coverage": {svc: coverage},
             "task_queue": [*state.get("task_queue", []), *new_tasks],
             "completed_tasks": _complete(state, task),
         }
@@ -816,23 +874,49 @@ class InvestigationNodes:
         calls = _Calls(self.d.tools, state, self.p, "knowledge")
         rrun, rinc = await calls.many(
             [
-                ("search_runbooks", {"query": query, "top_k": 5}),
+                (
+                    "search_runbooks",
+                    {"query": query, "top_k": 5, "expand_sections": self.p.knowledge_section_expansion},
+                ),
                 ("get_historical_incidents", {"query": query, "top_k": 3}),
             ]
         )
         evidence: dict[str, dict[str, Any]] = {}
+        retrieved_at = utcnow()
+        coverage: dict[str, list[str]] = {}
+        withheld: list[str] = []
         for res, kind in ((rrun, EvidenceKind.KNOWLEDGE), (rinc, EvidenceKind.HISTORICAL_INCIDENT)):
             if not res or not res.ok or not res.data:
                 continue
-            for rank, hit in enumerate(res.data["results"], start=1):
-                status = (hit.get("metadata") or {}).get("status")
+            relevance_by_chunk: dict[str, float] = {}
+            rank_by_chunk: dict[str, int] = {}
+            hits = list(enumerate(res.data["results"], start=1))
+            # C0-F3: sections of the top current runbook, cited like any passage, ranked just below their anchor.
+            hits += [(0, h) for h in res.data.get("context") or []]
+            for rank, hit in hits:
+                meta = hit.get("metadata") or {}
+                status = meta.get("status")
+                # C0-G3 (defence in depth; the MCP read server already excludes them): superseded/withdrawn guidance
+                # never enters a normal investigation's context, and expanded sections must be explicitly validated
+                # as the current version.
+                if lifecycle_tier(status) == 2 or (meta.get("expanded_from") and lifecycle_tier(status) != 0):
+                    withheld.append(f"{hit.get('title')} ({status})")
+                    continue
                 marker = f"[{status.upper()}] " if status and status != "current" else ""
+                anchor = meta.get("expanded_from")
+                if anchor:
+                    rank = rank_by_chunk.get(anchor, 0)
+                    relevance = round(max(0.2, relevance_by_chunk.get(anchor, 0.3) - 0.05), 2)
+                    coverage.setdefault(hit["title"], []).append(str(meta.get("section_role", "other")))
+                else:
+                    relevance = round(max(0.2, 0.8 - 0.1 * rank) * (0.5 if marker else 1), 2)
+                    relevance_by_chunk[hit["chunk_id"]], rank_by_chunk[hit["chunk_id"]] = relevance, rank
                 eid, item = _evidence(
                     id=f"ev-kb-{hit['chunk_id'].replace('-', '')[:12]}",
                     kind=kind,
                     source_tool=res.tool,
                     collected_by="knowledge",
-                    relevance=round(max(0.2, 0.8 - 0.1 * rank) * (0.5 if marker else 1), 2),
+                    relevance=relevance,
                     summary=f"{marker}[{hit['title']} > {hit['heading_path']}] {hit['snippet'][:420]}",
                     citation=Citation(
                         document_id=hit["document_id"],
@@ -840,6 +924,11 @@ class InvestigationNodes:
                         source_uri=hit["source_uri"],
                         title=hit["title"],
                         heading_path=hit["heading_path"],
+                        document_version=hit.get("document_version"),
+                        passage=hit.get("content") or hit["snippet"],
+                        passage_sha256=hit.get("content_sha256"),
+                        lifecycle_status=status or "current",
+                        retrieved_at=retrieved_at,
                     ),
                     data={
                         "rank": rank,
@@ -849,16 +938,29 @@ class InvestigationNodes:
                         "doc_status": status,
                         "vector_rank": hit.get("vector_rank"),
                         "keyword_rank": hit.get("keyword_rank"),
+                        **({"expanded_from": anchor, "section_role": meta.get("section_role")} if anchor else {}),
                     },
                 )
                 evidence[eid] = item
         warnings = [w for r in (rrun, rinc) if r and r.ok and r.data for w in r.data.get("warnings", [])]
+        degraded = [
+            r.data.get("effective_mode")
+            for r in (rrun, rinc)
+            if r and r.ok and r.data and r.data.get("effective_mode") not in (None, r.data.get("mode"))
+        ]
         obs = {
             "agent": "knowledge",
             "service": None,
             "finding": f"retrieved {len(evidence)} cited passages for query: {query[:200]}"
+            + "".join(f"; includes {len(r)} further section(s) of current '{t}'" for t, r in coverage.items())
             + (f" (retrieval degraded: {warnings[0]})" if warnings else ""),
             "evidence_ids": list(evidence),
+            "retrieval": {
+                "warnings": warnings,
+                "degraded_to": sorted({str(d) for d in degraded}),
+                "section_coverage": coverage,
+                "withheld_obsolete": withheld,
+            },
         }
         return {
             **calls.update(),
@@ -934,7 +1036,8 @@ class InvestigationNodes:
                 "hypotheses": hyps,
                 "evidence_gaps": value.evidence_gaps,
                 "followups": list(dict.fromkeys(value.followups)),
-                "impact_ongoing": _impact_ongoing(state),
+                "impact": _impact(state),
+                "impact_ongoing": _impact(state)["state"] == ImpactState.ONGOING.value,
                 "impact_ongoing_model": value.impact_ongoing,
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
@@ -1009,16 +1112,40 @@ class InvestigationNodes:
                     "validation": check.details,
                 }
             )
-        if plan and not _impact_ongoing(state):
+        impact = _impact(state)
+        if plan and impact["state"] != ImpactState.ONGOING.value:
+            recovered = impact["state"] == ImpactState.RECOVERED.value
             rejected += [
                 {
                     "proposal": {k: p[k] for k in ("action_type", "parameters")},
-                    "category": "unwarranted",
-                    "reason": "impact has already ended on the alerting service; no remediation is warranted",
+                    "category": "unwarranted" if recovered else "insufficient_evidence",
+                    "reason": (
+                        "impact has ended on the alerting service; no remediation is warranted"
+                        if recovered
+                        else "impact on the alerting service is unknown ("
+                        + "; ".join(impact["reasons"])
+                        + "); remediation requires affirmative evidence of ongoing impact"
+                    ),
                     "at": _iso(utcnow()),
                 }
                 for p in plan
             ]
+            plan = []
+        uncertain = uncertainty_reasons(
+            state, confidence_threshold=self.p.confidence_threshold, ambiguity_margin=self.p.ambiguity_margin
+        )
+        if plan and uncertain:  # explicit uncertainty policy: never ask for approval of an uncertain diagnosis
+            rejected += [
+                {
+                    "proposal": {k: p[k] for k in ("action_type", "parameters")},
+                    "category": "withheld_uncertain",
+                    "reason": "proposal withheld: " + "; ".join(uncertain),
+                    "uncertainty": uncertain,
+                    "at": _iso(utcnow()),
+                }
+                for p in plan
+            ]
+            _log.info("remediation_withheld", reasons=uncertain, steps=len(plan))
             plan = []
         plan, dropped = enforce_plan_shape(plan)
         rejected += [{**d, "at": _iso(utcnow())} for d in dropped]
@@ -1120,19 +1247,28 @@ class InvestigationNodes:
         else:
             result = {**res.data}
         record = {**result, "step": action["step"], "action_type": action["action_type"], "role": action.get("role")}
-        return {**calls.update(), "remediation": result, "executions": [*state.get("executions", []), record]}
+        # The token has been spent (or refused); drop it so later checkpoints no longer carry it (finding E).
+        spent = {**approval, "approval_token": None}
+        return {
+            **calls.update(),
+            "approval": spent,
+            "remediation": result,
+            "executions": [*state.get("executions", []), record],
+        }
 
     async def advance(self, state: State) -> Update:
         idx = state.get("plan_index", 0) + 1
         return {"plan_index": idx, "proposed_action": state["remediation_plan"][idx], "approval": None}
 
     async def verify(self, state: State) -> Update:
+        """Check every required recovery condition (see verification.py); never silently truncate."""
         executions = state.get("executions", [])
         last = executions[-1] if executions else {}
         svc = state["incident"]["service"]
         if last.get("status") != "succeeded":
             return {
                 "verification": {
+                    "status": "not_recovered",
                     "recovered": False,
                     "service": svc,
                     "checks": [],
@@ -1141,89 +1277,115 @@ class InvestigationNodes:
             }
         details = last.get("details") or {}
         start, end = details.get("executed_at_sim"), details.get("sim_now_after")
-        top = ((state.get("rca") or {}).get("hypotheses") or [{}])[0]
-        culprits = {
-            state["evidence"][i]["service"]
-            for i in top.get("supporting_evidence_ids", [])
-            if state["evidence"].get(i, {}).get("service")
-        }
-        targets = [a for a in _anomalies(state, {svc} | culprits) if not a["data"].get("recovered")][:4]
+        # C0-F1/C0-G1: scope comes from the observed incident (alerting service, action targets, every service known
+        # to be unhealthy); initial health is resolved across all observations; model citations can only add to it.
+        req = required_conditions(dict(state))
+        # Enumerated in full *before* the budget is applied: the budget can only turn a condition into
+        # "not_checked", never remove it. Baseline conditions need no read and are always unknown.
+        required = req.conditions
         calls = _Calls(self.d.tools, state, self.p, "verify")
+        budget = min(self.p.max_verification_checks, max(calls.remaining, 0))
         env = state["incident"]["environment_id"]
-        if not targets:
-            targets = [
-                {
-                    "service": svc,
-                    "data": {
-                        "metric": "http_5xx_ratio",
-                        "unit": "ratio",
-                        "baseline": 0.0,
-                        "extreme": self.p.recovery_threshold / self.p.recovery_position,
-                    },
+
+        def plan_call(c: Condition) -> tuple[str, dict[str, Any]]:
+            if c.kind == "metric":
+                return "query_metrics", {
+                    "environment_id": env,
+                    "service": c.service,
+                    "metric": c.name,
+                    "start": start,
+                    "end": end,
                 }
-            ]
-        results = await calls.many(
-            [
-                (
-                    "query_metrics",
-                    {
-                        "environment_id": env,
-                        "service": t["service"],
-                        "metric": t["data"]["metric"],
-                        "start": start,
-                        "end": end,
-                    },
-                )
-                for t in targets
-            ]
-        )
-        checks = []
-        for t, r in zip(targets, results, strict=True):
-            d = t["data"]
-            if not r or not r.ok or not r.data or len(r.data["points"]) < 3:
+            if c.kind == "health":
+                return "get_service_health", {"environment_id": env, "service": c.service}
+            kind = c.name.split(":", 1)[0]
+            if kind == "rolled_back":
+                begin = c.spec.get("started_at") or start
+                return "list_recent_deployments", {"environment_id": env, "start": begin, "end": end}
+            if kind == "pool_size":
+                return "get_service_config", {"environment_id": env, "service": c.service}
+            return "inspect_queue", {"environment_id": env, "queue": c.spec["queue"]}
+
+        # Deduplicate identical tool calls (e.g. two postconditions on the same queue) so the budget counts reads.
+        planned: dict[str, tuple[str, dict[str, Any]]] = {}
+        for c in required:
+            if c.kind == "baseline":
+                continue
+            tool, args = plan_call(c)
+            planned.setdefault(f"{tool}:{sorted(args.items())}", (tool, args))
+        keys = list(planned)
+        checked_keys, omitted_keys = keys[:budget], keys[budget:]
+        results = await calls.many([planned[k] for k in checked_keys])
+        by_key = dict(zip(checked_keys, results, strict=True))
+        checks: list[dict[str, Any]] = []
+        for c in required:
+            if c.kind == "baseline":
+                checks.append(evaluate_baseline(c))
+                continue
+            tool, args = plan_call(c)
+            key = f"{tool}:{sorted(args.items())}"
+            if key in omitted_keys:
                 checks.append(
                     {
-                        "service": t["service"],
-                        "metric": d["metric"],
-                        "recovered": False,
-                        "note": "insufficient post-remediation data",
+                        "kind": c.kind,
+                        "service": c.service,
+                        "name": c.name,
+                        "evidence_id": c.evidence_id,
+                        "status": "not_checked",
+                        "detail": "verification budget exhausted",
                     }
                 )
                 continue
-            after = mean([float(p["value"]) for p in r.data["points"]][-3:])
-            span = (d["extreme"] - d["baseline"]) or 1e-9
-            position = (after - d["baseline"]) / span
-            checks.append(
-                {
-                    "service": t["service"],
-                    "metric": d["metric"],
-                    "baseline": round(d["baseline"], 5),
-                    "anomalous": round(d["extreme"], 5),
-                    "after": round(after, 5),
-                    "position": round(position, 3),
-                    "recovered": position < self.p.recovery_position,
-                }
-            )
-        recovered = bool(checks) and all(c["recovered"] for c in checks)
-        notes = "; ".join(
-            f"{c['service']} {c['metric']}: "
-            + (
-                f"{c.get('after')} (baseline {c.get('baseline')}, was {c.get('anomalous')})"
-                if "after" in c
-                else c["note"]
-            )
-            for c in checks
+            r = by_key[key]
+            data = r.data if r and r.ok else None
+            if c.kind == "metric":
+                pts = [float(p["value"]) for p in data["points"]] if data else None
+                check = evaluate_metric(c, pts)
+            elif c.kind == "health":
+                check = evaluate_health(c, data, start)
+            else:
+                check = evaluate_postcondition(c, data)
+            if r is not None:
+                check["tool_call_id"] = r.record.id
+                if not r.ok:
+                    check["detail"] = f"{check.get('detail', '')}; tool error: {r.error}".strip("; ")
+            checks.append(check)
+        status = overall(checks, len(required))
+        failed = [c for c in checks if c["status"] == "failed"]
+        unknown = [c for c in checks if c["status"] in ("unknown", "not_checked")]
+        notes = (
+            f"{len(checks)} required condition(s): {len(checks) - len(failed) - len(unknown)} passed, "
+            f"{len(failed)} failed, {len(unknown)} unknown/not checked"
         )
+        if failed:
+            notes += "; failed: " + ", ".join(f"{c.get('service') or ''} {c['name']}".strip() for c in failed)
+        if unknown:
+            notes += "; unverified: " + ", ".join(f"{c.get('service') or ''} {c['name']}".strip() for c in unknown)
         return {
             **calls.update(),
             "verification": {
-                "recovered": recovered,
+                "contract": VERIFICATION_CONTRACT,
+                "status": status,
+                "verdict": VERDICTS[status],
+                "recovered": status == "recovered",
                 "service": svc,
                 "checks": checks,
+                "informational": req.informational,
+                "excluded": req.excluded,
+                "scope": req.scope,
+                "services": service_summary(req, checks),
+                "required": len(required),
+                "budget": budget,
+                "omitted": len([c for c in checks if c["status"] == "not_checked"]),
                 "window_start": start,
                 "window_end": end,
-                "criterion": f"each anomalous metric back within {self.p.recovery_position:.0%} of its excursion",
                 "notes": notes,
+                "criterion": (
+                    "every in-scope anomalous metric inside its metric-specific healthy range; fresh affirmative "
+                    "health after the action for the alerting service, every action target and every known-unhealthy "
+                    "service (initially unknown included); every action postcondition met; and the pre-action "
+                    "failure evidence and initial signals established"
+                ),
             },
         }
 

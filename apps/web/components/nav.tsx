@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { usePathname, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, clearSession, getSession } from "@/lib/api";
 
 const LINKS = [
   { href: "/", label: "Overview" },
@@ -14,7 +14,19 @@ const LINKS = [
 
 export function Nav() {
   const path = usePathname();
-  const pending = useQuery({ queryKey: ["approvals", "pending"], queryFn: () => api.approvals("pending"), refetchInterval: 5000 });
+  const router = useRouter();
+  const qc = useQueryClient();
+  const session = useQuery({ queryKey: ["session"], queryFn: () => getSession(), staleTime: 60_000 });
+  const signedIn = !!session.data?.authenticated;
+  const pending = useQuery({ queryKey: ["approvals", "pending"], queryFn: () => api.approvals("pending"),
+    refetchInterval: 5000, enabled: signedIn });
+  async function signOut() {
+    const csrf = session.data?.csrf ?? "";
+    await fetch("/api/session", { method: "DELETE", headers: { "x-opspilot-csrf": csrf } });
+    clearSession();
+    qc.clear();
+    router.replace("/login");
+  }
   const count = pending.data?.length ?? 0;
   return (
     <nav aria-label="Primary" className="flex flex-wrap items-center gap-1">
@@ -34,6 +46,12 @@ export function Nav() {
           </Link>
         );
       })}
+      {signedIn && (
+        <span className="ml-2 flex items-center gap-2 border-l border-border pl-3 text-xs text-muted">
+          {session.data?.sub} · {session.data?.role}
+          <button onClick={signOut} className="text-accent hover:underline">Sign out</button>
+        </span>
+      )}
     </nav>
   );
 }

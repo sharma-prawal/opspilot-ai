@@ -37,3 +37,17 @@ class Incident(Contract):
     environment_id: uuid.UUID
     detected_at: UtcDatetime
     created_at: UtcDatetime
+
+
+class ImpactState(StrEnum):
+    """Customer impact on the alerting service, from evidence (never from the model)."""
+
+    ONGOING = "ongoing"  # affirmative evidence of current impact
+    RECOVERED = "recovered"  # affirmative, sufficient evidence that impact has ended
+    UNKNOWN = "unknown"  # missing, failed, insufficient or conflicting observations
+
+
+class ImpactAssessment(Contract):
+    state: ImpactState
+    reasons: list[str]
+    evidence_ids: list[str] = Field(default_factory=list)

@@ -1,0 +1,186 @@
+C0-F independent audit reproduction programs.
+
+These are audit artifacts, not application changes. Run from the repository root with the existing .venv. The original four-case program is preserved separately in PHASE_C0_INDEPENDENT_REPRODUCERS.txt.
+
+Programs 1 and 4 are pure/offline. Program 4 inspects protected ground truth only in the evaluation process; never send it through runtime tools or inference. Programs 2 and 3 WRITE ONLY audit-owned state to opspilot_test and verify exact SQL identity before writes. They do not run a model, an HTTP development workflow, or a remediation against opspilot. Program 2 leaves its workflow terminal and its KB document inactive; Program 3 leaves fresh simulator environments for audit, without creating investigations. Do not run alongside another test suite/E2E. Never change their database guards.
+
+Copy each program between its BEGIN/END markers to a separate /private/tmp/<name>.py file. Execute from the repository root:
+rtk proxy env PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /private/tmp/<name>.py
+
+===== BEGIN PURE_RECOVERY_AND_LIFECYCLE =====
+import asyncio,json,uuid
+from types import SimpleNamespace
+from pathlib import Path
+from opspilot_agents.nodes import AgentDeps,InvestigationNodes
+from opspilot_agents.report import determine_outcome
+from opspilot_agents.verification import Condition,evaluate_health
+from tests.unit.test_verification import anomaly,make_state,series,T
+from tests.fakes.gateway import ScriptedGateway
+from opspilot_rag.retrieval import HybridRetriever
+from opspilot_shared.config import Settings
+from opspilot_shared.db.models import KbChunk,KbDocument
+from opspilot_shared.domain.knowledge import RetrievedChunk,DocType
+
+def health(svc,status):
+ return {"service":svc,"status":status,"as_of":T.isoformat(),"error_ratio":.4 if status!="healthy" else .002,"p95_latency_ms":2000.,"version":"v2","notes":[]}
+def ev(eid,kind,svc,data):return {"id":eid,"kind":kind,"service":svc,"data":data,"relevance":.8,"summary":eid}
+async def verify_case(kind):
+ dep=ev("dep","deployment","svc",{"id":"dep-x","service":"svc","started_at":T.isoformat()})
+ plan=[{"step":1,"action_type":"rollback_deployment","parameters":{"service":"svc","deployment_id":"dep-x"}}]
+ evidence=[anomaly(0,"http_5xx_ratio",baseline=.002,extreme=.4),dep]
+ if kind=="unknown_prior_health":evidence.append(ev("h","service_health","svc",health("svc","unknown")))
+ elif kind=="known_bad_dependency":
+  evidence += [ev("h","service_health","svc",health("svc","unhealthy")),ev("edge","dependency","downstream",{"edge":{"service":"svc","depends_on":"downstream","critical":True},"health":None}),ev("h-downstream","service_health","downstream",health("downstream","unhealthy")),anomaly(1,"http_5xx_ratio",baseline=.002,extreme=.4,service="downstream")]
+ st=make_state(evidence,plan);st["executions"][0]["step"]=1;st["rca"]["hypotheses"][0]["confidence"]=.9;st["telemetry_coverage"]={"svc":{"metrics_requested":["http_5xx_ratio","p95_latency_ms"],"metrics_ok":["http_5xx_ratio","p95_latency_ms"],"metrics_failed":{},"metrics_insufficient":[],"health_status":"unknown" if kind=="unknown_prior_health" else "unhealthy"}}
+ gw=ScriptedGateway({"query_metrics":lambda a:series(.4 if a["service"]=="downstream" else .002),"get_service_health":lambda a:{"status":"unhealthy" if a["service"]=="downstream" else "unknown" if kind=="unknown_prior_health" else "healthy","as_of":st["executions"][0]["details"]["sim_now_after"]},"list_recent_deployments":lambda a:{"deployments":[{"id":"dep-x","status":"rolled_back"}]}})
+ out=await InvestigationNodes(AgentDeps(chat=None,tools=gw,actions=None)).verify(st)
+ state={**st,"verification":out["verification"],"status":"completed"}
+ return {"verification":out["verification"],"tool_calls":gw.calls,"outcome":determine_outcome(state)["code"]}
+
+async def stale_lifecycle():
+ did,aid,cid=uuid.uuid4(),uuid.uuid4(),uuid.uuid4()
+ anchor=RetrievedChunk(chunk_id=aid,document_id=did,document_version=1,source_uri="runbooks/a.md",title="Runbook",doc_type=DocType.RUNBOOK,heading_path="Runbook > Symptoms",snippet="symptoms",score=.5,metadata={"status":"current","lifecycle_tier":0})
+ doc=KbDocument(id=did,source_uri="runbooks/a.md",title="Runbook",doc_type="runbook",status="active",version=1,services=[],tags=[],metadata_={"status":"superseded"})
+ chunk=KbChunk(id=cid,document_id=did,document_version=1,ordinal=1,title="Runbook",heading_path="Runbook > Mitigation",content="Obsolete operational instructions",word_count=3)
+ class Session:
+  async def __aenter__(self):return self
+  async def __aexit__(self,*a):pass
+  async def execute(self,query):return SimpleNamespace(all=lambda:[(chunk,doc)])
+ retriever=HybridRetriever(lambda:Session(),None,Settings(_env_file=None))
+ expanded=await retriever._expand([anchor],4)
+ return {"expanded_count":len(expanded),"statuses":[x.metadata["status"] for x in expanded],"tiers":[x.metadata["lifecycle_tier"] for x in expanded]}
+
+async def main():
+ out={"unknown_prior_health":await verify_case("unknown_prior_health"),"known_bad_dependency":await verify_case("known_bad_dependency"),"healthy_without_freshness_timestamp":evaluate_health(Condition("health","svc","health","e",{"before":"unhealthy"}),{"status":"healthy"},T.isoformat()),"lifecycle_changed_after_anchor":await stale_lifecycle()}
+ print(json.dumps(out,indent=2,default=str));Path("/private/tmp/opspilot_c0f_edge_repros.json").write_text(json.dumps(out,indent=2,default=str))
+asyncio.run(main())
+
+===== END PURE_RECOVERY_AND_LIFECYCLE =====
+
+===== BEGIN POSTGRES_CANCEL_AND_LIFECYCLE =====
+import os
+os.environ["DB_NAME"]="opspilot_test"
+import asyncio,json,uuid
+from types import SimpleNamespace
+from pathlib import Path
+from sqlalchemy import text
+from opspilot_shared.config import Settings
+from opspilot_shared.db.session import create_engine,create_session_factory
+from opspilot_shared.db.models import OpsActionRequest,OpsInvestigation,KbDocument,KbChunk
+from opspilot_shared.domain.knowledge import RetrievedChunk,DocType
+from opspilot_rag.retrieval import HybridRetriever
+from opspilot_api.services.investigations import InvestigationRunner,InvestigationService
+from tests.integration.helpers import make_action
+
+async def main():
+ conf=Settings();assert conf.db_name=="opspilot_test";engine=create_engine(conf);sf=create_session_factory(engine);out={};inv_id=None;svc=None;doc_id=None
+ try:
+  async with engine.connect() as c:assert (await c.execute(text("select current_database()"))).scalar_one()=="opspilot_test"
+  aid,ph,_=await make_action(sf,status="approved")
+  async with sf() as s,s.begin():
+   act=await s.get(OpsActionRequest,aid);inv_id=act.investigation_id;inv=await s.get(OpsInvestigation,inv_id);inv.status="running";inv.run_owner=None;inv.run_lease_until=None
+   action={"action_id":str(aid),"action_type":act.action_type,"parameters":act.parameters,"params_hash":act.params_hash,"rationale":act.rationale,"risk":act.risk}
+  entered,go=asyncio.Event(),asyncio.Event()
+  class Graph:
+   async def aget_state(self,config):
+    entered.set();await go.wait()
+    return SimpleNamespace(values={"status":"awaiting_approval"},next=("await_approval",),tasks=[SimpleNamespace(interrupts=[SimpleNamespace(value={"action":action})])])
+  graph=Graph();runner=InvestigationRunner(sf,graph,1);svc=InvestigationService(sf,runner,graph,"audit")
+  reconcile=asyncio.create_task(svc.reconcile(expired_leases_only=True));await asyncio.wait_for(entered.wait(),10)
+  cancelled=await svc.cancel(inv_id,"independent-audit");before=cancelled.status;go.set();counts=await asyncio.wait_for(reconcile,10)
+  async with sf() as s:
+   after=await s.get(OpsInvestigation,inv_id);act=await s.get(OpsActionRequest,aid)
+   out["cancel_during_reconcile"]={"after_cancel":before,"after_reconcile":after.status,"action_status":act.status,"reconcile_counts":counts}
+  await svc.cancel(inv_id,"audit-cleanup")
+  doc_id,c0,c1=uuid.uuid4(),uuid.uuid4(),uuid.uuid4()
+  async with sf() as s,s.begin():
+   s.add(KbDocument(id=doc_id,source_uri="audit/"+str(doc_id)+".md",title="Audit lifecycle fixture",doc_type="runbook",status="active",version=1,metadata_={"status":"current"},content_hash="0"*64,chunk_count=2))
+   await s.flush()
+   for cid,ordinal,content in ((c0,0,"Symptoms"),(c1,1,"Obsolete mitigation instructions")):
+    s.add(KbChunk(id=cid,document_id=doc_id,document_version=1,ordinal=ordinal,title="Audit lifecycle fixture",heading_path="Audit > "+("Symptoms" if ordinal==0 else "Mitigation"),content=content,word_count=3,embedding=[.01]*conf.embedding_dimensions))
+  anchor=RetrievedChunk(chunk_id=c0,document_id=doc_id,document_version=1,source_uri="audit/"+str(doc_id)+".md",title="Audit lifecycle fixture",doc_type=DocType.RUNBOOK,heading_path="Audit > Symptoms",snippet="Symptoms",score=.5,metadata={"status":"current","lifecycle_tier":0})
+  async with sf() as s,s.begin():
+   doc=await s.get(KbDocument,doc_id);doc.metadata_={"status":"superseded"}
+  items=await HybridRetriever(sf,None,conf)._expand([anchor],4)
+  out["lifecycle_changed_before_expansion"]={"expanded_count":len(items),"statuses":[r.metadata["status"] for r in items],"tiers":[r.metadata["lifecycle_tier"] for r in items]}
+ finally:
+  if doc_id:
+   async with sf() as s,s.begin():
+    doc=await s.get(KbDocument,doc_id)
+    if doc:doc.status="retired"
+  if inv_id:
+   async with sf() as s,s.begin():
+    inv=await s.get(OpsInvestigation,inv_id)
+    if inv:inv.status="cancelled";inv.run_owner=None;inv.run_lease_until=None
+  await engine.dispose()
+ print(json.dumps(out,indent=2));Path("/private/tmp/opspilot_c0f_db_edges.json").write_text(json.dumps(out,indent=2))
+asyncio.run(main())
+
+===== END POSTGRES_CANCEL_AND_LIFECYCLE =====
+
+===== BEGIN POSTGRES_INC003_SEMANTICS =====
+import os
+os.environ["DB_NAME"]="opspilot_test"
+import asyncio,json,uuid
+from datetime import timedelta
+from pathlib import Path
+from sqlalchemy import text
+from opspilot_shared.config import Settings
+from opspilot_shared.db.session import create_engine,create_session_factory
+from opspilot_shared.approvals import action_params_hash
+from opspilot_simulator.store import SimulatorStore
+
+async def main():
+ s=Settings();assert s.db_name=="opspilot_test";e=create_engine(s);sf=create_session_factory(e);out={}
+ try:
+  async with e.connect() as c:assert (await c.execute(text("select current_database()"))).scalar_one()=="opspilot_test"
+  store=SimulatorStore(sf)
+  cases={"minimal":["rollback","quarantine"],"contained":["pause","rollback","quarantine","resume"],"rollback_only":["rollback"],"quarantine_only":["quarantine"],"left_paused":["pause","rollback","quarantine"],"early_resume":["pause","resume","rollback","quarantine"],"quarantine_before_rollback":["quarantine","rollback"]}
+  for name,steps in cases.items():
+   env,_=await store.create_environment("INC-003");row=await store.environment(env);q=await store.inspect_queue(env,"settlement-events")
+   failure=max(q["failures"],key=lambda f:f["count"]);deploys=await store.list_deployments(env,start=row.sim_now-timedelta(hours=23),end=row.sim_now+timedelta(minutes=1));dep=next(d for d in deploys if d.service in q["producers"] and d.version==failure["producer_version"])
+   params={"rollback":("rollback_deployment",{"service":dep.service,"deployment_id":dep.id}),"quarantine":("quarantine_messages",{"queue":q["queue"],"error_code":failure["error_code"]}),"pause":("pause_consumer",{"service":q["consumer"]["service"]}),"resume":("resume_consumer",{"service":q["consumer"]["service"]})}
+   observations=[]
+   for step in steps:
+    action,p=params[step];r=await store.execute_action(env,action_id=uuid.uuid4(),action_type=action,parameters=p,params_hash=action_params_hash(action,p));health=await store.service_health(env,q["consumer"]["service"])
+    observations.append({"step":step,"action_status":r.status,"consumer_health_after_step":health.status.value})
+   after=await store.inspect_queue(env,q["queue"]);out[name]={"observations":observations,"consumer_state":after["consumer"]["state"],"remaining_failure_groups":len(after["failures"]),"dead_lettered":after["dead_lettered"],"quarantined":after["quarantined"]}
+ finally:await e.dispose()
+ print(json.dumps(out,indent=2));Path("/private/tmp/opspilot_c0f_inc003_semantics.json").write_text(json.dumps(out,indent=2))
+asyncio.run(main())
+
+===== END POSTGRES_INC003_SEMANTICS =====
+
+
+===== BEGIN OFFLINE_SCORER_AND_WORKER_CONFIGURATION =====
+# OFFLINE evaluation/configuration probe; never call agent-facing tools or inference.
+import json
+import os
+from pathlib import Path
+from opspilot_eval.agent_eval import load_truth, score_run
+from uvicorn import Config
+
+gt = load_truth("INC-003")
+proposal = []
+for pattern in gt["acceptable_plans"][0]:
+    step = {"action_type": pattern["action_type"], **pattern.get("parameters", {})}
+    if step["action_type"] == "rollback_deployment":
+        step["service"] = "wrong-service"
+    if step["action_type"] == "quarantine_messages":
+        step["queue"] = "wrong-queue"
+    proposal.append(step)
+run = {"seconds_to_pause": 0, "seconds_total": 0, "status": "completed", "result": {"rca": {"remediation_plan": proposal}}}
+scores = score_run(run, gt)
+old = os.environ.get("WEB_CONCURRENCY")
+os.environ["WEB_CONCURRENCY"] = "2"
+try:
+    workers = Config("opspilot_api.main:app").workers
+finally:
+    if old is None:
+        os.environ.pop("WEB_CONCURRENCY", None)
+    else:
+        os.environ["WEB_CONCURRENCY"] = old
+result = {"wrong_target_parameters": {"model_plan_acceptable": scores["model_plan_acceptable"], "executed_plan_acceptable": scores["plan_acceptable"], "actions_executed": len(scores["executed"])}, "inherited_web_concurrency_workers": workers}
+Path("/private/tmp/opspilot_c0f_offline_boundaries.json").write_text(json.dumps(result, indent=2))
+print(json.dumps(result, indent=2))
+===== END OFFLINE_SCORER_AND_WORKER_CONFIGURATION =====

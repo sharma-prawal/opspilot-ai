@@ -17,7 +17,9 @@ from tests.integration.helpers import inprocess_gateways, make_incident
 pytestmark = pytest.mark.integration
 
 
-async def test_resume_after_restart_executes_approved_action(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_resume_after_restart_executes_approved_action(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
     inc_id, env = await make_incident(session_factory)
     inv_id = uuid.uuid4()
     async with session_factory() as s, s.begin():
@@ -26,7 +28,7 @@ async def test_resume_after_restart_executes_approved_action(settings, session_f
     gw = inprocess_gateways(settings, session_factory, embedder)
 
     # --- process 1: run until the approval interrupt -------------------------------------
-    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings) as saver:
+    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings, fence=owner.fence) as saver:
         g1 = build_graph(AgentDeps(chat=ScriptedChatModel(), tools=read, actions=act), saver)
         await g1.ainvoke({"investigation_id": str(inv_id), "incident_id": str(inc_id)}, cfg)
         snap = await g1.aget_state(cfg)
@@ -59,7 +61,7 @@ async def test_resume_after_restart_executes_approved_action(settings, session_f
         await s.commit()
 
     # --- process 2: fresh pool + fresh graph, resume from the checkpoint ------------------
-    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings) as saver2:
+    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings, fence=owner.fence) as saver2:
         g2 = build_graph(AgentDeps(chat=ScriptedChatModel(), tools=read, actions=act), saver2)
         assert (await g2.aget_state(cfg)).next == ("await_approval",)
         tok = issue_token(
@@ -68,6 +70,8 @@ async def test_resume_after_restart_executes_approved_action(settings, session_f
             params_hash=action["params_hash"],
             approved_by="tester",
             ttl_seconds=60,
+            epoch=owner.fence[0],
+            owner_pid=owner.fence[1],
         )
         await g2.ainvoke(
             Command(
@@ -89,14 +93,14 @@ async def test_resume_after_restart_executes_approved_action(settings, session_f
     assert "## Ranked hypotheses" in final["report"]["markdown"]
 
 
-async def test_rejection_path_never_executes(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_rejection_path_never_executes(settings, session_factory, embedder, ingested, owner) -> None:  # type: ignore[no-untyped-def]
     inc_id, env = await make_incident(session_factory)
     inv_id = uuid.uuid4()
     async with session_factory() as s, s.begin():
         s.add(OpsInvestigation(id=inv_id, incident_id=inc_id, status="running", model="scripted"))
     cfg = {"configurable": {"thread_id": str(inv_id)}}
     gw = inprocess_gateways(settings, session_factory, embedder)
-    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings) as saver:
+    async with gw("read") as read, gw("actions") as act, checkpointer_pool(settings, fence=owner.fence) as saver:
         g = build_graph(AgentDeps(chat=ScriptedChatModel(), tools=read, actions=act), saver)
         await g.ainvoke({"investigation_id": str(inv_id), "incident_id": str(inc_id)}, cfg)
         a = (await g.aget_state(cfg)).tasks[0].interrupts[0].value["action"]

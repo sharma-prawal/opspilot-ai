@@ -1,41 +1,26 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
-import { api } from "@/lib/api";
+import { useState } from "react";
+import { api, getSession } from "@/lib/api";
 import { humanize, utcTime } from "@/lib/format";
 import type { ActionRequest } from "@/lib/types";
 import { Badge, Button, ErrorNote, KV, StatusBadge } from "./ui";
 
-const OPERATOR_KEY = "opspilot.operator";
-const listeners = new Set<() => void>();
-
-function readOperator(): string {
-  try { return localStorage.getItem(OPERATOR_KEY) ?? ""; } catch { return ""; }
-}
-
-/** Operator display name, remembered per browser (a convenience; identity is not trusted from it). */
-function useOperator(): [string, (v: string) => void] {
-  const name = useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
-    readOperator,
-    () => "",
-  );
-  const update = (v: string) => {
-    try { localStorage.setItem(OPERATOR_KEY, v); } catch { /* storage unavailable */ }
-    listeners.forEach((l) => l());
-  };
-  return [name, update];
+function useSession(): { sub?: string; role?: string } {
+  const q = useQuery({ queryKey: ["session"], queryFn: () => getSession(), staleTime: 60_000 });
+  return q.data ?? {};
 }
 
 export function ApprovalCard({ action, showLink = false }: { action: ActionRequest; showLink?: boolean }) {
   const qc = useQueryClient();
-  const [operator, setOperator] = useOperator();
+  const session = useSession();
+  const canDecide = session.role === "operator";
   const [comment, setComment] = useState("");
   const decide = useMutation({
     mutationFn: (decision: "approve" | "reject") =>
-      api.decide(action.id, { decision, params_hash: action.params_hash, decided_by: operator.trim(), comment: comment || undefined }),
+      api.decide(action.id, { decision, params_hash: action.params_hash, comment: comment || undefined }),
     onSuccess: () => qc.invalidateQueries(),
   });
   const pending = action.status === "pending";
@@ -68,11 +53,10 @@ export function ApprovalCard({ action, showLink = false }: { action: ActionReque
             Approval issues a signed, expiring token that the sandbox executor checks independently.
           </p>
           <div className="flex flex-wrap gap-2">
-            <label className="flex flex-col text-xs text-muted">
-              Operator
-              <input required value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="your name"
-                className="mt-1 h-8 w-44 rounded-md border border-border bg-panel px-2 text-sm text-text" />
-            </label>
+            <p className="self-end text-xs text-muted">
+              {canDecide ? <>Deciding as <span className="font-medium text-text">{session.sub}</span></>
+                : "Only operators can decide. Sign in with the operator passphrase."}
+            </p>
             <label className="flex min-w-48 flex-1 flex-col text-xs text-muted">
               Comment (optional)
               <input value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000}
@@ -80,10 +64,10 @@ export function ApprovalCard({ action, showLink = false }: { action: ActionReque
             </label>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="primary" disabled={!operator.trim() || decide.isPending} onClick={() => decide.mutate("approve")}>
+            <Button type="button" variant="primary" disabled={!canDecide || decide.isPending} onClick={() => decide.mutate("approve")}>
               Approve &amp; execute in sandbox
             </Button>
-            <Button type="button" variant="danger" disabled={!operator.trim() || decide.isPending} onClick={() => decide.mutate("reject")}>
+            <Button type="button" variant="danger" disabled={!canDecide || decide.isPending} onClick={() => decide.mutate("reject")}>
               Reject
             </Button>
           </div>

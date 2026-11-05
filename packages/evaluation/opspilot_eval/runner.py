@@ -13,9 +13,10 @@ import json
 import platform
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from opspilot_eval import agent_eval, retrieval_bench
+from opspilot_eval import agent_eval, agent_path_bench, resource_bench, retrieval_bench
 from opspilot_shared.config import REPO_ROOT, get_settings
 from opspilot_shared.logging import configure_logging
 
@@ -39,9 +40,35 @@ def _meta() -> dict[str, Any]:
         )
     except OSError:
         commit = "unknown"
+
+    def _git(*args: str) -> str:
+        try:
+            out = subprocess.run(["git", *args], capture_output=True, text=True, cwd=REPO_ROOT, check=False)  # noqa: S603,S607
+            return out.stdout.strip()
+        except OSError:
+            return ""
+
+    digest = None
+    try:  # model identity beyond its tag (audit: provenance of evaluation runs)
+        import httpx
+
+        tags = httpx.get(f"{s.ollama_base_url}/api/tags", timeout=5).json().get("models", [])
+        digest = next((m.get("digest") for m in tags if m.get("name") == s.llm_model), None)
+    except Exception:  # provenance is best effort; the run itself does not depend on it
+        digest = None
+    from opspilot_agents.nodes import AgentPolicy
+
+    policy = AgentPolicy()
     return {
         "run_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "git": commit,
+        "git_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+        "llm_model_digest": digest,
+        "agent_policy": {
+            "max_prompt_evidence": policy.max_prompt_evidence,
+            "knowledge_section_expansion": policy.knowledge_section_expansion,
+            "max_verification_checks": policy.max_verification_checks,
+        },
         "llm_model": s.llm_model,
         "embedding_model": s.embedding_model,
         "machine": f"{platform.system()} {platform.machine()}",
@@ -53,28 +80,42 @@ def _meta() -> dict[str, Any]:
 
 async def run_retrieval() -> dict[str, Any]:
     from opspilot_api.container import Infrastructure  # composition root; eval may import anything
+    from opspilot_mcp.gateway import connect_gateway
 
-    infra = Infrastructure.create(get_settings())
+    settings = get_settings()
+    infra = Infrastructure.create(settings)
     try:
         retriever = infra.retriever()
-        return {
+        out = {
             "meta": _meta(),
             "development": await retrieval_bench.run(retriever, path=retrieval_bench.QUESTIONS),
             "heldout": await retrieval_bench.run(retriever, path=retrieval_bench.HELDOUT, warmup=False),
         }
     finally:
         await infra.aclose()
+    # Agent path (audit finding 8): the agent's own knowledge node over the production MCP read server.
+    async with connect_gateway(settings, "read") as gw:
+        out["agent_path"] = {
+            "development": await agent_path_bench.run(gw, path=retrieval_bench.QUESTIONS),
+            "heldout": await agent_path_bench.run(gw, path=retrieval_bench.HELDOUT),
+        }
+    return out
 
 
-async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
+def _reset_traces(traces: Path) -> None:
+    traces.mkdir(parents=True, exist_ok=True)
+    for old in traces.glob("*.json"):  # traces of the previous evaluation run (written by this tool)
+        old.unlink()
+
+
+async def run_agent(trials: int, scenarios: list[str], traces: Path = TRACES) -> dict[str, Any]:
     from opspilot_api.demo import investigate
     from opspilot_api.runtime import AppRuntime
 
-    TRACES.mkdir(parents=True, exist_ok=True)
-    for old in TRACES.glob("*.json"):  # traces of the previous evaluation run (written by this tool)
-        old.unlink()
     rows: list[dict[str, Any]] = []
     async with AppRuntime.open(get_settings()) as rt:
+        # C0-G4: only once this run owns execution (no API or other runtime on the database) are old traces reset.
+        _reset_traces(traces)
         plan = [(s, i, "approve") for s in scenarios for i in range(trials)]
         if "INC-001" in scenarios:
             plan.append(("INC-001", trials, "reject"))  # rejection path: nothing may execute
@@ -87,7 +128,7 @@ async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
                 row["outcome_correct"] = row["outcome"] == "remediation_rejected"
                 row["plan_acceptable"] = run["executions_total"] == 0
             rows.append(row)
-            (TRACES / f"{scenario}-{trial + 1}-{decision}.json").write_text(
+            (traces / f"{scenario}-{trial + 1}-{decision}.json").write_text(
                 json.dumps({"score": row, "run": run}, indent=1, default=str)
             )
             print(
@@ -108,6 +149,10 @@ async def run_agent(trials: int, scenarios: list[str]) -> dict[str, Any]:
                 )
             )
     return {"meta": _meta(), "trials_per_scenario": trials, "summary": agent_eval.summarize(rows), "runs": rows}
+
+
+async def run_resources() -> dict[str, Any]:
+    return {"meta": _meta(), **(await resource_bench.run(get_settings()))}
 
 
 def _fmt(v: Any) -> str:
@@ -148,7 +193,7 @@ def render_baseline() -> None:
         p = RESULTS / f"{name}.json"
         return json.loads(p.read_text()) if p.exists() else None
 
-    ret, agent = load("retrieval_latest"), load("agent_latest")
+    ret, agent, res = load("retrieval_latest"), load("agent_latest"), load("resources_latest")
     if agent and "by_scenario" not in agent.get("summary", {}):
         agent = None  # legacy single-scenario format from Phase A; regenerated by `opspilot-eval agent`
     out = [
@@ -169,6 +214,59 @@ def render_baseline() -> None:
         ]
         out += _retrieval_section("Held-out set", ret["heldout"])
         out += _retrieval_section("Development set (used while building; optimistic)", ret["development"])
+    if ret and "agent_path" in ret:
+        out += [
+            "## Retrieval on the agent's path (measured)",
+            "",
+            "The agent's own knowledge node over the MCP read server: `search_runbooks` (top 5, non-incident "
+            "types) + `get_historical_incidents` (top 3), lifecycle demotion, scored in RCA-prompt order. "
+            "Relevance labels are document-level (a passage counts if it comes from a relevant document). "
+            "Not comparable one-to-one with the document benchmark above (different unit and depth).",
+            "",
+            "| Set | questions | hit | doc recall | runbook-path recall | MRR | precision | passages | "
+            "non-current passages | p50 | p95 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for label, key in (("Held-out", "heldout"), ("Development", "development")):
+            a = ret["agent_path"][key]
+            o = a["overall"]
+            out.append(
+                f"| {label} | {a['questions']} | {_fmt(o['hit'])} | {_fmt(o['doc_recall'])} | "
+                f"{_fmt(o['runbook_path_recall'])} | {_fmt(o['mrr'])} | {_fmt(o['precision'])} | "
+                f"{_fmt(o['passages'])} | {a['non_current_passages']} | {a['latency']['p50_ms']} | "
+                f"{a['latency']['p95_ms']} |"
+            )
+        misses = ret["agent_path"]["heldout"]["misses"]
+        out += ["", "Held-out questions with no relevant passage supplied to the RCA prompt:", ""]
+        out += [f"- `{x['id']}` ({x['style']}) top-3: {', '.join(x['top3'])}" for x in misses] or ["- none"]
+        out.append("")
+    if res:
+        mm, lim = res["machine"], res["limits"]
+        b, w, c = res["embedding_burst_bounded"], res["embedding_burst_wide"], res["chat_call"]
+        out += [
+            "## Resources on this machine (measured)",
+            "",
+            f"Run {res['meta']['run_at']} · git `{res['meta']['git']}` · {mm['chip']} · {mm['memory_gb']} GB · "
+            f"limits: embeddings {lim['embedding_max_concurrency']} in flight, chat {lim['llm_max_concurrency']}, "
+            f"investigations {lim['max_concurrent_investigations']} running / {lim['max_pending_investigations']} "
+            "admitted. Ollama memory = RSS of all `ollama` processes, sampled every 100 ms.",
+            "",
+            "| Workload | wall ms | p50 ms | p95 ms | peak in flight | Ollama peak RSS MB |",
+            "|---|---|---|---|---|---|",
+            f"| {b['requests']} concurrent embeddings, bound {b['bound']} | {b['wall_ms']} | "
+            f"{b['per_request']['p50_ms']} | {b['per_request']['p95_ms']} | {b['peak_in_flight']} | "
+            f"{b['ollama_peak_rss_mb']} |",
+            f"| {w['requests']} concurrent embeddings, bound {w['bound']} | {w['wall_ms']} | "
+            f"{w['per_request']['p50_ms']} | {w['per_request']['p95_ms']} | {w['peak_in_flight']} | "
+            f"{w['ollama_peak_rss_mb']} |",
+            f"| one structured `{c['model']}` call ({c['prompt_tokens']}+{c['completion_tokens']} tokens) | "
+            f"{c['wall_ms']} | — | — | 1 | {c['ollama_peak_rss_mb']} |",
+            "",
+            f"Ollama idle RSS (embedding model loaded): {res['ollama_idle_rss_mb']} MB. Models loaded afterwards: "
+            + ", ".join(f"`{m['name']}` {m['size_mb']} MB" for m in res["loaded_models_after"])
+            + ".",
+            "",
+        ]
     if agent:
         m, s = agent["meta"], agent["summary"]
         out += [
@@ -235,15 +333,37 @@ def render_baseline() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="opspilot-eval")
-    parser.add_argument("suite", nargs="?", default="all", choices=["all", "retrieval", "agent", "render"])
+    parser.add_argument("suite", nargs="?", default="all", choices=["all", "retrieval", "agent", "resources", "render"])
     parser.add_argument("--trials", type=int, default=2)
     parser.add_argument("--scenarios", nargs="*", default=None)
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="supplementary agent run: write results and traces to this new directory; the official latest "
+        "results and BASELINE.md are left untouched",
+    )
     args = parser.parse_args(argv)
+    if args.out is not None:
+        if args.suite != "agent":
+            parser.error("--out is only supported for the agent suite")
+        if args.out.exists() and any(args.out.iterdir()):
+            parser.error(f"{args.out} exists and is not empty; supplementary runs never overwrite")
+        configure_logging("WARNING", "console")
+        scenarios = args.scenarios or agent_eval.scenarios_with_truth()
+        data = asyncio.run(run_agent(args.trials, scenarios, traces=args.out / "traces"))
+        (args.out / "agent.json").write_text(json.dumps(data, indent=2, default=str))
+        print(f"agent (supplementary): wrote {args.out / 'agent.json'}")
+        return
     configure_logging("WARNING", "console")
     RESULTS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     scenarios = args.scenarios or agent_eval.scenarios_with_truth()
-    suites: list[tuple[str, Any]] = [("retrieval", run_retrieval), ("agent", lambda: run_agent(args.trials, scenarios))]
+    suites: list[tuple[str, Any]] = [
+        ("retrieval", run_retrieval),
+        ("resources", lambda: run_resources()),
+        ("agent", lambda: run_agent(args.trials, scenarios)),
+    ]
     for name, fn in suites:
         if args.suite in (name, "all"):
             data = asyncio.run(fn())

@@ -57,7 +57,7 @@ async def ingestion_runs(rt: Runtime, limit: int = 10) -> list[dict[str, Any]]:
         ]
 
 
-@router.post("/search")
+@router.post("/search", dependencies=[Operator])
 async def search(rt: Runtime, body: SearchRequest) -> SearchResponse:
     return await rt.infra.retriever().search(
         body.query, mode=body.mode, top_k=body.top_k, filters=body.filters, caller="api.knowledge.search"

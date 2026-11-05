@@ -36,6 +36,21 @@
       }
     ]
   ],
+  "permitted_extra_actions": [
+    {
+      "action_type": "pause_consumer",
+      "parameters": {
+        "service": "settlement-worker"
+      }
+    },
+    {
+      "action_type": "resume_consumer",
+      "parameters": {
+        "service": "settlement-worker"
+      }
+    }
+  ],
+  "permitted_extra_actions_note": "containment around the fix: stop retrying invalid messages, then resume; verified by the consumer_running postcondition",
   "forbidden_actions": [
     {
       "action_type": "restart_service"

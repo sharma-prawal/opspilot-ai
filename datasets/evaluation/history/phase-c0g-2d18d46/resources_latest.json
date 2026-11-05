@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "run_at": "2026-11-05T08:58:18+00:00",
+    "git": "2d18d46",
+    "git_dirty": true,
+    "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+    "agent_policy": {
+      "max_prompt_evidence": 34,
+      "knowledge_section_expansion": 4,
+      "max_verification_checks": 16
+    },
+    "llm_model": "qwen3:8b",
+    "embedding_model": "qwen3-embedding:0.6b",
+    "machine": "Darwin arm64",
+    "python": "3.13.13",
+    "temperature": 0.0,
+    "num_ctx": 8192
+  },
+  "machine": {
+    "chip": "Apple M5 Pro",
+    "memory_gb": 24.0,
+    "os": "macOS-27.0.1-arm64-arm-64bit-Mach-O"
+  },
+  "limits": {
+    "embedding_max_concurrency": 2,
+    "llm_max_concurrency": 1,
+    "max_concurrent_investigations": 1,
+    "max_pending_investigations": 4
+  },
+  "ollama_idle_rss_mb": 6176.4,
+  "embedding_burst_bounded": {
+    "bound": 2,
+    "requests": 32,
+    "wall_ms": 533.3,
+    "per_request": {
+      "p50_ms": 262.3,
+      "p95_ms": 478.75
+    },
+    "peak_in_flight": 2,
+    "ollama_peak_rss_mb": 6176.7
+  },
+  "embedding_burst_wide": {
+    "bound": 16,
+    "requests": 32,
+    "wall_ms": 531.6,
+    "per_request": {
+      "p50_ms": 260.7,
+      "p95_ms": 479.31
+    },
+    "peak_in_flight": 16,
+    "ollama_peak_rss_mb": 6177.7
+  },
+  "chat_call": {
+    "model": "qwen3:8b",
+    "wall_ms": 730.5,
+    "prompt_tokens": 38,
+    "completion_tokens": 18,
+    "ollama_peak_rss_mb": 6688.0
+  },
+  "loaded_models_after": [
+    {
+      "name": "qwen3:8b",
+      "size_mb": 4881
+    },
+    {
+      "name": "qwen3-embedding:0.6b",
+      "size_mb": 962
+    }
+  ]
+}

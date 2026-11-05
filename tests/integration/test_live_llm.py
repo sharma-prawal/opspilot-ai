@@ -46,7 +46,9 @@ async def test_structured_generation_is_schema_valid(settings) -> None:  # type:
     assert out.record.completion_tokens and out.record.completion_tokens > 0
 
 
-async def test_real_model_investigation_reaches_correct_proposal(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_real_model_investigation_reaches_correct_proposal(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
     """Full graph with the real model; retrieval uses the deterministic test embedder."""
     inc_id, _ = await make_incident(session_factory)
     inv = uuid.uuid4()
@@ -56,7 +58,7 @@ async def test_real_model_investigation_reaches_correct_proposal(settings, sessi
     gw = inprocess_gateways(settings, session_factory, embedder)
     cfg = {"configurable": {"thread_id": str(inv)}}
     try:
-        async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings) as saver:
+        async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings, fence=owner.fence) as saver:
             g = build_graph(AgentDeps(chat=chat, tools=r, actions=a), saver)
             await g.ainvoke({"investigation_id": str(inv), "incident_id": str(inc_id)}, cfg)
             snap = await g.aget_state(cfg)

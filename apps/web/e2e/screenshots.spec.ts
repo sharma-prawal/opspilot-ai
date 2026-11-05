@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signIn } from "./auth";
 
 // Portfolio screenshots of the real running app (synthetic data only). Opt-in:
 //   SCREENSHOTS=1 pnpm exec playwright test e2e/screenshots.spec.ts
@@ -7,6 +8,7 @@ const OUT = "../../docs/images";
 test.skip(!process.env.SCREENSHOTS, "set SCREENSHOTS=1 to capture portfolio screenshots");
 
 async function investigate(page: Page, scenario: string): Promise<void> {
+  await signIn(page, "demo-operator");
   await page.goto("/incidents");
   await page.getByLabel("Scenario").selectOption(scenario);
   await page.getByRole("button", { name: "Simulate", exact: true }).click(nav);
@@ -18,7 +20,6 @@ async function investigate(page: Page, scenario: string): Promise<void> {
 test("INC-003 multi-step plan", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await investigate(page, "INC-003");
-  await page.getByLabel("Operator").fill("demo-operator");
   for (let step = 1; step <= 4; step++) {
     const approve = page.getByRole("button", { name: /Approve & execute in sandbox/ });
     await expect(approve).toBeVisible({ timeout: 180_000 });
@@ -39,6 +40,7 @@ test("NEG-002 escalation without action", async ({ page }) => {
 
 test("overview and knowledge search", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, "demo-operator");
   await page.goto("/");
   await expect(page.getByText("mcp read")).toBeVisible();
   await page.screenshot({ path: `${OUT}/overview.png` });

@@ -18,11 +18,14 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -197,7 +200,8 @@ class SimActionExecution(Base):
 # ---------------------------------------------------------------------------------------- kb
 class KbDocument(Base):
     __tablename__ = "documents"
-    __table_args__ = {"schema": "kb"}
+    # (id, version) is a revision; migration 0007 adds a trigger: content changes must increase the version.
+    __table_args__ = (UniqueConstraint("id", "version", name="uq_kb_documents_revision"), {"schema": "kb"})
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     source_uri: Mapped[str] = mapped_column(String(500), unique=True)
     title: Mapped[str] = mapped_column(String(300))
@@ -213,7 +217,9 @@ class KbDocument(Base):
     embedding_model: Mapped[str | None] = mapped_column(String(100))
     ingested_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
-    chunks: Mapped[list[KbChunk]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    chunks: Mapped[list[KbChunk]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", foreign_keys="KbChunk.document_id"
+    )
 
 
 class KbChunk(Base):
@@ -225,6 +231,15 @@ class KbChunk(Base):
             "embedding",
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        # C0-H1: every committed chunk belongs to its document's current revision (checked at commit).
+        ForeignKeyConstraint(
+            ["document_id", "document_version"],
+            ["kb.documents.id", "kb.documents.version"],
+            name="fk_kb_chunks_document_revision",
+            ondelete="CASCADE",
+            deferrable=True,
+            initially="DEFERRED",
         ),
         {"schema": "kb"},
     )
@@ -246,7 +261,7 @@ class KbChunk(Base):
             persisted=True,
         ),
     )
-    document: Mapped[KbDocument] = relationship(back_populates="chunks")
+    document: Mapped[KbDocument] = relationship(back_populates="chunks", foreign_keys=[document_id])
 
 
 class KbIngestionRun(Base):
@@ -292,9 +307,21 @@ class OpsIncident(Base):
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
 
+ACTIVE_INVESTIGATION_STATUSES = ("queued", "running", "awaiting_approval", "interrupted")
+
+
 class OpsInvestigation(Base):
     __tablename__ = "investigations"
-    __table_args__ = {"schema": "ops"}
+    __table_args__ = (
+        # At most one active (non-terminal) investigation per incident (audit finding G, migration 0005).
+        Index(
+            "uq_ops_investigations_one_active_per_incident",
+            "incident_id",
+            unique=True,
+            postgresql_where=text("status IN (" + ", ".join(f"'{x}'" for x in ACTIVE_INVESTIGATION_STATUSES) + ")"),
+        ),
+        {"schema": "ops"},
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ops.incidents.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
@@ -306,6 +333,9 @@ class OpsInvestigation(Base):
     report_markdown: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
     error_class: Mapped[str | None] = mapped_column(String(64))
+    # Execution ownership lease: which API process is running a graph segment, and until when (finding G).
+    run_owner: Mapped[str | None] = mapped_column(String(128))
+    run_lease_until: Mapped[datetime | None] = mapped_column(TZ)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
@@ -380,6 +410,31 @@ class OpsActionRequest(Base):
     executed_at: Mapped[datetime | None] = mapped_column(TZ)
     execution_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     verification: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class OpsWorkflowCommand(Base):
+    """Transactional outbox for workflow commands (audit H3).
+
+    Written in the same transaction as the decision it carries, then delivered at least once to the
+    LangGraph workflow by a claim-based dispatcher. ``action_id`` is the idempotency key: one command per
+    decided action. The approval token is minted at delivery time and never stored here.
+    """
+
+    __tablename__ = "workflow_commands"
+    __table_args__ = (Index("ix_ops_workflow_commands_status", "status", "claimed_at"), {"schema": "ops"})
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ops.investigations.id", ondelete="CASCADE"), index=True
+    )
+    action_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16))  # pending | delivering | delivered | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
+    claimed_at: Mapped[datetime | None] = mapped_column(TZ)
+    delivered_at: Mapped[datetime | None] = mapped_column(TZ)
 
 
 class OpsAuditLog(Base):

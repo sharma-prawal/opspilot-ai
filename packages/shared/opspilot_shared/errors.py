@@ -57,6 +57,19 @@ class ToolTransientError(ToolError):
     transient = True
 
 
+class CapacityError(OpsPilotError):
+    """Admission refused: the bounded work queue is full (retry later)."""
+
+    error_class = "capacity"
+    transient = True
+
+
+class OwnershipError(OpsPilotError):
+    """Another process owns execution for this database, or this process lost ownership (C0-G4, fail closed)."""
+
+    error_class = "execution_owner_unavailable"
+
+
 class BudgetExceededError(OpsPilotError):
     error_class = "budget_exceeded"
 
