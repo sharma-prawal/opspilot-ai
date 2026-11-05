@@ -11,6 +11,11 @@ read-server gateway, with the labelled question as the investigation's knowledge
 no other evidence exists), so queries, tools, filters, candidate depths, chunk limits, lifecycle handling and
 excerpts are identical by construction. Passages are scored in the order the RCA prompt would receive them.
 Relevance labels are document-level, so a passage counts as relevant when it comes from a relevant document.
+
+Since C0-F3 the knowledge node also asks for up to ``knowledge_section_expansion`` further sections of the top
+current runbook; they are part of the passages scored here. Document-level labels cannot tell whether the
+*operational* sections (diagnostics, remediation, constraints) are present -- that is asserted separately by
+``tests/integration/test_section_coverage.py`` on the rendered RCA context.
 """
 
 from __future__ import annotations
@@ -76,9 +81,13 @@ async def run(gateway: ToolGateway, *, path: Path = QUESTIONS, policy: AgentPoli
 
     return {
         "questions": len(rows),
-        "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5) + get_historical_incidents(top_k=3)",
+        "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5, expand_sections) + "
+        "get_historical_incidents(top_k=3)",
         "calls_per_question": sorted({c["tool"] for c in tool_calls}),
         "top_k": sorted({(c["tool"], c["arguments"].get("top_k")) for c in tool_calls}),
+        "expand_sections": sorted(
+            {c["arguments"].get("expand_sections", 0) for c in tool_calls if c["tool"] == "search_runbooks"}
+        ),
         "overall": agg(rows),
         "by_style": {s: agg([r for r in rows if r["style"] == s]) for s in ("exact", "paraphrase")},
         "non_current_passages": sum(r["non_current_passages"] for r in rows),

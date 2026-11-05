@@ -93,6 +93,8 @@ class AgentPolicy:
     recovery_threshold: float = 0.01
     max_verification_checks: int = 16  # explicit budget; unchecked required conditions => incomplete
     max_prompt_evidence: int = 34
+    # C0-F3: further sections of the top-ranked current runbook (same version) added to the knowledge evidence.
+    knowledge_section_expansion: int = 4
 
 
 @dataclass(slots=True)
@@ -872,24 +874,42 @@ class InvestigationNodes:
         calls = _Calls(self.d.tools, state, self.p, "knowledge")
         rrun, rinc = await calls.many(
             [
-                ("search_runbooks", {"query": query, "top_k": 5}),
+                (
+                    "search_runbooks",
+                    {"query": query, "top_k": 5, "expand_sections": self.p.knowledge_section_expansion},
+                ),
                 ("get_historical_incidents", {"query": query, "top_k": 3}),
             ]
         )
         evidence: dict[str, dict[str, Any]] = {}
         retrieved_at = utcnow()
+        coverage: dict[str, list[str]] = {}
         for res, kind in ((rrun, EvidenceKind.KNOWLEDGE), (rinc, EvidenceKind.HISTORICAL_INCIDENT)):
             if not res or not res.ok or not res.data:
                 continue
-            for rank, hit in enumerate(res.data["results"], start=1):
-                status = (hit.get("metadata") or {}).get("status")
+            relevance_by_chunk: dict[str, float] = {}
+            rank_by_chunk: dict[str, int] = {}
+            hits = list(enumerate(res.data["results"], start=1))
+            # C0-F3: sections of the top current runbook, cited like any passage, ranked just below their anchor.
+            hits += [(0, h) for h in res.data.get("context") or []]
+            for rank, hit in hits:
+                meta = hit.get("metadata") or {}
+                status = meta.get("status")
                 marker = f"[{status.upper()}] " if status and status != "current" else ""
+                anchor = meta.get("expanded_from")
+                if anchor:
+                    rank = rank_by_chunk.get(anchor, 0)
+                    relevance = round(max(0.2, relevance_by_chunk.get(anchor, 0.3) - 0.05), 2)
+                    coverage.setdefault(hit["title"], []).append(str(meta.get("section_role", "other")))
+                else:
+                    relevance = round(max(0.2, 0.8 - 0.1 * rank) * (0.5 if marker else 1), 2)
+                    relevance_by_chunk[hit["chunk_id"]], rank_by_chunk[hit["chunk_id"]] = relevance, rank
                 eid, item = _evidence(
                     id=f"ev-kb-{hit['chunk_id'].replace('-', '')[:12]}",
                     kind=kind,
                     source_tool=res.tool,
                     collected_by="knowledge",
-                    relevance=round(max(0.2, 0.8 - 0.1 * rank) * (0.5 if marker else 1), 2),
+                    relevance=relevance,
                     summary=f"{marker}[{hit['title']} > {hit['heading_path']}] {hit['snippet'][:420]}",
                     citation=Citation(
                         document_id=hit["document_id"],
@@ -911,6 +931,7 @@ class InvestigationNodes:
                         "doc_status": status,
                         "vector_rank": hit.get("vector_rank"),
                         "keyword_rank": hit.get("keyword_rank"),
+                        **({"expanded_from": anchor, "section_role": meta.get("section_role")} if anchor else {}),
                     },
                 )
                 evidence[eid] = item
@@ -924,9 +945,14 @@ class InvestigationNodes:
             "agent": "knowledge",
             "service": None,
             "finding": f"retrieved {len(evidence)} cited passages for query: {query[:200]}"
+            + "".join(f"; includes {len(r)} further section(s) of current '{t}'" for t, r in coverage.items())
             + (f" (retrieval degraded: {warnings[0]})" if warnings else ""),
             "evidence_ids": list(evidence),
-            "retrieval": {"warnings": warnings, "degraded_to": sorted({str(d) for d in degraded})},
+            "retrieval": {
+                "warnings": warnings,
+                "degraded_to": sorted({str(d) for d in degraded}),
+                "section_coverage": coverage,
+            },
         }
         return {
             **calls.update(),

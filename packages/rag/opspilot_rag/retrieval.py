@@ -48,6 +48,39 @@ def lifecycle_tier(status: object) -> int:
 
 OVERFETCH = 4
 
+# Section coverage (C0-F3). A long current runbook is chunked by heading; ranking often selects only its symptom
+# paragraph while the sections that say what to check, what to do and what never to do rank poorly. When asked,
+# the retriever adds other sections of the *top-ranked current operational document* (same document version),
+# bounded in count, so the reader sees the document's own guidance rather than a fragment of it. Only one
+# document is expanded, only lifecycle tier 0 (current) qualifies, and superseded/unreviewed material never does.
+OPERATIONAL_DOC_TYPES = frozenset({"runbook", "troubleshooting"})
+MAX_EXPAND_SECTIONS = 4
+SECTION_ROLES: tuple[tuple[str, re.Pattern[str]], ...] = (  # selection priority, highest first
+    (
+        "remediation",
+        re.compile(r"\b(mitigat|remediat|resolut|resolv|roll ?back|revert|recover|workaround|procedure)", re.I),
+    ),
+    (
+        "constraints",
+        re.compile(r"\b(never|do not|don't|precondition|prerequisite|caution|warning|capacity|limit|safety)", re.I),
+    ),
+    ("diagnostics", re.compile(r"\b(diagnos|identify|investigat|check|verify|look for|triage|confirm)", re.I)),
+    ("causes", re.compile(r"\b(cause|root)", re.I)),
+    ("symptoms", re.compile(r"\b(symptom|signal|alert)", re.I)),
+)
+ROLE_PRIORITY = {role: i for i, (role, _) in enumerate(SECTION_ROLES)}
+
+
+def section_role(heading_path: str, content: str) -> str:
+    """Generic role of a section: the highest-priority role its own heading or its text expresses.
+
+    A section headed "X is usually a symptom" that says "revert that deployment" is remediation guidance."""
+    heading = heading_path.split(" > ")[-1] if heading_path else ""
+    for role, pattern in SECTION_ROLES:
+        if pattern.search(heading) or pattern.search(content):
+            return role
+    return "other"
+
 
 @dataclass(frozen=True, slots=True)
 class _Hit:
@@ -170,8 +203,10 @@ class HybridRetriever:
         filters: RetrievalFilters | None = None,
         caller: str | None = None,
         record: bool = True,
+        expand_sections: int = 0,
     ) -> SearchResponse:
         top_k = top_k or self._s.retrieval_top_k
+        expand_sections = max(0, min(expand_sections, MAX_EXPAND_SECTIONS))
         n = top_k * OVERFETCH
         t0 = time.perf_counter()
         with _tracer.start_as_current_span("rag.search") as span:
@@ -211,6 +246,7 @@ class HybridRetriever:
             ]
             results = [self._to_result(by_id[cid], s, vrank.get(cid), krank.get(cid)) for cid, s in ordered[:top_k]]
             results = await self._reranker.rerank(query, results)
+            context = await self._expand(results, expand_sections) if expand_sections else []
             latency = round((time.perf_counter() - t0) * 1000, 2)
             span.set_attribute("rag.results", len(results))
 
@@ -256,4 +292,42 @@ class HybridRetriever:
             latency_ms=latency,
             warnings=warnings,
             effective_mode=RetrievalMode.KEYWORD if degraded else mode,
+            context=context,
         )
+
+    async def _expand(self, results: list[RetrievedChunk], limit: int) -> list[RetrievedChunk]:
+        """Other sections of the top-ranked current operational document, by role priority, in document order."""
+        anchor = next(
+            (
+                r
+                for r in results
+                if r.doc_type.value in OPERATIONAL_DOC_TYPES and r.metadata.get("lifecycle_tier", 1) == 0
+            ),
+            None,
+        )
+        if anchor is None:
+            return []
+        have = {r.chunk_id for r in results}
+        async with self._sf() as session:
+            rows = (
+                await session.execute(
+                    select(KbChunk, KbDocument)
+                    .join(KbDocument, KbChunk.document_id == KbDocument.id)
+                    .where(
+                        KbChunk.document_id == anchor.document_id,
+                        KbChunk.document_version == anchor.document_version,
+                        KbDocument.status == "active",
+                    )
+                    .order_by(KbChunk.ordinal)
+                )
+            ).all()
+        candidates = [
+            (section_role(c.heading_path, c.content), c, d) for c, d in rows if c.id not in have and c.content.strip()
+        ]
+        chosen = sorted(candidates, key=lambda t: (ROLE_PRIORITY.get(t[0], len(ROLE_PRIORITY)), t[1].ordinal))[:limit]
+        out = []
+        for role, c, d in sorted(chosen, key=lambda t: t[1].ordinal):
+            item = self._to_result(_Hit(c, d, 0, 0.0), anchor.score, None, None)
+            item.metadata.update({"expanded_from": str(anchor.chunk_id), "section_role": role})
+            out.append(item)
+        return out

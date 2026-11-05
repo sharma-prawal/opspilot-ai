@@ -18,9 +18,11 @@ async def test_agent_path_benchmark_uses_the_agents_calls_and_prompt_order(  # t
     # Same tools and candidate depths as InvestigationNodes.knowledge, by construction.
     assert res["calls_per_question"] == ["get_historical_incidents", "search_runbooks"]
     assert res["top_k"] == [("get_historical_incidents", 3), ("search_runbooks", 5)]
+    policy = AgentPolicy()
+    assert res["expand_sections"] == [policy.knowledge_section_expansion]  # C0-F3: same expansion as the agent
     assert res["questions"] == len(res["per_question"]) > 0
     for row in res["per_question"]:
-        assert 0 < row["passages"] <= 8 and 0.0 <= row["precision"] <= 1.0
+        assert 0 < row["passages"] <= 5 + policy.knowledge_section_expansion + 3 and 0.0 <= row["precision"] <= 1.0
         assert row["hit"] == (row["mrr"] > 0)
     o = res["overall"]
     assert 0.0 <= o["doc_recall"] <= 1.0 and o["excerpt_chars"] > 0

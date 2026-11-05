@@ -58,3 +58,8 @@ class SearchResponse(Contract):
     effective_mode: RetrievalMode | None = Field(
         default=None, description="mode actually used; differs from ``mode`` when hybrid degraded to keyword-only"
     )
+    context: list[RetrievedChunk] = Field(
+        default_factory=list,
+        description="other sections of the top-ranked current operational document (same version), when requested "
+        "with expand_sections; never from non-current documents",
+    )
