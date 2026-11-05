@@ -102,13 +102,20 @@ erDiagram
   incident (migration 0005, C0 G).
 - `ops.workflow_commands`: unique `action_id`, plus `(status, claimed_at)` for the outbox dispatcher (migration
   0004, C0 H3).
+- `trg_ops_investigations_terminal_guard` (migration 0006, C0-G2): a `BEFORE UPDATE OF status` trigger that refuses
+  any status change out of `completed` or `cancelled`.
 
 ## Execution ownership and outbox (Phase C0)
 
 - `ops.investigations.run_owner` / `run_lease_until`: the API process currently running a graph segment and its
   lease expiry, claimed by compare-and-set and renewed while running.
-- `ops.workflow_commands`: the durable decision-delivery outbox (`pending → delivering → delivered | failed`),
-  written in the decision's transaction. Approval tokens are never stored.
+- `ops.workflow_commands`: the durable decision-delivery outbox (`pending → delivering → delivered | failed`, and
+  `pending | delivering → cancelled` in a cancellation's transaction, C0-G2), written in the decision's transaction.
+  Approval tokens are never stored.
+- Investigation status changes only through `repositories.transition_investigation` (locked compare-and-set against
+  `domain.investigation.LEGAL_TRANSITIONS`, C0-G2).
+- Execution owner (C0-G4): not a table. A session-level advisory lock `(0x4F505350, 1)` per database, held by the one
+  runtime that may execute investigations; visible in `pg_locks` with the owner's `application_name`.
 
 ## Database roles
 

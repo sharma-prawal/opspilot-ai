@@ -62,6 +62,17 @@ flowchart LR
 - **Lifecycle policy (C0 I):** applied to the fused candidates (top_k × 4) *before* truncation. It is a stable
   partition — `current` first, then `unreviewed` or unknown, then superseded / deprecated / retired / withdrawn /
   obsolete / archived — with score order kept within a tier. Results carry `metadata.lifecycle_tier`.
+- **Normal investigation excludes obsolete guidance (C0-G3):** the agent-facing MCP tools (`search_runbooks`,
+  `get_historical_incidents`) search with `exclude_obsolete=True`, so superseded/withdrawn documents are not
+  candidates at all (filtered in the candidate statement). The authenticated operator API (`/knowledge/search`)
+  keeps explicitly authorised historical search: obsolete documents are returned, labelled and ranked last. The
+  knowledge node also withholds any obsolete passage that still arrives (`withheld_obsolete` in its observation).
+- **Lifecycle consistency (C0-G3):** ranking, expansion and response assembly run in separate snapshots, so a
+  lifecycle change can land in between. Expansion re-checks the document's lifecycle and *current* version on the
+  very rows it expands (one statement) and expands nothing if they changed. Immediately before the response is
+  assembled every returned document is revalidated against committed rows: a passage whose version no longer exists
+  is dropped, labels are replaced by the committed status/tier (`lifecycle_validated: true`), obsolete passages are
+  dropped under `exclude_obsolete`, and expansion is withdrawn if its document changed. Each case adds a warning.
 - **Degradation (C0 M):** if embeddings fail, hybrid degrades to keyword-only. `warnings` and
   `effective_mode = keyword` are returned and carried across MCP to the agent.
 - **Citation snapshots (C0 J):** each result carries the full chunk `content` and `content_sha256`. The agent
@@ -72,7 +83,8 @@ flowchart LR
   `search_runbooks`), the retriever also returns, in `context`, up to N other sections of the **top-ranked current
   runbook/troubleshooting document at the same document version**, chosen by a generic section role (remediation >
   constraints > diagnostics > causes > symptoms > other, from heading or text) and returned in document order.
-  Only one document; lifecycle tier 0 only; superseded, unreviewed and incident documents are never expanded;
+  Only one document; lifecycle tier 0 only (re-validated at expansion and before assembly, C0-G3); superseded,
+  unreviewed and incident documents are never expanded;
   `results` and the lifecycle ranking are unchanged. The agent requests 4; each section becomes cited evidence
   (full passage snapshot) ranked just below its anchor, and the knowledge observation records the roles covered.
   Coverage is not proof of causality: the RCA must still justify any action, and the gates are unchanged.

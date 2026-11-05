@@ -175,29 +175,43 @@ After the gates, a valid plan is **withheld** (`withheld_uncertain`) when:
 An explicit escalation yields `escalated`; any other withheld plan yields `inconclusive`. There is no operator
 override in this phase.
 
-## Recovery verification (C0 H4, C0-F1)
+## Recovery verification (C0 H4, C0-F1, C0-G1)
 
-Invariant: an incident is never `mitigated` while a known required recovery condition is failed, unknown or
-unverified. `verify` enumerates *every* required condition first, then checks them or reports `not_checked`
-against an explicit budget (`max_verification_checks`, default 16, and the remaining tool budget). The result is
-`recovered`, `not_recovered` or `incomplete`; `determine_outcome` re-checks the invariant (every required
-condition has a passed check) before it reports `mitigated`.
+Invariant: an incident is never `mitigated` unless every required recovery condition has affirmative, sufficient,
+fresh supporting evidence. Missing, unknown, unsupported, stale or failed telemetry is never treated as healthy.
+`verify` enumerates *every* required condition first (`verification.required_conditions`, a pure function of the
+recorded state), then checks them or reports `not_checked` against an explicit budget (`max_verification_checks`,
+default 16, and the remaining tool budget). The result is `recovered` / `not_recovered` / `incomplete` with
+`verdict` VERIFIED / FAILED / INCOMPLETE. For C0-G records `determine_outcome` **re-derives** the required
+conditions from the state and reports `mitigated` only if each one has a passed check, so incomplete condition
+generation also fails closed.
 
-- **Scope (C0-F1)** is derived from the observed incident, recorded per service with its reasons:
-  the alerting service; every executed step's target (and the consumer of a quarantined queue); every
-  dependency observed unhealthy/degraded on a call path from a service in scope (transitively); and services the
-  top hypothesis cites. Citations can only add services. Every anomaly outside the scope is listed in `excluded`
-  with a machine-readable reason.
+- **Initial health (C0-G1)** of each observed service is HEALTHY / UNHEALTHY / UNKNOWN, resolved across *all*
+  observations: health reads, health snapshots embedded in dependency edges, and failing unrecovered anomalies
+  (persistent-failure evidence). Unhealthy wins over a conflicting healthy read (the conflict is recorded). The
+  record's `services` map gives each in-scope service's reasons, initial and current health.
+- **Scope** is derived from the observed incident, recorded per service with its reasons: the alerting service;
+  every executed step's target (and the consumer of a quarantined queue); every dependency whose *resolved*
+  initial state is unhealthy on a call path from a service in scope (transitively; a missing or stale edge snapshot
+  cannot hide independent evidence, C0-G1); every other service known to be unhealthy (`known_unhealthy`: no
+  known failure disappears because ranking, top-k or citations left it out); and services the top hypothesis
+  cites. Citations can only add services. Anomalies that are not failures (healthy direction, informational) are
+  listed in `excluded`/`informational` with a reason.
 - **Metric conditions:** every in-scope unrecovered anomaly that moved in its metric's unhealthy direction.
   - The acceptable range is a quarter of the excursion, capped by a metric-specific residual limit (e.g. 5xx
     ratio ≤ baseline + 1 point; p95 ≤ baseline + max(100 ms, 50%)), so "improved" is not "recovered".
   - Higher-is-bad metrics pass below baseline; lower-is-bad metrics may overshoot (a backlog drain is healthy).
   - Unknown metrics use a two-sided band and fail on opposite-direction excursions.
   - Load and config metrics are informational only.
-- **Health conditions (C0-F1):** an in-scope service observed unhealthy/degraded before the action must be
-  observed `healthy` after it. Unhealthy afterwards fails (also when its metrics look quiet); missing or stale
-  (older than the action) health is `unknown`.
+- **Health conditions (C0-G1):** the alerting service, every action target, every affected dependency and every
+  known-unhealthy service must be observed `healthy` *after* the action, whatever its initial state (an initially
+  unknown service needs positive health exactly like an unhealthy one). A cited service with only healthy/unknown
+  observations is not required. Unhealthy afterwards fails (also when its metrics look quiet); missing, untimestamped
+  or stale (older than the action) health is `unknown`.
 - **Postconditions:** rollback applied, pool size applied, no unquarantined failing messages, consumer running.
+- **Baseline sufficiency (C0-G1):** a required metric whose *initial* read failed or had too few points, or a missing
+  metric catalogue, is an unverifiable signal (`unknown`); if no in-scope service had any observed failure before the
+  action, a healthy-looking snapshot cannot confirm recovery (`unknown`). Both make verification INCOMPLETE.
 - Each check links to its anomaly/health evidence and its tool call; missing telemetry is `unknown`, never passed.
 
 ## Outcomes

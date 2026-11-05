@@ -40,28 +40,28 @@
    ]
   ],
   "approval_bypass": 0,
-  "citations_total": 18,
+  "citations_total": 20,
   "citation_violations": 0,
   "citation_validity": 1.0,
   "required_tools_used": true,
   "tool_calls": 23,
   "tool_failures": 0,
   "llm_calls": 2,
-  "seconds_to_pause": 31.6,
-  "seconds_total": 31.6,
+  "seconds_to_pause": 32.4,
+  "seconds_total": 32.4,
   "error": null,
   "trial": 2,
   "decision": "approve"
  },
  "run": {
   "scenario": "NEG-002",
-  "incident_id": "168a2f80-3531-493f-892a-88bccb9bf790",
-  "environment_id": "5ca72f8b-e047-4100-bf96-a7980c98e43f",
-  "reference": "INC-20261105-0010",
-  "investigation_id": "50cb0e44-1c3d-4960-b0fb-c31583782595",
+  "incident_id": "93939984-07a2-4dd8-9908-9c63c25c51a9",
+  "environment_id": "27bf7a1d-7edc-45dc-a266-934fbf60586d",
+  "reference": "INC-20261105-0042",
+  "investigation_id": "4ed71046-23df-4853-9736-88f6bcf3aff4",
   "status": "completed",
-  "seconds_to_pause": 31.6,
-  "seconds_total": 31.6,
+  "seconds_to_pause": 32.4,
+  "seconds_total": 32.4,
   "result": {
    "rca": {
     "model": "qwen3:8b",
@@ -76,35 +76,36 @@
       "ev-metric-a4ee9579bef8"
      ]
     },
-    "summary": "transaction-api deployment 3.17.3 introduced a change that increased the http.client.timeout_ms to 2000ms, which may have exacerbated the impact of fx-rates-provider degradation.",
+    "summary": "transaction-api deployment 3.17.3 introduced a change in request logging format and OpenAPI docs, which may have inadvertently affected the fx-rates circuit breaker state or logging of timeout errors, leading to increased 5xx ratio and timeouts.",
     "followups": [],
     "escalation": {
      "to": "",
-     "reason": "The fx-rates-provider is an external dependency, and the issue may require escalation to the vendor.",
+     "reason": "The fx-rates-provider is an external dependency, and the degradation may require escalation to the vendor.",
      "required": true
     },
     "hypotheses": [
      {
       "rank": 1,
-      "title": "transaction-api deployment 3.17.3 increased http.client.timeout_ms to 2000ms, worsening fx-rates-provider timeout errors",
+      "title": "transaction-api deployment 3.17.3 caused fx-rates circuit breaker misconfiguration",
       "category": "deployment_regression",
       "confidence": 0.85,
-      "description": "The deployment introduced a change to the http.client.timeout_ms, which may have made the system more sensitive to fx-rates-provider timeouts.",
+      "description": "The deployment introduced a change in request logging format and OpenAPI docs, which may have affected the fx-rates circuit breaker state or logging of timeout errors, leading to increased 5xx ratio and timeouts.",
       "supporting_evidence_ids": [
        "ev-deploy-cecb83e05133",
-       "ev-kb-0739a7dab23f",
-       "ev-kb-6632db04add2",
-       "ev-kb-4da3b3ebaba6",
-       "ev-log-9fa9953cbadb"
+       "ev-log-9fa9953cbadb",
+       "ev-log-ea51848b0fc3",
+       "ev-kb-0ffbd2dcecfc",
+       "ev-kb-6b2d1d1ff5ab",
+       "ev-kb-d0d8b2bc0f58"
       ],
       "contradicting_evidence_ids": []
      },
      {
       "rank": 2,
-      "title": "fx-rates-provider degraded, causing timeouts and 5xx errors in transaction-api",
+      "title": "fx-rates-provider degraded independently, causing timeouts in transaction-api",
       "category": "dependency_degradation",
-      "confidence": 0.8,
-      "description": "The fx-rates-provider became slow or unavailable, leading to timeouts and 5xx errors in transaction-api.",
+      "confidence": 0.75,
+      "description": "fx-rates-provider degraded independently, leading to timeouts in transaction-api and increased 5xx ratio.",
       "supporting_evidence_ids": [
        "ev-dep-267593899497",
        "ev-health-4e94cbc9f3d7",
@@ -112,30 +113,35 @@
        "ev-metric-24af2c4198d0",
        "ev-log-ea51848b0fc3"
       ],
-      "contradicting_evidence_ids": []
+      "contradicting_evidence_ids": [
+       "ev-deploy-cecb83e05133"
+      ]
      },
      {
       "rank": 3,
-      "title": "transaction-api configuration change increased fx.circuit_breaker.failure_ratio to 0.2, causing circuit breaker to open",
+      "title": "transaction-api configuration change caused fx-rates circuit breaker misconfiguration",
       "category": "configuration_error",
-      "confidence": 0.7,
-      "description": "A configuration change increased the circuit breaker failure ratio, leading to the circuit breaker opening and causing timeouts.",
+      "confidence": 0.65,
+      "description": "A configuration change in transaction-api may have caused the fx-rates circuit breaker to misbehave, leading to timeouts and increased 5xx ratio.",
       "supporting_evidence_ids": [
        "ev-config-397d413ba549",
+       "ev-log-9fa9953cbadb",
+       "ev-kb-0ffbd2dcecfc",
        "ev-kb-6b2d1d1ff5ab",
-       "ev-kb-d0d8b2bc0f58",
-       "ev-log-9fa9953cbadb"
+       "ev-kb-d0d8b2bc0f58"
       ],
-      "contradicting_evidence_ids": []
+      "contradicting_evidence_ids": [
+       "ev-deploy-cecb83e05133"
+      ]
      },
      {
       "rank": 4,
-      "title": "fx-rates-provider deployment caused degradation, leading to timeouts and 5xx errors",
-      "category": "deployment_regression",
-      "confidence": 0.6,
-      "description": "A deployment to fx-rates-provider caused it to degrade, leading to timeouts and 5xx errors in transaction-api.",
+      "title": "fx-rates-provider configuration change caused degradation",
+      "category": "configuration_error",
+      "confidence": 0.55,
+      "description": "A configuration change in fx-rates-provider may have caused degradation, leading to timeouts in transaction-api and increased 5xx ratio.",
       "supporting_evidence_ids": [
-       "ev-dep-267593899497",
+       "ev-config-39498108e682",
        "ev-health-4e94cbc9f3d7",
        "ev-metric-b6407fe4779d",
        "ev-metric-24af2c4198d0"
@@ -148,18 +154,18 @@
     "remediation_plan": [
      {
       "service": "transaction-api",
-      "rationale": "Contain the impact of failed requests by pausing the consumer until the issue is resolved.",
+      "rationale": "Contain the impact of failed requests by pausing the consumer to prevent retry churn.",
       "action_type": "pause_consumer"
      },
      {
       "queue": "settlement-events",
-      "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent retry churn.",
+      "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent further processing and allow for analysis.",
       "error_code": "PAYMENT_TIMEOUT",
       "action_type": "quarantine_messages"
      },
      {
       "service": "transaction-api",
-      "rationale": "Revert the transaction-api deployment to a previous version if the issue is caused by a recent change.",
+      "rationale": "Revert the transaction-api deployment to its previous version to isolate the cause of the issue.",
       "action_type": "rollback_deployment",
       "deployment_id": "dep-ta-3173"
      }
@@ -169,7 +175,7 @@
    },
    "plan": {
     "notes": [],
-    "planned_at": "2026-11-05T06:39:01.721951+00:00",
+    "planned_at": "2026-11-05T09:03:35.852299+00:00",
     "capabilities": [
      "telemetry",
      "changes",
@@ -186,7 +192,7 @@
    "outcome": {
     "code": "escalated",
     "impact": "ongoing",
-    "reason": "The fx-rates-provider is an external dependency, and the issue may require escalation to the vendor.",
+    "reason": "The fx-rates-provider is an external dependency, and the degradation may require escalation to the vendor.",
     "summary": "No automated action; escalated to a human owner.",
     "escalate": true,
     "escalate_to": null,
@@ -207,36 +213,36 @@
    "remediation_plan": [],
    "rejected_proposals": [
     {
-     "at": "2026-11-05T06:39:29.720303+00:00",
+     "at": "2026-11-05T09:04:05.266694+00:00",
      "reason": "no queue evidence shows 'transaction-api' as a consumer",
      "details": null,
      "category": "invalid",
      "proposal": {
       "service": "transaction-api",
-      "rationale": "Contain the impact of failed requests by pausing the consumer until the issue is resolved.",
+      "rationale": "Contain the impact of failed requests by pausing the consumer to prevent retry churn.",
       "action_type": "pause_consumer"
      }
     },
     {
-     "at": "2026-11-05T06:39:29.720831+00:00",
+     "at": "2026-11-05T09:04:05.267009+00:00",
      "reason": "error code 'PAYMENT_TIMEOUT' not observed on settlement-events (observed: [])",
      "details": null,
      "category": "invalid",
      "proposal": {
       "queue": "settlement-events",
-      "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent retry churn.",
+      "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent further processing and allow for analysis.",
       "error_code": "PAYMENT_TIMEOUT",
       "action_type": "quarantine_messages"
      }
     },
     {
-     "at": "2026-11-05T06:39:29.721001+00:00",
+     "at": "2026-11-05T09:04:05.267112+00:00",
      "reason": "transaction-api's errors are attributed to unhealthy dependency fx-rates-provider (113/113), which did not change; reverting transaction-api does not address it",
      "details": null,
      "category": "invalid",
      "proposal": {
       "service": "transaction-api",
-      "rationale": "Revert the transaction-api deployment to a previous version if the issue is caused by a recent change.",
+      "rationale": "Revert the transaction-api deployment to its previous version to isolate the cause of the issue.",
       "action_type": "rollback_deployment",
       "deployment_id": "dep-ta-3173"
      }
@@ -252,188 +258,188 @@
     "tool": "get_incident",
     "agent": "intake",
     "status": "ok",
-    "latency_ms": 29.0,
+    "latency_ms": 13.4,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 18.8,
+    "latency_ms": 13.4,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 20.4,
+    "latency_ms": 12.7,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 31.9,
+    "latency_ms": 20.1,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 35.8,
+    "latency_ms": 22.6,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 40.5,
+    "latency_ms": 26.0,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 46.5,
+    "latency_ms": 30.1,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 6.2,
+    "latency_ms": 3.9,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 8.3,
+    "latency_ms": 5.4,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 12.5,
+    "latency_ms": 7.6,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 12.9,
+    "latency_ms": 8.0,
     "error": null
    },
    {
     "tool": "inspect_queue",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 15.1,
+    "latency_ms": 9.2,
     "error": null
    },
    {
     "tool": "list_service_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 8.3,
+    "latency_ms": 4.7,
     "error": null
    },
    {
     "tool": "get_service_health",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 14.4,
+    "latency_ms": 8.0,
     "error": null
    },
    {
     "tool": "search_logs",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 15.2,
+    "latency_ms": 8.6,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 20.8,
+    "latency_ms": 11.6,
     "error": null
    },
    {
     "tool": "query_metrics",
     "agent": "telemetry",
     "status": "ok",
-    "latency_ms": 24.4,
+    "latency_ms": 13.9,
     "error": null
    },
    {
     "tool": "get_service_config",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 6.3,
+    "latency_ms": 3.3,
     "error": null
    },
    {
     "tool": "get_service_dependencies",
     "agent": "dependencies",
     "status": "ok",
-    "latency_ms": 8.3,
+    "latency_ms": 4.8,
     "error": null
    },
    {
     "tool": "list_recent_deployments",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 6.2,
+    "latency_ms": 3.6,
     "error": null
    },
    {
     "tool": "get_config_changes",
     "agent": "changes",
     "status": "ok",
-    "latency_ms": 6.5,
-    "error": null
-   },
-   {
-    "tool": "get_historical_incidents",
-    "agent": "knowledge",
-    "status": "ok",
-    "latency_ms": 82.4,
+    "latency_ms": 3.7,
     "error": null
    },
    {
     "tool": "search_runbooks",
     "agent": "knowledge",
     "status": "ok",
-    "latency_ms": 110.3,
+    "latency_ms": 72.5,
+    "error": null
+   },
+   {
+    "tool": "get_historical_incidents",
+    "agent": "knowledge",
+    "status": "ok",
+    "latency_ms": 81.7,
     "error": null
    }
   ],
   "llm_calls": [
    {
-    "id": "llm-067b5aea493c",
+    "id": "llm-f7d6e15c427f",
     "purpose": "supervisor.plan",
     "model": "qwen3:8b",
-    "latency_ms": 2556.5,
+    "latency_ms": 2389.2,
     "prompt_tokens": 430,
     "completion_tokens": 100,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T06:38:59.165150Z"
+    "started_at": "2026-11-05T09:03:33.462646Z"
    },
    {
-    "id": "llm-7911ef9d657d",
+    "id": "llm-5666e146945a",
     "purpose": "rca.analyze",
     "model": "qwen3:8b",
-    "latency_ms": 27593.7,
-    "prompt_tokens": 4860,
-    "completion_tokens": 976,
+    "latency_ms": 29144.7,
+    "prompt_tokens": 4868,
+    "completion_tokens": 1042,
     "attempts": 1,
     "status": "ok",
     "error": null,
-    "started_at": "2026-11-05T06:39:02.110869Z"
+    "started_at": "2026-11-05T09:03:36.113692Z"
    }
   ],
   "evidence_ids": [
@@ -627,6 +633,37 @@
     "relevance": 0.5,
     "observed_at": null
    },
+   "ev-dep-11dc766ccea1": {
+    "id": "ev-dep-11dc766ccea1",
+    "kind": "dependency",
+    "source_tool": "get_service_health",
+    "collected_by": "dependencies",
+    "service": "ledger-service",
+    "summary": "transaction-api -> ledger-service (critical sync_http): ledger-service is healthy; 5xx ratio (5m avg) 0.12%; p95 latency 44 ms",
+    "data": {
+     "edge": {
+      "service": "transaction-api",
+      "depends_on": "ledger-service",
+      "kind": "sync_http",
+      "critical": true
+     },
+     "health": {
+      "service": "ledger-service",
+      "status": "healthy",
+      "as_of": "2026-11-03T14:30:00Z",
+      "error_ratio": 0.00115,
+      "p95_latency_ms": 43.8,
+      "version": "2.8.4",
+      "notes": [
+       "5xx ratio (5m avg) 0.12%",
+       "p95 latency 44 ms"
+      ]
+     }
+    },
+    "citation": null,
+    "relevance": 0.3,
+    "observed_at": null
+   },
    "ev-dep-267593899497": {
     "id": "ev-dep-267593899497",
     "kind": "dependency",
@@ -657,37 +694,6 @@
     },
     "citation": null,
     "relevance": 0.75,
-    "observed_at": null
-   },
-   "ev-dep-11dc766ccea1": {
-    "id": "ev-dep-11dc766ccea1",
-    "kind": "dependency",
-    "source_tool": "get_service_health",
-    "collected_by": "dependencies",
-    "service": "ledger-service",
-    "summary": "transaction-api -> ledger-service (critical sync_http): ledger-service is healthy; 5xx ratio (5m avg) 0.12%; p95 latency 44 ms",
-    "data": {
-     "edge": {
-      "service": "transaction-api",
-      "depends_on": "ledger-service",
-      "kind": "sync_http",
-      "critical": true
-     },
-     "health": {
-      "service": "ledger-service",
-      "status": "healthy",
-      "as_of": "2026-11-03T14:30:00Z",
-      "error_ratio": 0.00115,
-      "p95_latency_ms": 43.8,
-      "version": "2.8.4",
-      "notes": [
-       "5xx ratio (5m avg) 0.12%",
-       "p95 latency 44 ms"
-      ]
-     }
-    },
-    "citation": null,
-    "relevance": 0.3,
     "observed_at": null
    },
    "ev-queue-87b013583e96": {
@@ -898,7 +904,7 @@
     "data": {
      "rank": 1,
      "score": 0.032787,
-     "query_id": "7d0e85d1-2532-49df-8a34-6d0aa2ad76e0",
+     "query_id": "e8ce66dd-6197-4b50-93bb-ba9efbef7a77",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 1,
@@ -914,7 +920,7 @@
      "passage": "- http status: 503\n- service: transaction-api\n- meaning: fx-rates-provider unavailable and cache expired.\n- first steps: Check fx-rates-provider status; confirm circuit breaker state.",
      "passage_sha256": "90e0907d1db3838ce53f03a7f24f670758421e54da25ab40baa6a76a2b2f9f21",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -929,7 +935,7 @@
     "data": {
      "rank": 2,
      "score": 0.032002,
-     "query_id": "7d0e85d1-2532-49df-8a34-6d0aa2ad76e0",
+     "query_id": "e8ce66dd-6197-4b50-93bb-ba9efbef7a77",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 2,
@@ -945,7 +951,7 @@
      "passage": "Symptoms: `PAYMENT_TIMEOUT` or `FX_UNAVAILABLE` errors, latency rising toward the configured client\ntimeout, and healthy CPU/memory on the calling service.\n\n1. Identify which dependency is slow from `upstream=` log fields and dependency latency metrics.\n2. Check the provider status page / dependency health.\n3. Non-critical dependencies (fx-rates-provider) should fail open to cached rates; confirm the\n   circuit breaker opened.\n4. Raising `http.client.timeout_ms` hides the problem and increases thread exhaustion risk \u2014\n   avoid it as a mitigation.",
      "passage_sha256": "3baccc9fe3e9740ba39724bb2496f85ae17dcdc5d22591c6476917b26ba13d04",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -960,7 +966,7 @@
     "data": {
      "rank": 3,
      "score": 0.031498,
-     "query_id": "7d0e85d1-2532-49df-8a34-6d0aa2ad76e0",
+     "query_id": "e8ce66dd-6197-4b50-93bb-ba9efbef7a77",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 3,
@@ -976,7 +982,7 @@
      "passage": "fx-rates-provider is a third-party service. When it is degraded there is no internal action that fixes\nit: **escalate to the vendor** via the provider status page / support contract and keep the\ncircuit breaker and cached-rate fallback in place. Do not roll back unrelated internal deployments just\nbecause they are recent \u2014 first check whether failing requests point at the provider (`upstream=` field).",
      "passage_sha256": "97c99af346a317db5839021ac7a46687fe4dd9d20c5f8259639718329e1fad90",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -991,7 +997,7 @@
     "data": {
      "rank": 4,
      "score": 0.031281,
-     "query_id": "7d0e85d1-2532-49df-8a34-6d0aa2ad76e0",
+     "query_id": "e8ce66dd-6197-4b50-93bb-ba9efbef7a77",
      "doc_type": "runbook",
      "doc_status": "current",
      "vector_rank": 6,
@@ -1007,7 +1013,7 @@
      "passage": "1. Confirm the blast radius: which endpoints? If only write endpoints (`POST /v1/payments`,\n   `POST /v1/refunds`) fail, focus on the ledger write path.\n2. Group error logs by message signature. Look for the `code` field (`LEDGER_WRITE_FAILED`,\n   `PAYMENT_TIMEOUT`, `FX_UNAVAILABLE`).\n3. Determine the **onset time** from the 5xx ratio metric and list all deployments and config\n   changes in the 2 hours before onset, across transaction-api **and its downstream\n   dependencies**. A change minutes before onset is the prime suspect.\n4. Check downstream health (ledger-service error ratio and logs).",
      "passage_sha256": "a1ca2838b47c618759360ea90fde011ab964bd305e16ddaff9a789048ad61228",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.4,
     "observed_at": null
@@ -1022,7 +1028,7 @@
     "data": {
      "rank": 5,
      "score": 0.030331,
-     "query_id": "7d0e85d1-2532-49df-8a34-6d0aa2ad76e0",
+     "query_id": "e8ce66dd-6197-4b50-93bb-ba9efbef7a77",
      "doc_type": "error_catalog",
      "doc_status": "current",
      "vector_rank": 4,
@@ -1038,7 +1044,7 @@
      "passage": "- http status: 504\n- service: transaction-api\n- meaning: A downstream call exceeded http.client.timeout_ms.\n- first steps: Identify the slow dependency from upstream= log fields.",
      "passage_sha256": "85402128444bcd4ed8603c99c94c26d0605c2361715f14399430319f8d96700b",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.3,
     "observed_at": null
@@ -1053,7 +1059,7 @@
     "data": {
      "rank": 1,
      "score": 0.032787,
-     "query_id": "52c0041b-846e-4f19-86c9-02997cf53958",
+     "query_id": "79b21564-fc41-45dc-94e5-86d6ccebc93f",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 1,
@@ -1069,7 +1075,7 @@
      "passage": "fx-rates-provider latency rose to 6 s. Cross-currency payments failed with `PAYMENT_TIMEOUT`\nbecause the circuit breaker threshold was misconfigured. Single-currency payments were unaffected.",
      "passage_sha256": "7895a037f1b96111532eade69f2225ad61b7c2b33fa8d255007dbc58e8ac447c",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.7,
     "observed_at": null
@@ -1084,7 +1090,7 @@
     "data": {
      "rank": 2,
      "score": 0.032258,
-     "query_id": "52c0041b-846e-4f19-86c9-02997cf53958",
+     "query_id": "79b21564-fc41-45dc-94e5-86d6ccebc93f",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 2,
@@ -1100,7 +1106,7 @@
      "passage": "Circuit breaker corrected to open after 20% failures; payments fell back to cached rates.",
      "passage_sha256": "0d3d77377b6c576bdcd4986bbaa9adb19e068f608b7e94a00cdf6bef60a67e9b",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.6,
     "observed_at": null
@@ -1115,7 +1121,7 @@
     "data": {
      "rank": 3,
      "score": 0.031746,
-     "query_id": "52c0041b-846e-4f19-86c9-02997cf53958",
+     "query_id": "79b21564-fc41-45dc-94e5-86d6ccebc93f",
      "doc_type": "incident_report",
      "doc_status": "current",
      "vector_rank": 3,
@@ -1131,7 +1137,7 @@
      "passage": "An earlier change raising `http.client.timeout_ms` from 2000 to 5000 ms made thread exhaustion worse.",
      "passage_sha256": "3cb1d310f06cef25bbf68e820315af30ad6caf406a3b63045295a4a4610a2ed0",
      "lifecycle_status": "current",
-     "retrieved_at": "2026-11-05T06:39:02.094749Z"
+     "retrieved_at": "2026-11-05T09:03:36.101408Z"
     },
     "relevance": 0.5,
     "observed_at": null
@@ -1150,36 +1156,36 @@
     "proposal": {
      "action_type": "pause_consumer",
      "service": "transaction-api",
-     "rationale": "Contain the impact of failed requests by pausing the consumer until the issue is resolved."
+     "rationale": "Contain the impact of failed requests by pausing the consumer to prevent retry churn."
     },
     "reason": "no queue evidence shows 'transaction-api' as a consumer",
     "category": "invalid",
     "details": null,
-    "at": "2026-11-05T06:39:29.720303+00:00"
+    "at": "2026-11-05T09:04:05.266694+00:00"
    },
    {
     "proposal": {
      "action_type": "quarantine_messages",
      "queue": "settlement-events",
      "error_code": "PAYMENT_TIMEOUT",
-     "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent retry churn."
+     "rationale": "Quarantine messages with the error code PAYMENT_TIMEOUT to prevent further processing and allow for analysis."
     },
     "reason": "error code 'PAYMENT_TIMEOUT' not observed on settlement-events (observed: [])",
     "category": "invalid",
     "details": null,
-    "at": "2026-11-05T06:39:29.720831+00:00"
+    "at": "2026-11-05T09:04:05.267009+00:00"
    },
    {
     "proposal": {
      "action_type": "rollback_deployment",
      "service": "transaction-api",
      "deployment_id": "dep-ta-3173",
-     "rationale": "Revert the transaction-api deployment to a previous version if the issue is caused by a recent change."
+     "rationale": "Revert the transaction-api deployment to its previous version to isolate the cause of the issue."
     },
     "reason": "transaction-api's errors are attributed to unhealthy dependency fx-rates-provider (113/113), which did not change; reverting transaction-api does not address it",
     "category": "invalid",
     "details": null,
-    "at": "2026-11-05T06:39:29.721001+00:00"
+    "at": "2026-11-05T09:04:05.267112+00:00"
    }
   ],
   "outcome": {
@@ -1187,13 +1193,13 @@
    "summary": "No automated action; escalated to a human owner.",
    "escalate": true,
    "escalate_to": null,
-   "reason": "The fx-rates-provider is an external dependency, and the issue may require escalation to the vendor.",
+   "reason": "The fx-rates-provider is an external dependency, and the degradation may require escalation to the vendor.",
    "actions_executed": 0,
    "steps_planned": 0,
    "impact": "ongoing"
   },
-  "report_markdown": "# RCA: INC-20261105-0010 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `escalated` \u2014 No automated action; escalated to a human owner.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Escalation\n\n**Human follow-up required**.\n\nThe fx-rates-provider is an external dependency, and the issue may require escalation to the vendor.\n\n## Summary\n\ntransaction-api deployment 3.17.3 introduced a change that increased the http.client.timeout_ms to 2000ms, which may have exacerbated the impact of fx-rates-provider degradation.\n\nImpact at analysis time: **ongoing** \u2014 2 unrecovered anomalous metric(s) on transaction-api.\n\n## Ranked hypotheses\n\n### 1. transaction-api deployment 3.17.3 increased http.client.timeout_ms to 2000ms, worsening fx-rates-provider timeout errors \u2014 confidence 85%\n\n*Category:* `deployment_regression`\n\nThe deployment introduced a change to the http.client.timeout_ms, which may have made the system more sensitive to fx-rates-provider timeouts.\n\nSupporting evidence:\n- `ev-deploy-cecb83e05133` \u2014 transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs and request logging format\"; correlation 0.79\n- `ev-kb-0739a7dab23f` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Lessons] An earlier change raising `http.client.timeout_ms` from 2000 to 5\u2026\n- `ev-kb-6632db04add2` \u2014 [Runbook: Elevated HTTP 5xx Error Rate > Runbook: Elevated HTTP 5xx Error Rate > Triage] 1. Confirm the blast radius: which endpoints? If only write endpoints (`POST /v1/payments`, `POST /v1/refunds`) fail, focus on the\u2026\n- `ev-kb-4da3b3ebaba6` \u2014 [Runbook: Timeouts from Degraded Downstream Dependencies > Runbook: Timeouts from Degraded Downstream Dependencies] Symptoms: `PAYMENT_TIMEOUT` or `FX_UNAVAILABLE` errors, latency rising toward the configured client tim\u2026\n- `ev-log-9fa9953cbadb` \u2014 transaction-api WARN x14 (first 14:00:45Z, last 14:29:15Z): fx-rates circuit breaker half-open; cache expired for EUR/GBP\n\n### 2. fx-rates-provider degraded, causing timeouts and 5xx errors in transaction-api \u2014 confidence 80%\n\n*Category:* `dependency_degradation`\n\nThe fx-rates-provider became slow or unavailable, leading to timeouts and 5xx errors in transaction-api.\n\nSupporting evidence:\n- `ev-dep-267593899497` \u2014 transaction-api -> fx-rates-provider (non-critical sync_http): fx-rates-provider is unhealthy; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-health-4e94cbc9f3d7` \u2014 fx-rates-provider health unhealthy at 14:30:00Z, version saas; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-metric-b6407fe4779d` \u2014 fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48%\n- `ev-metric-24af2c4198d0` \u2014 fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms\n- `ev-log-ea51848b0fc3` \u2014 transaction-api ERROR x113 (first 14:00:07Z, last 14:29:43Z): POST /v1/payments failed: upstream fx-rates-provider timed out after 2000ms code=PAYMENT_TIMEOUT (cross-currency)\n\n### 3. transaction-api configuration change increased fx.circuit_breaker.failure_ratio to 0.2, causing circuit breaker to open \u2014 confidence 70%\n\n*Category:* `configuration_error`\n\nA configuration change increased the circuit breaker failure ratio, leading to the circuit breaker opening and causing timeouts.\n\nSupporting evidence:\n- `ev-config-397d413ba549` \u2014 transaction-api runtime config: replicas 6, version 3.17.3; http.client.timeout_ms=2000, fx.circuit_breaker.failure_ratio=0.2\n- `ev-kb-6b2d1d1ff5ab` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Summary] fx-rates-provider latency rose to 6 s. Cross-currency payments fa\u2026\n- `ev-kb-d0d8b2bc0f58` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Resolution] Circuit breaker corrected to open after 20% failures; payments\u2026\n- `ev-log-9fa9953cbadb` \u2014 transaction-api WARN x14 (first 14:00:45Z, last 14:29:15Z): fx-rates circuit breaker half-open; cache expired for EUR/GBP\n\n### 4. fx-rates-provider deployment caused degradation, leading to timeouts and 5xx errors \u2014 confidence 60%\n\n*Category:* `deployment_regression`\n\nA deployment to fx-rates-provider caused it to degrade, leading to timeouts and 5xx errors in transaction-api.\n\nSupporting evidence:\n- `ev-dep-267593899497` \u2014 transaction-api -> fx-rates-provider (non-critical sync_http): fx-rates-provider is unhealthy; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-health-4e94cbc9f3d7` \u2014 fx-rates-provider health unhealthy at 14:30:00Z, version saas; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-metric-b6407fe4779d` \u2014 fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48%\n- `ev-metric-24af2c4198d0` \u2014 fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:53:00Z | transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs an |\n| 2026-11-03 14:00:00Z | fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48% |\n| 2026-11-03 14:00:00Z | fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 6.97% starting 14:00:00Z; currently 6.72% |\n| 2026-11-03 14:00:00Z | transaction-api p95_latency_ms rose from baseline 181 ms to 2263 ms starting 14:00:00Z; currently 1899 ms |\n| 2026-11-03 14:00:07Z | first error on transaction-api: POST /v1/payments failed: upstream fx-rates-provider timed out after 2000ms code=PAYMENT_TIMEOUT (cross-currency) |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `pause_consumer` (invalid): no queue evidence shows 'transaction-api' as a consumer\n- Blocked model proposal `quarantine_messages` (invalid): error code 'PAYMENT_TIMEOUT' not observed on settlement-events (observed: [])\n- Blocked model proposal `rollback_deployment` (invalid): transaction-api's errors are attributed to unhealthy dependency fx-rates-provider (113/113), which did not change; reverting transaction-api does not address it\n\n## Knowledge sources\n\n- `ev-kb-0ffbd2dcecfc` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > FX_UNAVAILABLE (`errors/error-codes.json`, chunk `0ffbd2dc`, v1, sha256 `90e0907d1db3`)\n- `ev-kb-6b2d1d1ff5ab` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Summary (`incidents/2026-07-09-fx-provider-latency.md`, chunk `6b2d1d1f`, v1, sha256 `7895a037f1b9`)\n- `ev-kb-4da3b3ebaba6` Runbook: Timeouts from Degraded Downstream Dependencies > Runbook: Timeouts from Degraded Downstream Dependencies (`runbooks/downstream-timeouts.md`, chunk `4da3b3eb`, v2, sha256 `3baccc9fe3e9`)\n- `ev-kb-d0d8b2bc0f58` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Resolution (`incidents/2026-07-09-fx-provider-latency.md`, chunk `d0d8b2bc`, v1, sha256 `0d3d77377b6c`)\n- `ev-kb-131d868bfd20` Runbook: Timeouts from Degraded Downstream Dependencies > Runbook: Timeouts from Degraded Downstream Dependencies > External providers (`runbooks/downstream-timeouts.md`, chunk `131d868b`, v2, sha256 `97c99af346a3`)\n- `ev-kb-0739a7dab23f` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Lessons (`incidents/2026-07-09-fx-provider-latency.md`, chunk `0739a7da`, v1, sha256 `3cb1d310f06c`)\n- `ev-kb-6632db04add2` Runbook: Elevated HTTP 5xx Error Rate > Runbook: Elevated HTTP 5xx Error Rate > Triage (`runbooks/high-5xx-error-rate.md`, chunk `6632db04`, v1, sha256 `a1ca2838b47c`)\n- `ev-kb-c6db531dd6c9` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > PAYMENT_TIMEOUT (`errors/error-codes.json`, chunk `c6db531d`, v1, sha256 `85402128444b`)\n\n## Investigation trace\n\n- Tool calls: 23 (0 non-ok), total tool latency 0.6s\n- LLM calls: 2, total 30.2s, tokens in/out 5290/1076\n- Evidence items: 25; rounds: 1\n",
+  "report_markdown": "# RCA: INC-20261105-0042 \u2014 Elevated HTTP 5xx ratio on transaction-api\n\n- **Outcome:** `escalated` \u2014 No automated action; escalated to a human owner.  \n- **Service:** transaction-api  \n- **Severity:** SEV2  \n- **Detected:** 2026-11-03 14:08:00Z  \n- **Anomaly onset:** 2026-11-03 14:00:00Z  \n- **Investigation status:** completed  \n- **Root-cause category (RCA):** deployment_regression  \n- **Initial triage (alert only):** unknown (llm)\n\n## Escalation\n\n**Human follow-up required**.\n\nThe fx-rates-provider is an external dependency, and the degradation may require escalation to the vendor.\n\n## Summary\n\ntransaction-api deployment 3.17.3 introduced a change in request logging format and OpenAPI docs, which may have inadvertently affected the fx-rates circuit breaker state or logging of timeout errors, leading to increased 5xx ratio and timeouts.\n\nImpact at analysis time: **ongoing** \u2014 2 unrecovered anomalous metric(s) on transaction-api.\n\n## Ranked hypotheses\n\n### 1. transaction-api deployment 3.17.3 caused fx-rates circuit breaker misconfiguration \u2014 confidence 85%\n\n*Category:* `deployment_regression`\n\nThe deployment introduced a change in request logging format and OpenAPI docs, which may have affected the fx-rates circuit breaker state or logging of timeout errors, leading to increased 5xx ratio and timeouts.\n\nSupporting evidence:\n- `ev-deploy-cecb83e05133` \u2014 transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs and request logging format\"; correlation 0.79\n- `ev-log-9fa9953cbadb` \u2014 transaction-api WARN x14 (first 14:00:45Z, last 14:29:15Z): fx-rates circuit breaker half-open; cache expired for EUR/GBP\n- `ev-log-ea51848b0fc3` \u2014 transaction-api ERROR x113 (first 14:00:07Z, last 14:29:43Z): POST /v1/payments failed: upstream fx-rates-provider timed out after 2000ms code=PAYMENT_TIMEOUT (cross-currency)\n- `ev-kb-0ffbd2dcecfc` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > FX_UNAVAILABLE] - http status: 503 - service: transaction-api - meaning: fx-rates-provider unavailable and cache expired. - first steps: Check f\u2026\n- `ev-kb-6b2d1d1ff5ab` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Summary] fx-rates-provider latency rose to 6 s. Cross-currency payments fa\u2026\n- `ev-kb-d0d8b2bc0f58` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Resolution] Circuit breaker corrected to open after 20% failures; payments\u2026\n\n### 2. fx-rates-provider degraded independently, causing timeouts in transaction-api \u2014 confidence 75%\n\n*Category:* `dependency_degradation`\n\nfx-rates-provider degraded independently, leading to timeouts in transaction-api and increased 5xx ratio.\n\nSupporting evidence:\n- `ev-dep-267593899497` \u2014 transaction-api -> fx-rates-provider (non-critical sync_http): fx-rates-provider is unhealthy; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-health-4e94cbc9f3d7` \u2014 fx-rates-provider health unhealthy at 14:30:00Z, version saas; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-metric-b6407fe4779d` \u2014 fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48%\n- `ev-metric-24af2c4198d0` \u2014 fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms\n- `ev-log-ea51848b0fc3` \u2014 transaction-api ERROR x113 (first 14:00:07Z, last 14:29:43Z): POST /v1/payments failed: upstream fx-rates-provider timed out after 2000ms code=PAYMENT_TIMEOUT (cross-currency)\nContradicting evidence:\n- `ev-deploy-cecb83e05133` \u2014 transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs and request logging format\"; correlation 0.79\n\n### 3. transaction-api configuration change caused fx-rates circuit breaker misconfiguration \u2014 confidence 65%\n\n*Category:* `configuration_error`\n\nA configuration change in transaction-api may have caused the fx-rates circuit breaker to misbehave, leading to timeouts and increased 5xx ratio.\n\nSupporting evidence:\n- `ev-config-397d413ba549` \u2014 transaction-api runtime config: replicas 6, version 3.17.3; http.client.timeout_ms=2000, fx.circuit_breaker.failure_ratio=0.2\n- `ev-log-9fa9953cbadb` \u2014 transaction-api WARN x14 (first 14:00:45Z, last 14:29:15Z): fx-rates circuit breaker half-open; cache expired for EUR/GBP\n- `ev-kb-0ffbd2dcecfc` \u2014 [Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > FX_UNAVAILABLE] - http status: 503 - service: transaction-api - meaning: fx-rates-provider unavailable and cache expired. - first steps: Check f\u2026\n- `ev-kb-6b2d1d1ff5ab` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Summary] fx-rates-provider latency rose to 6 s. Cross-currency payments fa\u2026\n- `ev-kb-d0d8b2bc0f58` \u2014 [Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Resolution] Circuit breaker corrected to open after 20% failures; payments\u2026\nContradicting evidence:\n- `ev-deploy-cecb83e05133` \u2014 transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs and request logging format\"; correlation 0.79\n\n### 4. fx-rates-provider configuration change caused degradation \u2014 confidence 55%\n\n*Category:* `configuration_error`\n\nA configuration change in fx-rates-provider may have caused degradation, leading to timeouts in transaction-api and increased 5xx ratio.\n\nSupporting evidence:\n- `ev-config-39498108e682` \u2014 fx-rates-provider runtime config: replicas 0, version saas; sla.p95_ms=300\n- `ev-health-4e94cbc9f3d7` \u2014 fx-rates-provider health unhealthy at 14:30:00Z, version saas; 5xx ratio (5m avg) 18.02%; p95 latency 5392 ms; external dependency owned by vendor:fx-provider\n- `ev-metric-b6407fe4779d` \u2014 fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48%\n- `ev-metric-24af2c4198d0` \u2014 fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms\n\n## Timeline\n\n| Time (UTC) | Event |\n|---|---|\n| 2026-11-03 13:53:00Z | transaction-api application 3.17.3 (id dep-ta-3173, previous 3.17.2) finished 13:53:00Z, 7.0 min before anomaly onset; status succeeded; \"Update OpenAPI docs an |\n| 2026-11-03 14:00:00Z | fx-rates-provider http_5xx_ratio rose from baseline 0.10% to 24.85% starting 14:00:00Z; currently 18.48% |\n| 2026-11-03 14:00:00Z | fx-rates-provider p95_latency_ms rose from baseline 142 ms to 6151 ms starting 14:00:00Z; currently 5936 ms |\n| 2026-11-03 14:00:00Z | transaction-api http_5xx_ratio rose from baseline 0.23% to 6.97% starting 14:00:00Z; currently 6.72% |\n| 2026-11-03 14:00:00Z | transaction-api p95_latency_ms rose from baseline 181 ms to 2263 ms starting 14:00:00Z; currently 1899 ms |\n| 2026-11-03 14:00:07Z | first error on transaction-api: POST /v1/payments failed: upstream fx-rates-provider timed out after 2000ms code=PAYMENT_TIMEOUT (cross-currency) |\n| 2026-11-03 14:08:00Z | alert fired / incident detected |\n\n## Remediation\n\n- No remediation executed or proposed for approval.\n- Blocked model proposal `pause_consumer` (invalid): no queue evidence shows 'transaction-api' as a consumer\n- Blocked model proposal `quarantine_messages` (invalid): error code 'PAYMENT_TIMEOUT' not observed on settlement-events (observed: [])\n- Blocked model proposal `rollback_deployment` (invalid): transaction-api's errors are attributed to unhealthy dependency fx-rates-provider (113/113), which did not change; reverting transaction-api does not address it\n\n## Knowledge sources\n\n- `ev-kb-0ffbd2dcecfc` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > FX_UNAVAILABLE (`errors/error-codes.json`, chunk `0ffbd2dc`, v1, sha256 `90e0907d1db3`)\n- `ev-kb-6b2d1d1ff5ab` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Summary (`incidents/2026-07-09-fx-provider-latency.md`, chunk `6b2d1d1f`, v1, sha256 `7895a037f1b9`)\n- `ev-kb-4da3b3ebaba6` Runbook: Timeouts from Degraded Downstream Dependencies > Runbook: Timeouts from Degraded Downstream Dependencies (`runbooks/downstream-timeouts.md`, chunk `4da3b3eb`, v2, sha256 `3baccc9fe3e9`)\n- `ev-kb-d0d8b2bc0f58` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Resolution (`incidents/2026-07-09-fx-provider-latency.md`, chunk `d0d8b2bc`, v1, sha256 `0d3d77377b6c`)\n- `ev-kb-131d868bfd20` Runbook: Timeouts from Degraded Downstream Dependencies > Runbook: Timeouts from Degraded Downstream Dependencies > External providers (`runbooks/downstream-timeouts.md`, chunk `131d868b`, v2, sha256 `97c99af346a3`)\n- `ev-kb-0739a7dab23f` Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Postmortem PM-2026-017: Payment timeouts from FX provider degradation > Lessons (`incidents/2026-07-09-fx-provider-latency.md`, chunk `0739a7da`, v1, sha256 `3cb1d310f06c`)\n- `ev-kb-6632db04add2` Runbook: Elevated HTTP 5xx Error Rate > Runbook: Elevated HTTP 5xx Error Rate > Triage (`runbooks/high-5xx-error-rate.md`, chunk `6632db04`, v1, sha256 `a1ca2838b47c`)\n- `ev-kb-c6db531dd6c9` Northwind Pay Error Code Catalogue > Northwind Pay Error Code Catalogue > PAYMENT_TIMEOUT (`errors/error-codes.json`, chunk `c6db531d`, v1, sha256 `85402128444b`)\n\n## Investigation trace\n\n- Tool calls: 23 (0 non-ok), total tool latency 0.4s\n- LLM calls: 2, total 31.5s, tokens in/out 5298/1142\n- Evidence items: 25; rounds: 1\n",
   "error": null,
-  "finished_at": "2026-11-05T06:39:30.365217+00:00"
+  "finished_at": "2026-11-05T09:04:05.644662+00:00"
  }
 }
