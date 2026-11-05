@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -12,6 +12,7 @@ from opspilot_agents.nodes import AgentDeps, AgentPolicy
 from opspilot_agents.ports import ToolGateway
 from opspilot_api.checkpointing import checkpointer_pool
 from opspilot_api.container import Infrastructure
+from opspilot_api.ownership import ExecutionOwnership
 from opspilot_api.services.approvals import ApprovalService
 from opspilot_api.services.commands import CommandDispatcher
 from opspilot_api.services.incidents import IncidentService
@@ -45,6 +46,7 @@ class AppRuntime:
     investigations: InvestigationService
     approvals: ApprovalService
     dispatcher: CommandDispatcher
+    ownership: ExecutionOwnership
 
     @classmethod
     @asynccontextmanager
@@ -55,12 +57,34 @@ class AppRuntime:
         chat: Any | None = None,
         gateways: GatewayFactory | None = None,
         embedder: Any | None = None,
+        on_owner_lost: Callable[[str], Awaitable[None]] | None = None,
     ) -> AsyncIterator[AppRuntime]:
-        """``chat`` / ``gateways`` / ``embedder`` let tests inject deterministic adapters."""
-        infra = Infrastructure.create(settings, embedder=embedder)
+        """``chat`` / ``gateways`` / ``embedder`` let tests inject deterministic adapters.
+
+        C0-G4: the database's single execution-owner lock is taken *first*; a second runtime against the same
+        database (another API worker, a CLI/evaluation run) fails here before connecting anything else. If ownership
+        is later lost, every running segment is stopped and all new work is refused (``runner.suspend``), then
+        ``on_owner_lost`` runs (the API process uses it to exit)."""
+        holder: dict[str, AppRuntime] = {}
+
+        async def lost(reason: str) -> None:
+            rt = holder.get("rt")
+            if rt is not None:
+                await rt.runner.suspend(reason)
+            if on_owner_lost is not None:
+                await on_owner_lost(reason)
+
+        ownership = ExecutionOwnership(settings, on_lost=lost)
+        await ownership.acquire()
+        try:
+            infra = Infrastructure.create(settings, embedder=embedder)
+        except BaseException:
+            await ownership.release()
+            raise
         connect: GatewayFactory = gateways or (lambda profile: connect_gateway(settings, profile))
         try:
             async with AsyncExitStack() as stack:
+                stack.push_async_callback(ownership.release)  # released last, after the runner has stopped
                 read_gw = await stack.enter_async_context(connect("read"))
                 act_gw = await stack.enter_async_context(connect("actions"))
                 saver = await stack.enter_async_context(checkpointer_pool(settings))
@@ -89,7 +113,9 @@ class AppRuntime:
                     investigations,
                     ApprovalService(infra.session_factory, runner, graph, settings, dispatcher),
                     dispatcher,
+                    ownership,
                 )
+                holder["rt"] = rt
                 _log.info(
                     "runtime_ready",
                     read_tools=len(read_gw.available_tools()),

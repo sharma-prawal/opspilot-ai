@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     approval_request_ttl_seconds: int = Field(default=3600, ge=30, le=7 * 86400)
     command_lease_seconds: float = Field(default=120.0, gt=0, le=3600)  # redeliver stale in-flight commands
     run_lease_seconds: float = Field(default=60.0, gt=0, le=3600)  # execution ownership lease, renewed while running
+    # C0-G4 single execution owner per database (PostgreSQL advisory lock): how long start-up waits for a previous
+    # owner (reload / crash being reaped) and how often the held lock is probed.
+    execution_owner_acquire_timeout_seconds: float = Field(default=10.0, ge=0, le=300)
+    execution_owner_check_seconds: float = Field(default=5.0, gt=0, le=300)
 
     # Observability
     otel_exporter: Literal["none", "console", "otlp"] = "none"

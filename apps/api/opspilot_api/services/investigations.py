@@ -35,7 +35,7 @@ from opspilot_shared.db.models import (
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.incidents import IncidentStatus
 from opspilot_shared.domain.investigation import InvestigationStatus
-from opspilot_shared.errors import CapacityError, ConflictError, NotFoundError, OpsPilotError
+from opspilot_shared.errors import CapacityError, ConflictError, NotFoundError, OpsPilotError, OwnershipError
 from opspilot_shared.logging import get_logger, log_context
 from opspilot_shared.redaction import redact
 from opspilot_shared.tracing import get_tracer
@@ -112,6 +112,7 @@ class InvestigationRunner:
         self._sem = asyncio.Semaphore(max_concurrency)
         self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
         self._shutting_down = False
+        self.suspended: str | None = None  # C0-G4: execution ownership lost; nothing may run in this process
         self._lease = lease_seconds
         self._max_pending = max_pending if max_pending is not None else max(4, max_concurrency)
         self._reserved = 0
@@ -138,6 +139,8 @@ class InvestigationRunner:
 
     def reserve(self) -> Reservation:
         """Check and take an admission slot atomically (no await between the check and the increment)."""
+        if self.suspended is not None:
+            raise OwnershipError(f"this process no longer owns execution: {self.suspended}")
         if self._shutting_down:
             raise CapacityError("process is shutting down; retry shortly")
         self.admit()
@@ -245,6 +248,10 @@ class InvestigationRunner:
         On failure the caller's reservation is left held for the caller to release."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
+        if self.suspended is not None:
+            if reservation is not None:
+                reservation.release()
+            raise OwnershipError(f"this process no longer owns execution: {self.suspended}")
         slot = reservation if reservation is not None else self.reserve()
         slot.consume()  # synchronous from here to registration: the slot becomes the task
         task = asyncio.create_task(
@@ -266,6 +273,11 @@ class InvestigationRunner:
             t.cancel()
             return True
         return False
+
+    async def suspend(self, reason: str) -> None:
+        """Execution ownership was lost (C0-G4): refuse all new work and stop running segments (resumable)."""
+        self.suspended = reason
+        await self.shutdown()
 
     async def shutdown(self) -> None:
         # Shutdown interrupts runs (resumable); it is not an operator cancellation (terminal).

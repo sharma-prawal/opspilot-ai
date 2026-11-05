@@ -9,4 +9,4 @@ E2E_API_PORT="${E2E_API_PORT:-8100}"
 [[ "$E2E_API_PORT" != "${API_PORT:-8000}" ]] || { fail "E2E API port must differ from the dev API port"; exit 1; }
 uv run opspilot migrate --database "$DB_NAME" >/dev/null
 uv run opspilot ingest >/dev/null   # incremental; re-embeds test-DB documents with the real embedding model
-exec uv run uvicorn opspilot_api.main:app --host 127.0.0.1 --port "$E2E_API_PORT"
+exec env -u WEB_CONCURRENCY uv run uvicorn opspilot_api.main:app --host 127.0.0.1 --port "$E2E_API_PORT" --workers 1

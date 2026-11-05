@@ -7,7 +7,8 @@ docker_ready && [[ "$(docker inspect -f '{{.State.Health.Status}}' opspilot-post
   || "$ROOT_DIR/scripts/infra-up.sh"
 
 if port_in_use "$API_PORT"; then ok "API already listening on :$API_PORT — not starting another"; else
-  nohup uv run uvicorn opspilot_api.main:app --host "$API_HOST" --port "$API_PORT" \
+  # C0-G4: exactly one worker per database; the runtime also enforces it (advisory lock + WEB_CONCURRENCY check).
+  nohup env -u WEB_CONCURRENCY uv run uvicorn opspilot_api.main:app --host "$API_HOST" --port "$API_PORT" --workers 1 \
     >"$RUN_DIR/api.log" 2>&1 </dev/null &
   echo $! >"$RUN_DIR/api.pid"
   wait_for_http "http://$API_HOST:$API_PORT/health/live" 60 && ok "API started (pid $(cat "$RUN_DIR/api.pid"))" \

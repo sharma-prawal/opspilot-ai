@@ -112,9 +112,10 @@ async def run_agent(trials: int, scenarios: list[str], traces: Path = TRACES) ->
     from opspilot_api.demo import investigate
     from opspilot_api.runtime import AppRuntime
 
-    _reset_traces(traces)
     rows: list[dict[str, Any]] = []
     async with AppRuntime.open(get_settings()) as rt:
+        # C0-G4: only once this run owns execution (no API or other runtime on the database) are old traces reset.
+        _reset_traces(traces)
         plan = [(s, i, "approve") for s in scenarios for i in range(trials)]
         if "INC-001" in scenarios:
             plan.append(("INC-001", trials, "reject"))  # rejection path: nothing may execute
