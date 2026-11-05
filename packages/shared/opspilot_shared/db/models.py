@@ -18,10 +18,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -198,7 +200,8 @@ class SimActionExecution(Base):
 # ---------------------------------------------------------------------------------------- kb
 class KbDocument(Base):
     __tablename__ = "documents"
-    __table_args__ = {"schema": "kb"}
+    # (id, version) is a revision; migration 0007 adds a trigger: content changes must increase the version.
+    __table_args__ = (UniqueConstraint("id", "version", name="uq_kb_documents_revision"), {"schema": "kb"})
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     source_uri: Mapped[str] = mapped_column(String(500), unique=True)
     title: Mapped[str] = mapped_column(String(300))
@@ -214,7 +217,9 @@ class KbDocument(Base):
     embedding_model: Mapped[str | None] = mapped_column(String(100))
     ingested_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
-    chunks: Mapped[list[KbChunk]] = relationship(back_populates="document", cascade="all, delete-orphan")
+    chunks: Mapped[list[KbChunk]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", foreign_keys="KbChunk.document_id"
+    )
 
 
 class KbChunk(Base):
@@ -226,6 +231,15 @@ class KbChunk(Base):
             "embedding",
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        # C0-H1: every committed chunk belongs to its document's current revision (checked at commit).
+        ForeignKeyConstraint(
+            ["document_id", "document_version"],
+            ["kb.documents.id", "kb.documents.version"],
+            name="fk_kb_chunks_document_revision",
+            ondelete="CASCADE",
+            deferrable=True,
+            initially="DEFERRED",
         ),
         {"schema": "kb"},
     )
@@ -247,7 +261,7 @@ class KbChunk(Base):
             persisted=True,
         ),
     )
-    document: Mapped[KbDocument] = relationship(back_populates="chunks")
+    document: Mapped[KbDocument] = relationship(back_populates="chunks", foreign_keys=[document_id])
 
 
 class KbIngestionRun(Base):

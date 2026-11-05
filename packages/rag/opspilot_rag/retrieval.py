@@ -200,6 +200,8 @@ class HybridRetriever:
                 "status": str(d.metadata_.get("status", "current")),
                 "lifecycle_tier": lifecycle_tier(d.metadata_.get("status")),
                 "doc_version": d.metadata_.get("version"),
+                # C0-H1: the revision this passage belongs to is (document_id, document_version, document_hash).
+                "document_hash": d.content_hash,
             },
         )
 
@@ -342,6 +344,7 @@ class HybridRetriever:
                         KbChunk.document_id == anchor.document_id,
                         KbChunk.document_version == anchor.document_version,
                         KbDocument.version == anchor.document_version,
+                        KbDocument.content_hash == anchor.metadata.get("document_hash"),  # same revision (C0-H1)
                         KbDocument.status == "active",
                     )
                     .order_by(KbChunk.ordinal)
@@ -372,7 +375,14 @@ class HybridRetriever:
         warnings: list[str],
         exclude_obsolete: bool,
     ) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
-        """Final lifecycle validation against committed document rows (C0-G3).
+        """Final lifecycle validation against committed document rows (C0-G3, C0-H1).
+
+        Validation point: this one statement. A passage survives only if its document's committed revision is the
+        one it was read from (same version *and* document content hash). Because a revision's chunks are immutable
+        (any content change publishes a new version, enforced by migration 0007), the passage text is then exactly
+        that current revision's text. Passages are handed over as value snapshots (content + SHA-256 + revision);
+        nothing re-reads a chunk afterwards, so a revision published after this statement is simply later than the
+        retrieval and cannot alter what was returned.
 
         - A passage whose document is no longer active at that version (replaced or retired since ranking) is
           dropped: its version no longer exists, so it can never be presented as current.
@@ -390,16 +400,25 @@ class HybridRetriever:
                 row.id: row
                 for row in (
                     await session.execute(
-                        select(KbDocument.id, KbDocument.version, KbDocument.status, KbDocument.metadata_).where(
-                            KbDocument.id.in_(ids)
-                        )
+                        select(
+                            KbDocument.id,
+                            KbDocument.version,
+                            KbDocument.content_hash,
+                            KbDocument.status,
+                            KbDocument.metadata_,
+                        ).where(KbDocument.id.in_(ids))
                     )
                 ).all()
             }
 
         def committed(r: RetrievedChunk) -> tuple[bool, str, int]:
             d = docs.get(r.document_id)
-            if d is None or d.status != "active" or d.version != r.document_version:
+            if (
+                d is None
+                or d.status != "active"
+                or d.version != r.document_version
+                or d.content_hash != r.metadata.get("document_hash")  # C0-H1: the same revision, not just its number
+            ):
                 return False, "replaced", 2
             status = str((d.metadata_ or {}).get("status", "current"))
             return True, status, lifecycle_tier(status)
@@ -419,6 +438,16 @@ class HybridRetriever:
         if context and not valid_context:
             warnings.append("section expansion withdrawn: the expanded document's lifecycle changed")
             context = []
+        # C0-H1: one document, one revision. Every survivor matches the committed revision, so a mix cannot remain;
+        # the check is kept explicit (fail closed) rather than implied.
+        revisions: dict[uuid.UUID, set[tuple[int, Any]]] = {}
+        for x in [*kept, *context]:
+            revisions.setdefault(x.document_id, set()).add((x.document_version, x.metadata.get("document_hash")))
+        mixed = {d for d, revs in revisions.items() if len(revs) > 1}
+        if mixed:  # pragma: no cover - unreachable while the checks above hold
+            warnings.append(f"{len(mixed)} document(s) returned mixed revisions; their passages were withdrawn")
+            kept = [r for r in kept if r.document_id not in mixed]
+            context = [c for c in context if c.document_id not in mixed]
         for c in context:
             c.metadata.update({"lifecycle_validated": True})
         if changed:
