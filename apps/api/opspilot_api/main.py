@@ -65,7 +65,10 @@ def create_app(
             app.state.runtime = rt
 
             async def sweep() -> None:  # bounded background maintenance: expire stale approval requests
+                # Start-up reconciliation has just run, so the first pass waits one interval. This also keeps the
+                # sweep from racing start-up work (C0-F4: a test's explicit reconciliation competed with it).
                 while True:
+                    await asyncio.sleep(15)
                     try:
                         if n := await rt.approvals.expire_stale():
                             _log.warning("approval_requests_expired", count=n)
@@ -73,7 +76,6 @@ def create_app(
                         await rt.investigations.reconcile(expired_leases_only=True)  # owners that died mid-run
                     except Exception:
                         _log.exception("maintenance_sweep_failed")
-                    await asyncio.sleep(15)
 
             sweeper = asyncio.create_task(sweep(), name="approval-sweeper")
             try:
