@@ -37,18 +37,17 @@ from opspilot_agents.remediation import enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
 from opspilot_agents.uncertainty import uncertainty_reasons
+from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import (
+    VERDICTS,
     Condition,
+    evaluate_baseline,
     evaluate_health,
     evaluate_metric,
     evaluate_postcondition,
-    health_conditions,
-    metric_conditions,
     overall,
-    postcondition_conditions,
-    recovery_scope,
-    split_by_scope,
-    unrecovered_anomalies,
+    required_conditions,
+    service_summary,
 )
 from opspilot_shared.approvals import action_params_hash
 from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
@@ -1269,17 +1268,12 @@ class InvestigationNodes:
             }
         details = last.get("details") or {}
         start, end = details.get("executed_at_sim"), details.get("sim_now_after")
-        evidence = state.get("evidence", {})
-        # C0-F1: scope comes from the observed incident (alerting service, action targets, unhealthy dependencies
-        # on the affected path); model citations can only add to it. Every anomaly left out is recorded.
-        scope = recovery_scope(dict(state))
-        anomalies, excluded = split_by_scope(unrecovered_anomalies(evidence), scope)
-        metric_conds, informational = metric_conditions(anomalies)
-        health_conds = health_conditions(scope, evidence)
-        post_conds = postcondition_conditions(executions, state.get("remediation_plan") or [], evidence)
+        # C0-F1/C0-G1: scope comes from the observed incident (alerting service, action targets, every service known
+        # to be unhealthy); initial health is resolved across all observations; model citations can only add to it.
+        req = required_conditions(dict(state))
         # Enumerated in full *before* the budget is applied: the budget can only turn a condition into
-        # "not_checked", never remove it.
-        required = [*metric_conds, *health_conds, *post_conds]
+        # "not_checked", never remove it. Baseline conditions need no read and are always unknown.
+        required = req.conditions
         calls = _Calls(self.d.tools, state, self.p, "verify")
         budget = min(self.p.max_verification_checks, max(calls.remaining, 0))
         env = state["incident"]["environment_id"]
@@ -1306,6 +1300,8 @@ class InvestigationNodes:
         # Deduplicate identical tool calls (e.g. two postconditions on the same queue) so the budget counts reads.
         planned: dict[str, tuple[str, dict[str, Any]]] = {}
         for c in required:
+            if c.kind == "baseline":
+                continue
             tool, args = plan_call(c)
             planned.setdefault(f"{tool}:{sorted(args.items())}", (tool, args))
         keys = list(planned)
@@ -1314,6 +1310,9 @@ class InvestigationNodes:
         by_key = dict(zip(checked_keys, results, strict=True))
         checks: list[dict[str, Any]] = []
         for c in required:
+            if c.kind == "baseline":
+                checks.append(evaluate_baseline(c))
+                continue
             tool, args = plan_call(c)
             key = f"{tool}:{sorted(args.items())}"
             if key in omitted_keys:
@@ -1356,13 +1355,16 @@ class InvestigationNodes:
         return {
             **calls.update(),
             "verification": {
+                "contract": VERIFICATION_CONTRACT,
                 "status": status,
+                "verdict": VERDICTS[status],
                 "recovered": status == "recovered",
                 "service": svc,
                 "checks": checks,
-                "informational": informational,
-                "excluded": excluded,
-                "scope": scope,
+                "informational": req.informational,
+                "excluded": req.excluded,
+                "scope": req.scope,
+                "services": service_summary(req, checks),
                 "required": len(required),
                 "budget": budget,
                 "omitted": len([c for c in checks if c["status"] == "not_checked"]),
@@ -1370,9 +1372,10 @@ class InvestigationNodes:
                 "window_end": end,
                 "notes": notes,
                 "criterion": (
-                    "every in-scope anomalous metric inside its metric-specific healthy range, every in-scope "
-                    "service observed unhealthy before the action observed healthy after it, and every action "
-                    "postcondition met"
+                    "every in-scope anomalous metric inside its metric-specific healthy range; fresh affirmative "
+                    "health after the action for the alerting service, every action target and every known-unhealthy "
+                    "service (initially unknown included); every action postcondition met; and the pre-action "
+                    "failure evidence and initial signals established"
                 ),
             },
         }

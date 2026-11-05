@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
+from opspilot_agents.verification import condition_key, required_conditions
+
 OUTCOMES = {
     "mitigated": "Remediation executed and recovery verified.",
     "not_recovered": "Remediation executed but recovery was NOT verified.",
@@ -47,9 +50,14 @@ def impact_state(rca: dict[str, Any]) -> str:
     return "ongoing" if rca.get("impact_ongoing") else "unknown"
 
 
-def verified_recovered(verification: dict[str, Any]) -> bool:
-    """C0-F1 invariant, enforced again at outcome time: "recovered" needs every recorded required condition
-    to have passed. A record claiming recovery with a failed, unknown or unchecked condition is not trusted."""
+def verified_recovered(verification: dict[str, Any], state: dict[str, Any] | None = None) -> bool:
+    """C0-F1/C0-G1 invariant, enforced again at outcome time: "recovered" needs every required condition to have
+    passed. A record claiming recovery with a failed, unknown or unchecked condition is not trusted.
+
+    For records written under the C0-G contract the required conditions are *re-derived* from the recorded state
+    (``verification.required_conditions``), so recovery also fails closed if condition generation was ever
+    incomplete: every re-derived condition must have a passed check. Without the state to re-derive from, a C0-G
+    record is not trusted."""
     if "status" not in verification:  # legacy (pre-C0) record: only the boolean exists
         return bool(verification.get("recovered"))
     if verification.get("status") != "recovered":
@@ -58,7 +66,15 @@ def verified_recovered(verification: dict[str, Any]) -> bool:
     if not checks or any(c.get("status") != "passed" for c in checks):
         return False
     required = verification.get("required")
-    return not isinstance(required, int) or len(checks) >= required
+    if isinstance(required, int) and len(checks) < required:
+        return False
+    if verification.get("contract") != VERIFICATION_CONTRACT:
+        return True  # C0-F record: count/status invariant above (documented legacy path)
+    if not state or not state.get("incident"):
+        return False
+    passed = {condition_key(c.get("kind"), c.get("service"), c.get("name"), c.get("evidence_id")) for c in checks}
+    req = required_conditions(state)
+    return all(condition_key(c.kind, c.service, c.name, c.evidence_id) in passed for c in req.conditions)
 
 
 def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) -> dict[str, Any]:
@@ -81,7 +97,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     elif executions:
         if executions[-1].get("status") != "succeeded":
             code = "remediation_failed"
-        elif verified_recovered(verification):
+        elif verified_recovered(verification, state):
             code = "mitigated"
         elif verification.get("status") == "incomplete":
             code = "verification_incomplete"
@@ -230,8 +246,14 @@ def render_report(state: dict[str, Any]) -> str:
         ver = state.get("verification")
         if ver:
             lines.append(
-                f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'} — {ver.get('notes')}"
+                f"- **Verification:** {'recovered' if ver.get('recovered') else 'NOT recovered'}"
+                f"{' (' + ver['verdict'] + ')' if ver.get('verdict') else ''} — {ver.get('notes')}"
             )
+            for svc, x in (ver.get("services") or {}).items():
+                lines.append(
+                    f"  - {svc} ({', '.join(x['reasons'])}): initial {x['initial']}"
+                    f"{' (conflicting observations)' if x.get('initial_conflict') else ''}, now {x['current']}"
+                )
             for x in ver.get("excluded") or []:
                 lines.append(f"  - Not a recovery condition: {x['service']} {x['metric']} ({x['reason']})")
     else:

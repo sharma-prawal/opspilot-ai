@@ -69,9 +69,19 @@ async def run(state: dict[str, Any], gw: ScriptedGateway, **policy: Any) -> dict
     return (await nodes.verify(state))["verification"]  # type: ignore[arg-type]
 
 
+def fresh_health(status: str = "healthy") -> Any:
+    """Post-action health read, timestamped after the action (C0-G1: required for the alerting service)."""
+    return lambda a: {"service": a["service"], "status": status, "as_of": (T + timedelta(minutes=9)).isoformat()}
+
+
 def metrics(values: dict[str, float | None]) -> ScriptedGateway:
+    # C0-G1: affirmative post-action health of the alerting service is now a required condition whatever its initial
+    # state, so metric-focused fixtures also answer a fresh healthy read; each test still isolates its own condition.
     return ScriptedGateway(
-        {"query_metrics": lambda a: None if values.get(a["metric"]) is None else series(values[a["metric"]])}
+        {
+            "query_metrics": lambda a: None if values.get(a["metric"]) is None else series(values[a["metric"]]),
+            "get_service_health": fresh_health(),
+        }
     )  # type: ignore[arg-type]
 
 
@@ -80,7 +90,7 @@ async def test_audit_reproduction_fifth_anomaly_is_checked() -> None:
     ev = [anomaly(i, f"m{i}") for i in range(5)]
     gw = metrics({f"m{i}": (0.9 if i == 4 else 0.0) for i in range(5)})
     v = await run(make_state(ev), gw)
-    assert [a["metric"] for _, a in gw.calls] == ["m0", "m1", "m2", "m3", "m4"]
+    assert [a["metric"] for t, a in gw.calls if t == "query_metrics"] == ["m0", "m1", "m2", "m3", "m4"]
     assert v["status"] == "not_recovered" and v["recovered"] is False
     assert [c["name"] for c in v["checks"] if c["status"] == "failed"] == ["m4"]
 
@@ -119,8 +129,9 @@ async def test_partial_remediation_is_not_recovered() -> None:
 async def test_insufficient_budget_reports_omitted_checks() -> None:
     ev = [anomaly(i, f"m{i}") for i in range(6)]
     v = await run(make_state(ev), metrics({f"m{i}": 0.0 for i in range(6)}), max_verification_checks=4)
-    assert v["status"] == "incomplete" and v["omitted"] == 2 and v["budget"] == 4
-    assert [c["status"] for c in v["checks"]].count("not_checked") == 2
+    # six metric conditions + the alerting service's health (C0-G1) = 7 reads for a budget of 4
+    assert v["status"] == "incomplete" and v["omitted"] == 3 and v["budget"] == 4
+    assert [c["status"] for c in v["checks"]].count("not_checked") == 3
 
 
 async def test_failed_postconditions_block_recovery() -> None:
@@ -145,10 +156,10 @@ async def test_failed_postconditions_block_recovery() -> None:
         {"inspect_queue": lambda a: {"consumer": {"state": "paused"}, "failures": [{"error_code": "BAD", "count": 7}]}}
     )
     v = await run(make_state([queue], plan, execs), gw)
-    names = {c["name"]: c["status"] for c in v["checks"]}
+    names = {c["name"]: c["status"] for c in v["checks"] if c["kind"] == "postcondition"}
     assert names == {"no_unquarantined:events:BAD": "failed", "consumer_running:events": "failed"}
     assert v["status"] == "not_recovered"
-    assert len(gw.calls) == 1  # one shared inspect_queue read serves both postconditions
+    assert [t for t, _ in gw.calls].count("inspect_queue") == 1  # one shared read serves both postconditions
 
 
 async def test_genuine_full_recovery_with_postconditions() -> None:
@@ -167,6 +178,7 @@ async def test_genuine_full_recovery_with_postconditions() -> None:
     gw = ScriptedGateway(
         {
             "query_metrics": lambda a: series(0.002),
+            "get_service_health": fresh_health(),
             "list_recent_deployments": lambda a: {"deployments": [{"id": "dep-1", "status": "rolled_back"}]},
         }
     )
@@ -179,7 +191,7 @@ async def test_genuine_full_recovery_with_postconditions() -> None:
         gw,
     )
     assert v["status"] == "recovered" and all(c["status"] == "passed" for c in v["checks"])
-    assert {c["kind"] for c in v["checks"]} == {"metric", "postcondition"}
+    assert {c["kind"] for c in v["checks"]} == {"metric", "health", "postcondition"}
     assert all(c.get("evidence_id") and c.get("tool_call_id") for c in v["checks"])  # evidence-linked
 
 
@@ -274,16 +286,23 @@ async def test_multiple_anomalies_on_one_service_are_all_required() -> None:
         anomaly(2, "queue_depth", baseline=40, extreme=900, unit="msgs"),
     ]
     v = await run(make_state(ev), metrics({"http_5xx_ratio": 0.002, "p95_latency_ms": 190, "queue_depth": 600}))
-    assert v["required"] == 3 and len(v["checks"]) == 3
+    assert v["required"] == 4 and len(v["checks"]) == 4  # three metrics + the alerting service's health
     assert v["status"] == "not_recovered"
     assert [c["name"] for c in v["checks"] if c["status"] == "failed"] == ["queue_depth"]
 
 
 async def test_more_conditions_than_budget_is_incomplete_even_when_all_checked_pass() -> None:
     ev = [anomaly(i, f"m{i}") for i in range(5)] + [anomaly(9, "m9", service="worker"), deployment("worker", "dep-x")]
-    gw = ScriptedGateway({"query_metrics": lambda a: series(0.0), "list_recent_deployments": rolled_back()})
+    gw = ScriptedGateway(
+        {
+            "query_metrics": lambda a: series(0.0),
+            "get_service_health": fresh_health(),
+            "list_recent_deployments": rolled_back(),
+        }
+    )
     v = await run(rollback_state(ev), gw, max_verification_checks=3)
-    assert v["required"] == 7 and v["budget"] == 3 and v["omitted"] == 4
+    # 6 metrics + health(svc) + health(worker) + rollback postcondition
+    assert v["required"] == 9 and v["budget"] == 3 and v["omitted"] == 6
     assert v["status"] == "incomplete" and v["recovered"] is False
     assert all(c["status"] in ("passed", "not_checked") for c in v["checks"])
     st = {"status": "completed", "executions": [{"status": "succeeded"}], "verification": v, "rca": {}}
@@ -295,8 +314,9 @@ async def test_tool_budget_exhaustion_cannot_drop_a_required_condition() -> None
     st = make_state(ev)
     st["tool_calls"] = [{}] * 59  # one call left in the investigation's overall tool budget
     v = await run(st, metrics({"m0": 0.0, "m1": 0.0}))
-    assert v["required"] == 2 and v["budget"] == 1
-    assert [c["status"] for c in v["checks"]] == ["passed", "not_checked"] and v["status"] == "incomplete"
+    assert v["required"] == 3 and v["budget"] == 1
+    assert [c["status"] for c in v["checks"]] == ["passed", "not_checked", "not_checked"]
+    assert v["status"] == "incomplete"
 
 
 async def test_one_metric_recovered_another_unhealthy_is_not_recovered() -> None:
@@ -306,7 +326,10 @@ async def test_one_metric_recovered_another_unhealthy_is_not_recovered() -> None
     ]
     v = await run(make_state(ev), metrics({"http_5xx_ratio": 0.002, "db_pool_wait_ms": 3500.0}))
     assert v["status"] == "not_recovered"
-    assert {c["name"]: c["status"] for c in v["checks"]} == {"http_5xx_ratio": "passed", "db_pool_wait_ms": "failed"}
+    assert {c["name"]: c["status"] for c in v["checks"] if c["kind"] == "metric"} == {
+        "http_5xx_ratio": "passed",
+        "db_pool_wait_ms": "failed",
+    }
 
 
 def dependency(caller: str, dep: str, status: str) -> dict[str, Any]:
@@ -325,7 +348,8 @@ def dependency(caller: str, dep: str, status: str) -> dict[str, Any]:
 
 async def test_downstream_dependency_still_unhealthy_blocks_recovery() -> None:
     """svc -> ledger (observed degraded) -> ledger-db path; ledger's own anomaly and health are required even though
-    no citation names ledger."""
+    no citation names ledger. C0-G1: the persistent ``unrelated`` failure is no longer excluded as off-path; it is a
+    known-unhealthy service and stays required (here it has recovered, so only ledger fails)."""
     ev = [
         anomaly(0, "http_5xx_ratio", baseline=0.002, extreme=0.4),
         anomaly(1, "p95_latency_ms", baseline=45, extreme=2900, unit="ms", service="ledger"),
@@ -335,20 +359,20 @@ async def test_downstream_dependency_still_unhealthy_blocks_recovery() -> None:
     ]
     gw = ScriptedGateway(
         {
-            "query_metrics": lambda a: series(0.002 if a["service"] == "svc" else 2500),
+            "query_metrics": lambda a: series({"svc": 0.002, "ledger": 2500, "unrelated": 85}[a["service"]]),
             "get_service_health": lambda a: {
                 "service": a["service"],
-                "status": "degraded",
+                "status": "degraded" if a["service"] == "ledger" else "healthy",
                 "as_of": (T + timedelta(minutes=9)).isoformat(),
             },
         }
     )
     v = await run(make_state(ev), gw)
     assert v["scope"]["ledger"] == ["affected_dependency"] and "fx" not in v["scope"]
+    assert v["scope"]["unrelated"] == ["known_unhealthy"] and v["excluded"] == []
     assert v["status"] == "not_recovered"
     failed = {(c["service"], c["kind"]) for c in v["checks"] if c["status"] == "failed"}
     assert failed == {("ledger", "metric"), ("ledger", "health")}
-    assert [(x["service"], x["reason"]) for x in v["excluded"]] == [("unrelated", "service_outside_recovery_scope")]
 
 
 async def test_missing_telemetry_is_unknown_never_recovered() -> None:
@@ -356,7 +380,8 @@ async def test_missing_telemetry_is_unknown_never_recovered() -> None:
     gw = ScriptedGateway({"query_metrics": lambda a: series(0.002)})  # get_service_health unavailable
     v = await run(make_state(ev), gw)
     health = [c for c in v["checks"] if c["kind"] == "health"]
-    assert [c["status"] for c in health] == ["unknown"] and "tool error" in health[0]["detail"]
+    assert {c["service"] for c in health} == {"svc", "ledger"}
+    assert all(c["status"] == "unknown" and "tool error" in c["detail"] for c in health)
     assert v["status"] == "incomplete" and v["recovered"] is False
 
 

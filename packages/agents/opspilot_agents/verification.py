@@ -1,26 +1,39 @@
-"""Recovery verification (audit findings H4 and C0-F1).
+"""Recovery verification (audit findings H4, C0-F1 and C0-G1).
 
-Invariant: an incident is never reported as recovered while a known required recovery condition is failed,
-unknown or unverified. Every required condition is checked or explicitly reported as not checked; nothing is
-silently truncated, and "recovered" requires every required condition to pass.
+Invariant: an incident is never reported as recovered unless every required recovery condition has
+affirmative, sufficient, fresh supporting evidence. Missing, unknown, unsupported, stale or failed telemetry is
+never equated with health. Every required condition is checked or explicitly reported as not checked; nothing
+is silently truncated, and "recovered" requires every required condition to pass.
 
-Recovery scope (C0-F1). The services whose health must be re-established are derived from the *observed*
-investigation, not from the model's citations:
+Initial health (C0-G1). Each service's state *before* the action is resolved across **all** observations, not
+from any single snapshot: health reads, the health snapshot embedded in a dependency edge, and unrecovered
+metric anomalies in the unhealthy direction (persistent-failure evidence). Any unhealthy/degraded observation
+or failing anomaly makes the service ``unhealthy`` (it wins over a conflicting ``healthy`` read, and the
+conflict is recorded); otherwise any ``healthy`` read makes it ``healthy``; otherwise it is ``unknown``.
+
+Recovery scope. The services whose recovery is required are derived from the *observed* investigation, never
+from the model's ranking or citations alone:
 - the alerting service;
 - every service targeted by an executed remediation step (rollback, pool change, consumer actions, and the
   consumer of a quarantined queue);
-- every dependency observed unhealthy/degraded on a call path from a service already in scope;
+- every dependency whose *resolved* initial state is unhealthy, on an observed call path from a service already
+  in scope (an edge whose own snapshot is missing or healthy cannot hide independent unhealthy evidence);
+- every other service known to be unhealthy in this investigation (``known_unhealthy``): no known failure
+  disappears because it was outside a top-K, uncited, or belongs to a dependency rather than the target;
 - the services the top hypothesis cites (citations can only *add* services, never remove one).
-Every observed unrecovered anomaly outside that scope is listed in ``excluded`` with a machine-readable
-reason, so the scope decision itself is auditable.
 
 Required conditions:
 - each unrecovered metric anomaly in scope that moved in that metric's *unhealthy* direction, or whose
   metric has no known health semantics;
-- a health condition for each in-scope service observed unhealthy/degraded before the action (it must be
-  observed ``healthy`` again, after the action);
+- a fresh, affirmative ``healthy`` health observation after the action for the alerting service, every action
+  target, every affected dependency and every known-unhealthy service, whatever its initial state (an
+  initially *unknown* service needs positive post-action health exactly as an unhealthy one does). A cited
+  service with only healthy/unknown observations is not required;
 - an action postcondition for each executed step (the change took effect / the system is in the state the
-  plan intended, e.g. a paused consumer is running again).
+  plan intended, e.g. a paused consumer is running again);
+- baseline sufficiency: an in-scope required metric whose *initial* read failed or had too few points, or a
+  missing metric catalogue, is an unverifiable signal (``unknown``); and when no in-scope service had any
+  observed failure before the action, a healthy-looking snapshot cannot confirm *recovery* (``unknown``).
 
 Metric checks use metric-specific health semantics and acceptable ranges: a higher-is-bad metric must return
 to within a band above its baseline (dropping below baseline is healthy); a lower-is-bad metric must return
@@ -29,6 +42,9 @@ return inside a two-sided band, so an opposite-direction excursion fails. The ba
 original excursion, but never wider than the metric's own residual limit (``RESIDUAL_LIMITS``): a 5xx ratio
 that fell from 40% to 8% has *improved*, it has not *recovered*. Load and configuration metrics are
 informational and never block recovery.
+
+``required_conditions`` is a pure function of the recorded state, so the outcome step re-derives it and refuses
+``mitigated`` unless every one of those conditions has a passed check (``report.verified_recovered``).
 """
 
 from __future__ import annotations
@@ -55,6 +71,11 @@ INFORMATIONAL = frozenset({"http_requests_per_min", "db_pool_max"})  # load / co
 BAND_FRACTION = 0.25
 MIN_POST_POINTS = 3
 UNHEALTHY_STATUSES = frozenset({"unhealthy", "degraded"})
+HEALTHY, UNHEALTHY, UNKNOWN = "healthy", "unhealthy", "unknown"
+VERDICTS = {"recovered": "VERIFIED", "not_recovered": "FAILED", "incomplete": "INCOMPLETE"}
+CONTRACT = "c0g"  # verification records carrying this are re-derived at outcome time (report.verified_recovered)
+# Scope reasons that make positive post-action health a required condition (cited-only services excluded).
+HEALTH_REQUIRED_REASONS = frozenset({"alerting_service", "action_target", "affected_dependency", "known_unhealthy"})
 
 # Largest residual deviation (in the unhealthy direction, from baseline) that still counts as *recovered*,
 # as a function of the baseline. Independent of how large the original excursion was.
@@ -107,27 +128,76 @@ def _step_targets(step: dict[str, Any], evidence: dict[str, dict[str, Any]]) -> 
     return out
 
 
-def _dependency_edges(evidence: dict[str, dict[str, Any]]) -> list[tuple[str, str, str]]:
-    """(caller, dependency, observed status) for every dependency observation."""
+def _dependency_edges(evidence: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
+    """(caller, dependency) for every observed dependency edge. The edge's embedded health snapshot is *not*
+    used here: a dependency's state comes from ``initial_health``, which considers every observation."""
     edges = []
     for e in evidence.values():
         if e["kind"] != "dependency":
             continue
         edge = e["data"].get("edge") or {}
-        status = (e["data"].get("health") or {}).get("status") or "unknown"
         if edge.get("service") and edge.get("depends_on"):
-            edges.append((edge["service"], edge["depends_on"], status))
+            edges.append((edge["service"], edge["depends_on"]))
     return edges
 
 
-def recovery_scope(state: dict[str, Any]) -> dict[str, list[str]]:
+def _health_label(status: Any) -> str:
+    if status == HEALTHY:
+        return HEALTHY
+    if status in UNHEALTHY_STATUSES:
+        return UNHEALTHY
+    return UNKNOWN
+
+
+def _failing(anomaly: dict[str, Any]) -> bool:
+    """An unrecovered anomaly that is evidence of failure: unhealthy direction, or unknown semantics."""
+    d = anomaly["data"]
+    sem = semantics(d.get("metric", ""))
+    return (
+        sem == "two_sided"
+        or (sem == "higher_is_bad" and d.get("direction", "up") == "up")
+        or (sem == "lower_is_bad" and d.get("direction") == "down")
+    )
+
+
+def initial_health(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Each observed service's pre-action state, resolved across every observation (see module docstring)."""
+    evidence: dict[str, dict[str, Any]] = state.get("evidence") or {}
+    obs: dict[str, list[dict[str, Any]]] = {}
+
+    def note(svc: str | None, eid: str, source: str, label: str, raw: Any) -> None:
+        if svc:
+            obs.setdefault(svc, []).append({"evidence_id": eid, "source": source, "status": label, "raw": raw})
+
+    for e in sorted(evidence.values(), key=lambda e: e["id"]):
+        if e["kind"] == "service_health":
+            raw = e["data"].get("status")
+            note(e.get("service"), e["id"], "service_health", _health_label(raw), raw)
+        elif e["kind"] == "dependency" and e["data"].get("health"):
+            raw = e["data"]["health"].get("status")
+            note(e.get("service"), e["id"], "dependency_snapshot", _health_label(raw), raw)
+        elif e["kind"] == "metric_anomaly" and _unrecovered(e) and _failing(e):
+            note(e.get("service"), e["id"], "unrecovered_anomaly", UNHEALTHY, e["data"].get("metric"))
+    out: dict[str, dict[str, Any]] = {}
+    for svc, items in sorted(obs.items()):
+        labels = {i["status"] for i in items}
+        status = UNHEALTHY if UNHEALTHY in labels else HEALTHY if HEALTHY in labels else UNKNOWN
+        out[svc] = {"status": status, "conflict": {HEALTHY, UNHEALTHY} <= labels, "observations": items}
+    return out
+
+
+def recovery_scope(state: dict[str, Any], states: dict[str, dict[str, Any]] | None = None) -> dict[str, list[str]]:
     """Services whose recovery is required, each with the reasons it is in scope."""
     evidence: dict[str, dict[str, Any]] = state.get("evidence") or {}
+    states = initial_health(state) if states is None else states
     scope: dict[str, list[str]] = {}
 
     def add(svc: str | None, reason: str) -> None:
         if svc and reason not in scope.setdefault(svc, []):
             scope[svc].append(reason)
+
+    def unhealthy(svc: str) -> bool:
+        return (states.get(svc) or {}).get("status") == UNHEALTHY
 
     add(state["incident"]["service"], "alerting_service")
     by_step = {p.get("step"): p for p in state.get("remediation_plan") or []}
@@ -143,25 +213,32 @@ def recovery_scope(state: dict[str, Any]) -> dict[str, list[str]]:
     changed = True
     while changed:  # transitive: an unhealthy dependency of anything in scope is on the affected path
         changed = False
-        for caller, dep, status in edges:
-            if caller in scope and status in UNHEALTHY_STATUSES and "affected_dependency" not in scope.get(dep, []):
+        for caller, dep in edges:
+            if caller in scope and unhealthy(dep) and "affected_dependency" not in scope.get(dep, []):
                 add(dep, "affected_dependency")
                 changed = True
+    for svc in sorted(states):  # every remaining known failure stays required
+        if unhealthy(svc) and svc not in scope:
+            add(svc, "known_unhealthy")
     return scope
 
 
+def _unrecovered(e: dict[str, Any]) -> bool:
+    return e["kind"] == "metric_anomaly" and e["data"].get("anomaly", True) and not e["data"].get("recovered")
+
+
 def unrecovered_anomalies(evidence: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        e
-        for e in evidence.values()
-        if e["kind"] == "metric_anomaly" and e["data"].get("anomaly", True) and not e["data"].get("recovered")
-    ]
+    return [e for e in evidence.values() if _unrecovered(e)]
 
 
 def split_by_scope(
     anomalies: list[dict[str, Any]], scope: dict[str, list[str]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """In-scope anomalies, and an exclusion record (with reason) for every other one."""
+    """In-scope anomalies, and an exclusion record (with reason) for every other one.
+
+    Since C0-G1 every service with a failing unrecovered anomaly is in scope (``known_unhealthy``), so the only
+    anomalies that can still be excluded are healthy-direction/informational ones and anomalies with no service.
+    """
     inside, excluded = [], []
     for a in anomalies:
         if a.get("service") in scope:
@@ -174,8 +251,8 @@ def split_by_scope(
                     "evidence_id": a["id"],
                     "reason": "service_outside_recovery_scope",
                     "detail": (
-                        f"{a.get('service')} is not the alerting service, an action target, an unhealthy "
-                        "dependency on an affected call path, or cited by the top hypothesis"
+                        f"{a.get('service')} has no failing anomaly or unhealthy observation and is not the "
+                        "alerting service, an action target, an affected dependency, or cited by the top hypothesis"
                     ),
                 }
             )
@@ -255,21 +332,17 @@ def evaluate_metric(cond: Condition, points: list[float] | None) -> dict[str, An
 
 
 # ----------------------------------------------------------------------------- health
-def health_conditions(scope: dict[str, list[str]], evidence: dict[str, dict[str, Any]]) -> list[Condition]:
-    """A health condition for each in-scope service observed unhealthy/degraded before the action."""
-    observed: dict[str, tuple[str, str]] = {}  # service -> (status, evidence id); unhealthy observations win
-    for e in sorted(evidence.values(), key=lambda e: e["id"]):
-        if e["kind"] == "service_health":
-            svc, status = e.get("service"), e["data"].get("status")
-        elif e["kind"] == "dependency":
-            svc, status = e.get("service"), (e["data"].get("health") or {}).get("status")
-        else:
+def health_conditions(scope: dict[str, list[str]], states: dict[str, dict[str, Any]]) -> list[Condition]:
+    """Positive post-action health is required for every in-scope service whose reasons demand it, and for any
+    in-scope service known to be unhealthy, whatever its initial state (C0-G1)."""
+    out = []
+    for svc, reasons in sorted(scope.items()):
+        st = states.get(svc) or {"status": UNKNOWN, "observations": []}
+        if not (HEALTH_REQUIRED_REASONS & set(reasons)) and st["status"] != UNHEALTHY:
             continue
-        if svc in scope and status in UNHEALTHY_STATUSES:
-            observed.setdefault(svc, (status, e["id"]))
-    return [
-        Condition("health", svc, "health", eid, {"before": status}) for svc, (status, eid) in sorted(observed.items())
-    ]
+        first = next((o["evidence_id"] for o in st["observations"] if o["status"] == st["status"]), None)
+        out.append(Condition("health", svc, "health", first, {"before": st["status"]}))
+    return out
 
 
 def evaluate_health(cond: Condition, data: dict[str, Any] | None, executed_at: str | None) -> dict[str, Any]:
@@ -277,10 +350,17 @@ def evaluate_health(cond: Condition, data: dict[str, Any] | None, executed_at: s
     if data is None:
         return {**base, "status": "unknown", "detail": "post-remediation health could not be observed"}
     status, as_of = data.get("status"), data.get("as_of")
+    if executed_at and not as_of:
+        return {**base, "status": "unknown", "observed": status, "detail": "health observation has no timestamp"}
     if executed_at and as_of and datetime.fromisoformat(str(as_of)) < datetime.fromisoformat(executed_at):
         return {**base, "status": "unknown", "observed": status, "detail": f"stale health observation ({as_of})"}
     if status == "healthy":
-        return {**base, "status": "passed", "observed": status, "detail": f"was {cond.spec['before']}, now healthy"}
+        return {
+            **base,
+            "status": "passed",
+            "observed": status,
+            "detail": f"initially {cond.spec['before']}, now healthy",
+        }
     if status in UNHEALTHY_STATUSES:
         return {**base, "status": "failed", "observed": status, "detail": f"still {status} after remediation"}
     return {**base, "status": "unknown", "observed": status, "detail": f"health status {status or 'missing'}"}
@@ -373,6 +453,101 @@ def evaluate_postcondition(cond: Condition, data: dict[str, Any] | None) -> dict
     else:  # pragma: no cover
         return {**base, "status": "unknown", "detail": f"no evaluator for {cond.name}"}
     return {**base, "status": "passed" if ok else "failed", "observed": observed, "detail": f"observed {observed}"}
+
+
+# ----------------------------------------------------------------------------- baseline sufficiency
+def baseline_conditions(
+    state: dict[str, Any], scope: dict[str, list[str]], states: dict[str, dict[str, Any]]
+) -> list[Condition]:
+    """Signals whose initial state was never established, and the absence of any pre-action failure evidence.
+
+    These conditions have no post-action read that could satisfy them, so they are always ``unknown``: recovery
+    of a signal that was never observed cannot be confirmed (C0-G1)."""
+    out: list[Condition] = []
+    coverage: dict[str, dict[str, Any]] = state.get("telemetry_coverage") or {}
+    for svc, reasons in sorted(scope.items()):
+        if not HEALTH_REQUIRED_REASONS & set(reasons):
+            continue
+        cov = coverage.get(svc) or {}
+        if cov.get("catalog_failed"):
+            out.append(Condition("baseline", svc, "initial:metric_catalogue", None, {"gap": "catalogue unavailable"}))
+        for metric, err in sorted((cov.get("metrics_failed") or {}).items()):
+            if semantics(metric) != "informational":
+                out.append(Condition("baseline", svc, f"initial:{metric}", None, {"gap": f"read failed: {err}"}))
+        for metric in sorted(cov.get("metrics_insufficient") or []):
+            if semantics(metric) != "informational":
+                out.append(Condition("baseline", svc, f"initial:{metric}", None, {"gap": "too few data points"}))
+    if not any((states.get(svc) or {}).get("status") == UNHEALTHY for svc in scope):
+        alerting = state["incident"]["service"]
+        out.append(
+            Condition(
+                "baseline",
+                alerting,
+                "failure_evidence",
+                None,
+                {"gap": "no failure was observed before the action; a healthy snapshot cannot confirm recovery"},
+            )
+        )
+    return out
+
+
+def evaluate_baseline(cond: Condition) -> dict[str, Any]:
+    return {
+        "kind": "baseline",
+        "service": cond.service,
+        "name": cond.name,
+        "evidence_id": cond.evidence_id,
+        "status": "unknown",
+        "detail": f"initial evidence insufficient: {cond.spec['gap']}",
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class Requirements:
+    states: dict[str, dict[str, Any]]
+    scope: dict[str, list[str]]
+    excluded: list[dict[str, Any]]
+    informational: list[dict[str, Any]]
+    conditions: list[Condition]
+
+
+def required_conditions(state: dict[str, Any]) -> Requirements:
+    """Every required recovery condition, as a pure function of the recorded state. Enumerated in full before
+    any tool budget is applied, and re-derived at outcome time."""
+    evidence = state.get("evidence") or {}
+    states = initial_health(state)
+    scope = recovery_scope(state, states)
+    anomalies, excluded = split_by_scope(unrecovered_anomalies(evidence), scope)
+    metric_conds, informational = metric_conditions(anomalies)
+    conditions = [
+        *metric_conds,
+        *health_conditions(scope, states),
+        *postcondition_conditions(state.get("executions") or [], state.get("remediation_plan") or [], evidence),
+        *baseline_conditions(state, scope, states),
+    ]
+    return Requirements(states, scope, excluded, informational, conditions)
+
+
+def condition_key(kind: Any, service: Any, name: Any, evidence_id: Any) -> str:
+    return f"{kind}|{service or ''}|{name}|{evidence_id or ''}"
+
+
+def service_summary(req: Requirements, checks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Initial and current health per in-scope service (HEALTHY / UNHEALTHY / UNKNOWN)."""
+    current: dict[str, str] = {}
+    for c in checks:
+        if c["kind"] == "health":
+            current[c["service"]] = {"passed": "HEALTHY", "failed": "UNHEALTHY"}.get(c["status"], "UNKNOWN")
+    out = {}
+    for svc, reasons in sorted(req.scope.items()):
+        st = req.states.get(svc) or {"status": UNKNOWN, "conflict": False}
+        out[svc] = {
+            "reasons": reasons,
+            "initial": st["status"].upper(),
+            "initial_conflict": bool(st.get("conflict")),
+            "current": current.get(svc, "NOT_REQUIRED"),
+        }
+    return out
 
 
 # ----------------------------------------------------------------------------- outcome
