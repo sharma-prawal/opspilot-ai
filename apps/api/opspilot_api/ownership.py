@@ -335,6 +335,8 @@ class ExecutionOwnership:
                     await self._conn.execute(
                         "SELECT pg_advisory_unlock(%s, %s)", (LOCK_NAMESPACE, LOCK_EXECUTION_OWNER)
                     )
+            except Exception as exc:  # the session is already gone: PostgreSQL released its lock with it
+                _log.warning("execution_owner_unlock_failed", database=self._db, error=str(exc)[:200])
             finally:
                 await self._conn.close()
         if was_held:
