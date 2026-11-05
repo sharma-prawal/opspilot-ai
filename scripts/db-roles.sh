@@ -14,9 +14,20 @@ SU=${POSTGRES_SUPERUSER:-postgres}
 APP=${DB_USER:-opspilot_app}
 READ=${MCP_READ_DB_USER:-opspilot_mcp_read}
 ACT=${MCP_ACTIONS_DB_USER:-opspilot_mcp_actions}
+DB_NAME=${DB_NAME:-opspilot}
+TEST_DB_NAME=${TEST_DB_NAME:-opspilot_test}
 [[ -n "${MCP_READ_DB_PASSWORD:-}" && -n "${MCP_ACTIONS_DB_PASSWORD:-}" ]] \
-  || { fail "MCP_READ_DB_PASSWORD / MCP_ACTIONS_DB_PASSWORD not set in .env (run scripts/bootstrap.sh)"; exit 1; }
-psql_su() { docker exec -i opspilot-postgres psql -v ON_ERROR_STOP=1 -U "$SU" "$@"; }
+  || { fail "MCP_READ_DB_PASSWORD / MCP_ACTIONS_DB_PASSWORD not set (run scripts/bootstrap.sh or set in environment)"; exit 1; }
+
+POSTGRES_CONTAINER=${POSTGRES_CONTAINER:-opspilot-postgres}
+if [[ "${OPSPILOT_ENV:-}" != "ci" ]] && docker_ready && docker inspect "$POSTGRES_CONTAINER" >/dev/null 2>&1; then
+  psql_su() { docker exec -i "$POSTGRES_CONTAINER" psql -v ON_ERROR_STOP=1 -U "$SU" "$@"; }
+else
+  psql_su() {
+    PGPASSWORD="${POSTGRES_SUPERUSER_PASSWORD:-${PGPASSWORD:-}}" \
+      psql -v ON_ERROR_STOP=1 -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5433}" -U "$SU" "$@"
+  }
+fi
 
 psql_su -d postgres -v r="$READ" -v rp="$MCP_READ_DB_PASSWORD" -v a="$ACT" -v ap="$MCP_ACTIONS_DB_PASSWORD" >/dev/null <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT', :'r')
@@ -27,7 +38,17 @@ SELECT format('ALTER ROLE %I PASSWORD %L', :'r', :'rp') \gexec
 SELECT format('ALTER ROLE %I PASSWORD %L', :'a', :'ap') \gexec
 SQL
 
-for db in "$DB_NAME" "$TEST_DB_NAME"; do
+target_dbs=()
+for db in $(printf '%s\n' "$DB_NAME" "$TEST_DB_NAME" | sort -u); do
+  [[ -z "$db" ]] && continue
+  if psql_su -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$db'" 2>/dev/null | grep -q 1; then
+    target_dbs+=("$db")
+  fi
+done
+
+[[ ${#target_dbs[@]} -gt 0 ]] || { fail "None of the specified target databases exist in PostgreSQL"; exit 1; }
+
+for db in "${target_dbs[@]}"; do
   psql_su -d "$db" -v r="$READ" -v a="$ACT" -v app="$APP" -v db="$db" >/dev/null <<'SQL'
 SET client_min_messages = warning;
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I, %I', :'db', :'r', :'a') \gexec
@@ -49,4 +70,4 @@ SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA sim GRANT SELECT, 
 SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA sim GRANT USAGE, SELECT ON SEQUENCES TO %I', :'app', :'a') \gexec
 SQL
 done
-ok "MCP roles '$READ' and '$ACT' provisioned for '$DB_NAME' and '$TEST_DB_NAME'"
+ok "MCP roles '$READ' and '$ACT' provisioned for ${target_dbs[*]}"

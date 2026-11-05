@@ -40,6 +40,12 @@ jobs:
       TEST_DB_NAME: opspilot_test
       OPERATOR_TOKEN: ci-operator-token-0123456789
       ACTION_SIGNING_KEY: ci-signing-key-0123456789abcdef
+      POSTGRES_SUPERUSER: postgres
+      POSTGRES_SUPERUSER_PASSWORD: ci-superuser
+      MCP_READ_DB_USER: opspilot_mcp_read
+      MCP_READ_DB_PASSWORD: ci-mcp-read-password
+      MCP_ACTIONS_DB_USER: opspilot_mcp_actions
+      MCP_ACTIONS_DB_PASSWORD: ci-mcp-actions-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,6 +64,10 @@ jobs:
       - run: uv run ruff check . && uv run ruff format --check .
       - run: uv run mypy apps/api packages services
       - run: uv run lint-imports
+      - name: Migrate test database and provision MCP database roles
+        run: |
+          uv run opspilot migrate --database opspilot_test
+          ./scripts/db-roles.sh
       # Hash embedder + scripted model; real Postgres, LangGraph checkpointer and MCP protocol.
       - run: uv run pytest
 
