@@ -52,7 +52,7 @@ stateDiagram-v2
 | `propose` | Validate each plan step against evidence and safety gates; canonical order; derive stable action IDs | no | — |
 | `await_approval` | `interrupt()` with the exact action; validate the resume payload | no | — |
 | `execute` / `advance` | Execute one approved step; advance to the next step (which needs its own approval) | no | `execute_remediation` (action server) |
-| `verify` | Every unrecovered anomalous metric must return within 25% of its excursion from baseline | no | `query_metrics` |
+| `verify` | Every required recovery condition in the observed scope passes (see "Recovery verification") | no | `query_metrics`, `get_service_health`, postcondition reads |
 | `report` | Deterministic outcome + escalation; render RCA markdown from state | no | — |
 
 Deterministic analysis runs as plain code — the LLM is used where judgement is needed
@@ -129,6 +129,15 @@ The resume value must reference the same action ID and parameter hash or the nod
   sweep redeliver, finalise or interrupt runs whose process died (C0 H3).
 - Execution ownership is a DB lease (`run_owner`, `run_lease_until`) renewed while a segment runs, so two API
   processes cannot run one workflow. A resume command re-checks the pause after taking the lease (C0 G).
+- **Lease fencing (C0-F2).** A renewal that finds another owner (or cannot renew before expiry) cancels the
+  segment; every runner write re-checks ownership under a row lock, so a stale owner that resumes after a
+  takeover records nothing. The checkpointer's own writes are not fenced; effects stay idempotent per action ID.
+- **Atomic admission (C0-F2).** `start` reserves an admission slot synchronously before writing, creates the row
+  with this process's lease, and hands the reservation to `submit` (no second capacity check). A refused start
+  writes nothing; a failed transaction releases its slot; in-process duplicate starts are single-flighted (409).
+  Accepted work whose dispatch failed, or whose process died before running it (`queued`, no checkpoint), is
+  re-dispatched by the sweep once its lease has expired or was released (NULL leases are now swept). Runs that had
+  started become `interrupted` for an explicit operator resume, as before. No DB transaction spans model inference.
 - Restart: any run in a non-terminal state can be continued with `graph.ainvoke(None, config)`
   (exposed as `POST /api/v1/investigations/{id}/resume`).
 - `tests/integration/test_checkpoint_resume.py` builds a graph, runs it to the interrupt, discards
@@ -166,18 +175,30 @@ After the gates, a valid plan is **withheld** (`withheld_uncertain`) when:
 An explicit escalation yields `escalated`; any other withheld plan yields `inconclusive`. There is no operator
 override in this phase.
 
-## Recovery verification (C0 H4)
+## Recovery verification (C0 H4, C0-F1)
 
-`verify` checks *every* required condition or reports it as `not_checked` against an explicit budget
-(`max_verification_checks`, default 16). The result is `recovered`, `not_recovered` or `incomplete`.
+Invariant: an incident is never `mitigated` while a known required recovery condition is failed, unknown or
+unverified. `verify` enumerates *every* required condition first, then checks them or reports `not_checked`
+against an explicit budget (`max_verification_checks`, default 16, and the remaining tool budget). The result is
+`recovered`, `not_recovered` or `incomplete`; `determine_outcome` re-checks the invariant (every required
+condition has a passed check) before it reports `mitigated`.
 
-- **Metric conditions:** every unrecovered anomaly that moved in its metric's unhealthy direction.
-  - Higher-is-bad metrics pass below baseline.
-  - Lower-is-bad metrics may overshoot, so a backlog drain is healthy.
+- **Scope (C0-F1)** is derived from the observed incident, recorded per service with its reasons:
+  the alerting service; every executed step's target (and the consumer of a quarantined queue); every
+  dependency observed unhealthy/degraded on a call path from a service in scope (transitively); and services the
+  top hypothesis cites. Citations can only add services. Every anomaly outside the scope is listed in `excluded`
+  with a machine-readable reason.
+- **Metric conditions:** every in-scope unrecovered anomaly that moved in its metric's unhealthy direction.
+  - The acceptable range is a quarter of the excursion, capped by a metric-specific residual limit (e.g. 5xx
+    ratio ≤ baseline + 1 point; p95 ≤ baseline + max(100 ms, 50%)), so "improved" is not "recovered".
+  - Higher-is-bad metrics pass below baseline; lower-is-bad metrics may overshoot (a backlog drain is healthy).
   - Unknown metrics use a two-sided band and fail on opposite-direction excursions.
   - Load and config metrics are informational only.
+- **Health conditions (C0-F1):** an in-scope service observed unhealthy/degraded before the action must be
+  observed `healthy` after it. Unhealthy afterwards fails (also when its metrics look quiet); missing or stale
+  (older than the action) health is `unknown`.
 - **Postconditions:** rollback applied, pool size applied, no unquarantined failing messages, consumer running.
-- Each check links to its anomaly evidence and its tool call.
+- Each check links to its anomaly/health evidence and its tool call; missing telemetry is `unknown`, never passed.
 
 ## Outcomes
 

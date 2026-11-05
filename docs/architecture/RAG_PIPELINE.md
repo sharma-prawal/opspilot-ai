@@ -67,6 +67,15 @@ flowchart LR
 - **Citation snapshots (C0 J):** each result carries the full chunk `content` and `content_sha256`. The agent
   stores the passage, its hash, the document version, the lifecycle status and the retrieval time in the
   evidence citation, so an RCA stays reconstructable after re-ingestion replaces the chunks.
+- **Section coverage (C0-F3):** heading-aware chunking means top-k can select a runbook's symptom paragraph while
+  its diagnostic, remediation and constraint sections rank poorly. With `expand_sections=N` (0–4; MCP
+  `search_runbooks`), the retriever also returns, in `context`, up to N other sections of the **top-ranked current
+  runbook/troubleshooting document at the same document version**, chosen by a generic section role (remediation >
+  constraints > diagnostics > causes > symptoms > other, from heading or text) and returned in document order.
+  Only one document; lifecycle tier 0 only; superseded, unreviewed and incident documents are never expanded;
+  `results` and the lifecycle ranking are unchanged. The agent requests 4; each section becomes cited evidence
+  (full passage snapshot) ranked just below its anchor, and the knowledge observation records the roles covered.
+  Coverage is not proof of causality: the RCA must still justify any action, and the gates are unchanged.
 - **Trace**: every search writes a row with query, filters, mode, latency and the ranked result IDs.
 
 ## Trust boundary

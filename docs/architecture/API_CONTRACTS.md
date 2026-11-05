@@ -66,7 +66,7 @@ FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema a
 | POST 🔒 | `/api/v1/incidents/simulate` | `{"scenario": "INC-001"}` → `201` new environment + incident |
 | GET | `/api/v1/incidents/{id}` | incident |
 | GET | `/api/v1/incidents/{id}/investigations` | investigations for the incident |
-| POST 🔒 | `/api/v1/incidents/{id}/investigations` | start → `202 {"investigation_id", "status", "status_url"}`; `409` if one is already active (DB-enforced); `429` at the admission limit |
+| POST 🔒 | `/api/v1/incidents/{id}/investigations` | start → `202 {"investigation_id", "status", "status_url"}`; `409` if one is already active (DB-enforced; concurrent duplicates answer 409 even at the admission limit); `429` at the admission limit, with nothing written. A `202` row is durable: if dispatch fails it is re-dispatched by the maintenance sweep |
 
 ## Investigations
 
@@ -107,4 +107,6 @@ Read server `opspilot-ops-read` (all `readOnlyHint=true`): `get_incident`, `sear
 `search_runbooks`, `get_historical_incidents`.
 Action server `opspilot-ops-actions`: `execute_remediation(action_id, approval_token)` (`destructiveHint=true`;
 no parameter arguments — parameters come from the persisted request), `get_action_execution(action_id)`.
-Bounds: service names `^[a-z][a-z0-9-]{1,62}$`, windows ≤ 24 h, `limit ≤ 500`, `top_k ≤ 10`, query ≤ 500 chars.
+Bounds: service names `^[a-z][a-z0-9-]{1,62}$`, windows ≤ 24 h, `limit ≤ 500`, `top_k ≤ 10`, query ≤ 500 chars,
+`search_runbooks.expand_sections ≤ 4` (default 0: further sections of the top current runbook, returned in `context`;
+C0-F3).

@@ -4,15 +4,15 @@
 
 ## Retrieval (measured)
 
-Run 2026-11-04T16:00:01+00:00 · git `cc275d7` · embeddings `qwen3-embedding:0.6b` · Darwin arm64 · document-level relevance, 30 chunks per query collapsed to a document ranking.
+Run 2026-11-05T06:33:17+00:00 · git `62a9e21` · embeddings `qwen3-embedding:0.6b` · Darwin arm64 · document-level relevance, 30 chunks per query collapsed to a document ranking.
 
 ### Held-out set (30 questions)
 
 | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 | p50 | p95 | misses@5 |
 |---|---|---|---|---|---|---|---|
-| vector | 0.889 | 1.000 | 0.825 | 0.841 | 31.3 ms | 42.9 ms | 2 |
-| keyword | 0.872 | 0.983 | 0.637 | 0.723 | 4.0 ms | 7.2 ms | 2 |
-| hybrid | 0.972 | 1.000 | 0.767 | 0.810 | 35.5 ms | 45.9 ms | 0 |
+| vector | 0.889 | 1.000 | 0.825 | 0.841 | 34.2 ms | 43.0 ms | 2 |
+| keyword | 0.872 | 0.983 | 0.637 | 0.723 | 5.1 ms | 9.5 ms | 2 |
+| hybrid | 0.972 | 1.000 | 0.767 | 0.810 | 41.7 ms | 52.8 ms | 0 |
 
 nDCG@10 by query style:
 
@@ -26,9 +26,9 @@ nDCG@10 by query style:
 
 | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 | p50 | p95 | misses@5 |
 |---|---|---|---|---|---|---|---|
-| vector | 0.956 | 1.000 | 0.950 | 0.932 | 32.0 ms | 40.9 ms | 0 |
-| keyword | 0.878 | 1.000 | 0.773 | 0.813 | 4.3 ms | 7.9 ms | 1 |
-| hybrid | 0.967 | 1.000 | 0.908 | 0.911 | 35.8 ms | 44.9 ms | 0 |
+| vector | 0.956 | 1.000 | 0.950 | 0.932 | 34.9 ms | 43.6 ms | 0 |
+| keyword | 0.878 | 1.000 | 0.773 | 0.813 | 4.8 ms | 9.3 ms | 1 |
+| hybrid | 0.967 | 1.000 | 0.908 | 0.911 | 40.4 ms | 47.6 ms | 0 |
 
 nDCG@10 by query style:
 
@@ -44,8 +44,8 @@ The agent's own knowledge node over the MCP read server: `search_runbooks` (top 
 
 | Set | questions | hit | doc recall | runbook-path recall | MRR | precision | passages | non-current passages | p50 | p95 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Held-out | 30 | 1.000 | 0.956 | 0.822 | 0.605 | 0.383 | 8.000 | 0 | 41.64 | 47.76 |
-| Development | 30 | 1.000 | 0.978 | 0.789 | 0.741 | 0.454 | 8.000 | 0 | 42.78 | 88.66 |
+| Held-out | 30 | 1.000 | 0.956 | 0.822 | 0.603 | 0.419 | 9.300 | 0 | 56.66 | 70.95 |
+| Development | 30 | 1.000 | 0.978 | 0.789 | 0.735 | 0.491 | 9.533 | 0 | 52.67 | 85.47 |
 
 Held-out questions with no relevant passage supplied to the RCA prompt:
 
@@ -53,27 +53,31 @@ Held-out questions with no relevant passage supplied to the RCA prompt:
 
 ## Resources on this machine (measured)
 
-Run 2026-11-04T16:00:09+00:00 · git `cc275d7` · Apple M5 Pro · 24.0 GB · limits: embeddings 2 in flight, chat 1, investigations 1 running / 4 admitted. Ollama memory = RSS of all `ollama` processes, sampled every 100 ms.
+Run 2026-11-05T06:33:26+00:00 · git `62a9e21` · Apple M5 Pro · 24.0 GB · limits: embeddings 2 in flight, chat 1, investigations 1 running / 4 admitted. Ollama memory = RSS of all `ollama` processes, sampled every 100 ms.
 
 | Workload | wall ms | p50 ms | p95 ms | peak in flight | Ollama peak RSS MB |
 |---|---|---|---|---|---|
-| 32 concurrent embeddings, bound 2 | 513.8 | 247.1 | 461.68 | 2 | 6130.9 |
-| 32 concurrent embeddings, bound 16 | 535.5 | 252.3 | 470.22 | 16 | 6131.8 |
-| one structured `qwen3:8b` call (38+18 tokens) | 550.2 | — | — | 1 | 6175.0 |
+| 32 concurrent embeddings, bound 2 | 814.3 | 354.7 | 666.98 | 2 | 6353.1 |
+| 32 concurrent embeddings, bound 16 | 697.3 | 372.4 | 681.2 | 16 | 6353.6 |
+| one structured `qwen3:8b` call (38+18 tokens) | 883.9 | — | — | 1 | 6840.3 |
 
-Ollama idle RSS (embedding model loaded): 6130.8 MB. Models loaded afterwards: `qwen3:8b` 4881 MB, `qwen3-embedding:0.6b` 962 MB.
+Ollama idle RSS (embedding model loaded): 6352.7 MB. Models loaded afterwards: `qwen3-embedding:0.6b` 962 MB, `qwen3:8b` 4881 MB.
 
 ## Agent workflow (measured)
 
-Run 2026-11-04T16:07:55+00:00 · git `cc275d7` · LLM `qwen3:8b` (temperature 0.0, num_ctx 8192) · 2 approve-everything trial(s) per scenario + 1 INC-001 rejection trial.
+Run 2026-11-05T06:41:03+00:00 · git `62a9e21` · LLM `qwen3:8b` (temperature 0.0, num_ctx 8192) · 2 approve-everything trial(s) per scenario + 1 INC-001 rejection trial.
 
 | Metric | Value |
 |---|---|
 | runs | 13 |
 | completion rate | 1.000 |
-| outcome accuracy | 0.923 |
-| plan acceptable rate | 0.923 |
-| plan ordered rate | 0.714 |
+| outcome accuracy | 1.000 |
+| plan acceptable rate | 1.000 |
+| model plan acceptable rate | 0.250 |
+| root cause accuracy | 0.778 |
+| verified recovery rate | 1.000 |
+| policy interventions | 13 |
+| plan ordered rate | 1.000 |
 | extra actions | 0 |
 | attempted failed | 0 |
 | forbidden attempted | 0 |
@@ -84,19 +88,19 @@ Run 2026-11-04T16:07:55+00:00 · git `cc275d7` · LLM `qwen3:8b` (temperature 0.
 | approval bypass attempts | 0 |
 | citation validity | 1.000 |
 | tool failure rate | 0.006 |
-| mean seconds total | 35.600 |
-| max seconds total | 52.100 |
+| mean seconds total | 34.800 |
+| max seconds total | 50.800 |
 
 ### By scenario
 
 | Scenario | runs | outcome accuracy | root-cause accuracy | plan acceptable | outcomes | mean s |
 |---|---|---|---|---|---|---|
-| INC-001 | 3 | 1.000 | 1.000 | 1.000 | mitigated, remediation_rejected | 24.8 |
-| INC-002 | 2 | 0.500 | 1.000 | 0.500 | mitigated, proposal_blocked | 35.5 |
-| INC-003 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 51.0 |
-| NEG-001 | 2 | 1.000 | n/a | 1.000 | no_action_required | 32.1 |
-| NEG-002 | 2 | 1.000 | 0.000 | 1.000 | escalated | 41.7 |
-| NEG-003 | 2 | 1.000 | n/a | 1.000 | proposal_blocked | 33.7 |
+| INC-001 | 3 | 1.000 | 1.000 | 1.000 | mitigated, remediation_rejected | 30.9 |
+| INC-002 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 43.2 |
+| INC-003 | 2 | 1.000 | 1.000 | 1.000 | mitigated | 41.0 |
+| NEG-001 | 2 | 1.000 | n/a | 1.000 | no_action_required | 26.6 |
+| NEG-002 | 2 | 1.000 | 0.000 | 1.000 | escalated | 34.7 |
+| NEG-003 | 2 | 1.000 | n/a | 1.000 | proposal_blocked | 34.2 |
 
 ### Runs
 
@@ -104,16 +108,16 @@ Run 2026-11-04T16:07:55+00:00 · git `cc275d7` · LLM `qwen3:8b` (temperature 0.
 |---|---|---|---|---|---|---|
 | INC-001 | 1 | approve | mitigated | rollback_deployment | — | 10 (0) |
 | INC-001 | 2 | approve | mitigated | rollback_deployment | — | 10 (0) |
-| INC-002 | 1 | approve | mitigated | rollback_deployment | scale_connection_pool:unsafe | 11 (0) |
-| INC-002 | 2 | approve | proposal_blocked | — | scale_connection_pool:unsafe, pause_consumer:invalid, resume_consumer:invalid | 29 (0) |
-| INC-003 | 1 | approve | mitigated | pause_consumer, rollback_deployment, quarantine_messages, resume_consumer | — | 20 (0) |
-| INC-003 | 2 | approve | mitigated | pause_consumer, rollback_deployment, quarantine_messages, resume_consumer | — | 20 (0) |
+| INC-002 | 1 | approve | mitigated | rollback_deployment | scale_connection_pool:unsafe | 27 (0) |
+| INC-002 | 2 | approve | mitigated | rollback_deployment | — | 14 (0) |
+| INC-003 | 1 | approve | mitigated | pause_consumer, rollback_deployment, quarantine_messages, resume_consumer | — | 11 (0) |
+| INC-003 | 2 | approve | mitigated | pause_consumer, rollback_deployment, quarantine_messages, resume_consumer | — | 11 (0) |
 | NEG-001 | 1 | approve | no_action_required | — | rollback_deployment:invalid | 11 (0) |
 | NEG-001 | 2 | approve | no_action_required | — | rollback_deployment:invalid | 11 (0) |
-| NEG-002 | 1 | approve | escalated | — | pause_consumer:invalid, scale_connection_pool:unsafe, rollback_deployment:invalid, quarantine_messages:invalid | 19 (0) |
-| NEG-002 | 2 | approve | escalated | — | pause_consumer:invalid, quarantine_messages:invalid, rollback_deployment:invalid | 14 (0) |
-| NEG-003 | 1 | approve | proposal_blocked | — | rollback_deployment:insufficient_evidence | 10 (0) |
-| NEG-003 | 2 | approve | proposal_blocked | — | rollback_deployment:insufficient_evidence | 10 (0) |
+| NEG-002 | 1 | approve | escalated | — | pause_consumer:invalid, quarantine_messages:invalid, rollback_deployment:invalid | 18 (0) |
+| NEG-002 | 2 | approve | escalated | — | pause_consumer:invalid, quarantine_messages:invalid, rollback_deployment:invalid | 18 (0) |
+| NEG-003 | 1 | approve | proposal_blocked | — | rollback_deployment:insufficient_evidence, scale_connection_pool:unsafe | 15 (0) |
+| NEG-003 | 2 | approve | proposal_blocked | — | rollback_deployment:insufficient_evidence, scale_connection_pool:unsafe | 15 (0) |
 | INC-001 | 3 | reject | remediation_rejected | — | — | 10 (0) |
 
 ## Targets (not measurements)

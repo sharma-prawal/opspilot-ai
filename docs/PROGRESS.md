@@ -168,6 +168,35 @@ Nothing was deleted.
 **Next:** independent Codex verification of the branch. Then, only with authorization: merge, tag `v0.2.1`, and
 publish. Phase C1 is not started.
 
+## Status — 2026-11-05, end of Phase C0-F (independent audit remediation)
+
+**Input:** independent Codex verification of `29d019c` (verdict FAIL), preserved verbatim in `docs/audits/`
+(`PHASE_C0_INDEPENDENT_*`). Record: `docs/audits/PHASE_C0_F_REMEDIATION.md`. Decisions D49–D54.
+
+**Commits:** `c33d28f` F1 recovery scope/health/ranges · `9ada7d7` F2 atomic admission, durable dispatch, lease
+fencing · `1d67597` F3 current-runbook section coverage · `7ead2af` F4 test-workflow ownership · `62a9e21` F5 INC-003
+specification check, occurrence/order-aware scoring, separated metrics · docs/results commit.
+
+**Verified by execution (code at `62a9e21`):** `make doctor` ✓; `make lint` clean; `make test` 229 passed + 3 live
+skipped, web 30; integration+security stable in 4 orders (91 passed each); `make test-live` 3 passed; `make e2e`
+4 passed / 3 skipped with dev-DB counts unchanged; audit reproducer: all four defects gone.
+
+**Evaluation** (`history/phase-c0f-62a9e21/`): official 13/13 correct outcomes, 0 unsafe/forbidden/unauthorised
+executions; INC-002 12/12 mitigated (2 official + 10 supplementary; C0 was 2/7); negatives 15/15 correct with no
+execution, but the raw model still proposes a rollback in every negative run (as in Phase B and C0). Model-plan
+acceptability (before gates) 3/12 in the official run.
+
+**Open:** no sealed unseen scenario set (novel cases not evaluated); multi-worker deployment unsupported
+(per-process admission, unfenced checkpointer writes); INC-003 key verified by a same-author specification, so an
+independent human review is recommended; 58 expired legacy tokens await the owner's `sanitize-secrets --apply`
+decision; MCP OS-user separation.
+
+**Machine state changes this phase:** test DB: 755 stale unfinished test workflows retired (terminal, nothing
+deleted); dev API/web restarted on the new code; evaluation rows added to the dev DB (additive).
+
+**Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
+Phase C1 is not started.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

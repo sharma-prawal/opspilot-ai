@@ -1,7 +1,14 @@
 {
   "meta": {
-    "run_at": "2026-11-04T16:00:01+00:00",
-    "git": "cc275d7",
+    "run_at": "2026-11-05T06:33:17+00:00",
+    "git": "62a9e21",
+    "git_dirty": false,
+    "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+    "agent_policy": {
+      "max_prompt_evidence": 34,
+      "knowledge_section_expansion": 4,
+      "max_verification_checks": 16
+    },
     "llm_model": "qwen3:8b",
     "embedding_model": "qwen3-embedding:0.6b",
     "machine": "Darwin arm64",
@@ -35,8 +42,8 @@
           }
         },
         "latency": {
-          "p50_ms": 31.99,
-          "p95_ms": 40.94
+          "p50_ms": 34.94,
+          "p95_ms": 43.64
         },
         "per_question": [
           {
@@ -51,7 +58,7 @@
               "architecture/ledger-service.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 46.09
+            "latency_ms": 40.19
           },
           {
             "id": "q02",
@@ -65,7 +72,7 @@
               "architecture/payment-platform-overview.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 35.17
+            "latency_ms": 41.67
           },
           {
             "id": "q03",
@@ -79,7 +86,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "deployment/database-migration-policy.md"
             ],
-            "latency_ms": 32.24
+            "latency_ms": 35.01
           },
           {
             "id": "q04",
@@ -93,7 +100,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 36.12
+            "latency_ms": 36.93
           },
           {
             "id": "q05",
@@ -107,7 +114,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.31
+            "latency_ms": 42.06
           },
           {
             "id": "q06",
@@ -121,7 +128,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 31.61
+            "latency_ms": 38.45
           },
           {
             "id": "q07",
@@ -135,7 +142,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 31.65
+            "latency_ms": 30.48
           },
           {
             "id": "q08",
@@ -149,7 +156,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.43
+            "latency_ms": 30.7
           },
           {
             "id": "q09",
@@ -163,7 +170,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.32
+            "latency_ms": 43.88
           },
           {
             "id": "q10",
@@ -177,7 +184,7 @@
               "errors/error-codes.json",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 31.52
+            "latency_ms": 35.88
           },
           {
             "id": "q11",
@@ -191,7 +198,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 31.89
+            "latency_ms": 29.93
           },
           {
             "id": "q12",
@@ -205,7 +212,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 32.47
+            "latency_ms": 34.88
           },
           {
             "id": "q13",
@@ -219,7 +226,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 33.23
+            "latency_ms": 40.84
           },
           {
             "id": "q14",
@@ -233,7 +240,7 @@
               "deployment/database-migration-policy.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 31.12
+            "latency_ms": 30.09
           },
           {
             "id": "q15",
@@ -247,7 +254,7 @@
               "runbooks/schema-migration-rollback.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 36.72
+            "latency_ms": 32.48
           },
           {
             "id": "q16",
@@ -261,7 +268,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 31.21
+            "latency_ms": 43.44
           },
           {
             "id": "q17",
@@ -275,7 +282,7 @@
               "architecture/payment-platform-overview.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 29.65
+            "latency_ms": 32.48
           },
           {
             "id": "q18",
@@ -289,7 +296,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.52
+            "latency_ms": 31.17
           },
           {
             "id": "q19",
@@ -303,7 +310,7 @@
               "architecture/transaction-api.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 31.57
+            "latency_ms": 37.84
           },
           {
             "id": "q20",
@@ -317,7 +324,7 @@
               "architecture/transaction-api.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 30.16
+            "latency_ms": 34.49
           },
           {
             "id": "q21",
@@ -331,7 +338,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 30.64
+            "latency_ms": 31.86
           },
           {
             "id": "q22",
@@ -345,7 +352,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 33.38
+            "latency_ms": 30.48
           },
           {
             "id": "q23",
@@ -359,7 +366,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 31.31
+            "latency_ms": 40.99
           },
           {
             "id": "q24",
@@ -373,7 +380,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "deployment/database-migration-policy.md"
             ],
-            "latency_ms": 32.09
+            "latency_ms": 38.12
           },
           {
             "id": "q25",
@@ -387,7 +394,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/db-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 31.77
+            "latency_ms": 31.7
           },
           {
             "id": "q26",
@@ -401,7 +408,7 @@
               "errors/error-codes.json",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 32.23
+            "latency_ms": 35.07
           },
           {
             "id": "q27",
@@ -415,7 +422,7 @@
               "architecture/ledger-service.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.15
+            "latency_ms": 34.99
           },
           {
             "id": "q28",
@@ -429,7 +436,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 30.94
+            "latency_ms": 30.21
           },
           {
             "id": "q29",
@@ -443,7 +450,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 31.46
+            "latency_ms": 33.63
           },
           {
             "id": "q30",
@@ -457,7 +464,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 31.73
+            "latency_ms": 34.68
           }
         ],
         "misses_at_5": []
@@ -484,8 +491,8 @@
           }
         },
         "latency": {
-          "p50_ms": 4.33,
-          "p95_ms": 7.9
+          "p50_ms": 4.8,
+          "p95_ms": 9.34
         },
         "per_question": [
           {
@@ -500,7 +507,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 4.39
+            "latency_ms": 4.21
           },
           {
             "id": "q02",
@@ -514,7 +521,7 @@
               "errors/error-codes.json",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 2.59
+            "latency_ms": 2.44
           },
           {
             "id": "q03",
@@ -528,7 +535,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 7.12
+            "latency_ms": 6.92
           },
           {
             "id": "q04",
@@ -542,7 +549,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 8.31
+            "latency_ms": 7.14
           },
           {
             "id": "q05",
@@ -556,7 +563,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 4.43
+            "latency_ms": 5.16
           },
           {
             "id": "q06",
@@ -570,7 +577,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 6.02
+            "latency_ms": 7.41
           },
           {
             "id": "q07",
@@ -584,7 +591,7 @@
               "errors/error-codes.json",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 2.9
+            "latency_ms": 3.61
           },
           {
             "id": "q08",
@@ -598,7 +605,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 4.07
+            "latency_ms": 4.91
           },
           {
             "id": "q09",
@@ -612,7 +619,7 @@
               "runbooks/high-5xx-error-rate.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 3.2
+            "latency_ms": 3.89
           },
           {
             "id": "q10",
@@ -626,7 +633,7 @@
               "architecture/transaction-api.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 7.4
+            "latency_ms": 9.87
           },
           {
             "id": "q11",
@@ -640,7 +647,7 @@
               "runbooks/queue-backlog.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 3.48
+            "latency_ms": 4.17
           },
           {
             "id": "q12",
@@ -654,7 +661,7 @@
               "architecture/settlement-worker.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 4.41
+            "latency_ms": 5.6
           },
           {
             "id": "q13",
@@ -668,7 +675,7 @@
               "deployment/database-migration-policy.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 3.41
+            "latency_ms": 3.88
           },
           {
             "id": "q14",
@@ -682,7 +689,7 @@
               "deployment/database-migration-policy.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 4.72
+            "latency_ms": 5.18
           },
           {
             "id": "q15",
@@ -696,7 +703,7 @@
               "runbooks/schema-migration-rollback.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 5.22
+            "latency_ms": 5.7
           },
           {
             "id": "q16",
@@ -710,7 +717,7 @@
               "architecture/service-dependency-map.md",
               "runbooks/db-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 4.28
+            "latency_ms": 3.29
           },
           {
             "id": "q17",
@@ -724,7 +731,7 @@
               "architecture/service-dependency-map.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 6.69
+            "latency_ms": 7.67
           },
           {
             "id": "q18",
@@ -738,7 +745,7 @@
               "runbooks/downstream-timeouts.md",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 3.18
+            "latency_ms": 4.2
           },
           {
             "id": "q19",
@@ -752,7 +759,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 6.9
+            "latency_ms": 8.9
           },
           {
             "id": "q20",
@@ -766,7 +773,7 @@
               "runbooks/high-5xx-error-rate.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 2.51
+            "latency_ms": 3.45
           },
           {
             "id": "q21",
@@ -778,7 +785,7 @@
             "top3": [
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 1.72
+            "latency_ms": 2.42
           },
           {
             "id": "q22",
@@ -792,7 +799,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 5.99
+            "latency_ms": 8.53
           },
           {
             "id": "q23",
@@ -806,7 +813,7 @@
               "runbooks/high-5xx-error-rate.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 4.73
+            "latency_ms": 6.42
           },
           {
             "id": "q24",
@@ -819,7 +826,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 2.0
+            "latency_ms": 2.99
           },
           {
             "id": "q25",
@@ -833,7 +840,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 3.98
+            "latency_ms": 4.66
           },
           {
             "id": "q26",
@@ -847,7 +854,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 4.11
+            "latency_ms": 4.69
           },
           {
             "id": "q27",
@@ -861,7 +868,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 7.57
+            "latency_ms": 7.78
           },
           {
             "id": "q28",
@@ -873,7 +880,7 @@
             "top3": [
               "errors/error-codes.json"
             ],
-            "latency_ms": 1.84
+            "latency_ms": 1.96
           },
           {
             "id": "q29",
@@ -887,7 +894,7 @@
               "architecture/settlement-worker.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 2.5
+            "latency_ms": 2.7
           },
           {
             "id": "q30",
@@ -901,7 +908,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 6.12
+            "latency_ms": 6.33
           }
         ],
         "misses_at_5": [
@@ -938,8 +945,8 @@
           }
         },
         "latency": {
-          "p50_ms": 35.75,
-          "p95_ms": 44.89
+          "p50_ms": 40.38,
+          "p95_ms": 47.64
         },
         "per_question": [
           {
@@ -954,7 +961,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 44.88
+            "latency_ms": 43.05
           },
           {
             "id": "q02",
@@ -968,7 +975,7 @@
               "architecture/transaction-api.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 34.77
+            "latency_ms": 37.93
           },
           {
             "id": "q03",
@@ -982,7 +989,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 38.61
+            "latency_ms": 41.82
           },
           {
             "id": "q04",
@@ -996,7 +1003,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 44.9
+            "latency_ms": 37.48
           },
           {
             "id": "q05",
@@ -1010,7 +1017,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 39.17
+            "latency_ms": 42.48
           },
           {
             "id": "q06",
@@ -1024,7 +1031,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 38.69
+            "latency_ms": 46.41
           },
           {
             "id": "q07",
@@ -1038,7 +1045,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 34.15
+            "latency_ms": 33.03
           },
           {
             "id": "q08",
@@ -1052,7 +1059,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 36.09
+            "latency_ms": 44.95
           },
           {
             "id": "q09",
@@ -1066,7 +1073,7 @@
               "errors/error-codes.json",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 33.63
+            "latency_ms": 43.01
           },
           {
             "id": "q10",
@@ -1080,7 +1087,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 41.46
+            "latency_ms": 44.52
           },
           {
             "id": "q11",
@@ -1094,7 +1101,7 @@
               "architecture/settlement-worker.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 34.59
+            "latency_ms": 45.0
           },
           {
             "id": "q12",
@@ -1108,7 +1115,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 35.53
+            "latency_ms": 45.16
           },
           {
             "id": "q13",
@@ -1122,7 +1129,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 37.34
+            "latency_ms": 34.36
           },
           {
             "id": "q14",
@@ -1136,7 +1143,7 @@
               "deployment/database-migration-policy.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 35.18
+            "latency_ms": 34.69
           },
           {
             "id": "q15",
@@ -1150,7 +1157,7 @@
               "runbooks/schema-migration-rollback.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 35.79
+            "latency_ms": 36.84
           },
           {
             "id": "q16",
@@ -1164,7 +1171,7 @@
               "runbooks/high-5xx-error-rate.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 34.01
+            "latency_ms": 42.93
           },
           {
             "id": "q17",
@@ -1178,7 +1185,7 @@
               "architecture/payment-platform-overview.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 41.38
+            "latency_ms": 41.0
           },
           {
             "id": "q18",
@@ -1192,7 +1199,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 33.08
+            "latency_ms": 34.04
           },
           {
             "id": "q19",
@@ -1206,7 +1213,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 39.43
+            "latency_ms": 37.07
           },
           {
             "id": "q20",
@@ -1220,7 +1227,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/alert-triage-transient.md"
             ],
-            "latency_ms": 33.24
+            "latency_ms": 37.12
           },
           {
             "id": "q21",
@@ -1234,7 +1241,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 32.22
+            "latency_ms": 43.48
           },
           {
             "id": "q22",
@@ -1248,7 +1255,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 40.34
+            "latency_ms": 37.4
           },
           {
             "id": "q23",
@@ -1262,7 +1269,7 @@
               "architecture/payment-platform-overview.md",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 35.71
+            "latency_ms": 36.18
           },
           {
             "id": "q24",
@@ -1276,7 +1283,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 32.46
+            "latency_ms": 42.56
           },
           {
             "id": "q25",
@@ -1290,7 +1297,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 35.38
+            "latency_ms": 36.59
           },
           {
             "id": "q26",
@@ -1304,7 +1311,7 @@
               "runbooks/high-5xx-error-rate.md",
               "incidents/2026-07-09-fx-provider-latency.md"
             ],
-            "latency_ms": 37.39
+            "latency_ms": 39.75
           },
           {
             "id": "q27",
@@ -1318,7 +1325,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 37.73
+            "latency_ms": 49.15
           },
           {
             "id": "q28",
@@ -1332,7 +1339,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 33.28
+            "latency_ms": 31.09
           },
           {
             "id": "q29",
@@ -1346,7 +1353,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 33.5
+            "latency_ms": 32.64
           },
           {
             "id": "q30",
@@ -1360,7 +1367,7 @@
               "architecture/service-dependency-map.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 38.09
+            "latency_ms": 45.6
           }
         ],
         "misses_at_5": []
@@ -1393,8 +1400,8 @@
           }
         },
         "latency": {
-          "p50_ms": 31.27,
-          "p95_ms": 42.92
+          "p50_ms": 34.22,
+          "p95_ms": 42.98
         },
         "per_question": [
           {
@@ -1409,7 +1416,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 32.55
+            "latency_ms": 34.8
           },
           {
             "id": "h02",
@@ -1423,7 +1430,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 51.65
+            "latency_ms": 29.8
           },
           {
             "id": "h03",
@@ -1437,7 +1444,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 35.09
+            "latency_ms": 32.04
           },
           {
             "id": "h04",
@@ -1451,7 +1458,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 30.47
+            "latency_ms": 42.71
           },
           {
             "id": "h05",
@@ -1465,7 +1472,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "incidents/2026-07-09-fx-provider-latency.md"
             ],
-            "latency_ms": 31.01
+            "latency_ms": 34.19
           },
           {
             "id": "h06",
@@ -1479,7 +1486,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 29.47
+            "latency_ms": 29.83
           },
           {
             "id": "h07",
@@ -1493,7 +1500,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 30.52
+            "latency_ms": 35.71
           },
           {
             "id": "h08",
@@ -1507,7 +1514,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 31.97
+            "latency_ms": 41.66
           },
           {
             "id": "h09",
@@ -1521,7 +1528,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 31.25
+            "latency_ms": 32.61
           },
           {
             "id": "h10",
@@ -1535,7 +1542,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 33.39
+            "latency_ms": 34.24
           },
           {
             "id": "h11",
@@ -1549,7 +1556,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "deployment/database-migration-policy.md"
             ],
-            "latency_ms": 31.28
+            "latency_ms": 42.44
           },
           {
             "id": "h12",
@@ -1563,7 +1570,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 32.34
+            "latency_ms": 32.28
           },
           {
             "id": "h13",
@@ -1577,7 +1584,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 31.09
+            "latency_ms": 30.51
           },
           {
             "id": "h14",
@@ -1591,7 +1598,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 30.54
+            "latency_ms": 36.02
           },
           {
             "id": "h15",
@@ -1605,7 +1612,7 @@
               "architecture/settlement-worker.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 31.12
+            "latency_ms": 39.45
           },
           {
             "id": "h16",
@@ -1619,7 +1626,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 30.86
+            "latency_ms": 36.93
           },
           {
             "id": "h17",
@@ -1633,7 +1640,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 33.56
+            "latency_ms": 34.82
           },
           {
             "id": "h18",
@@ -1647,7 +1654,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 32.55
+            "latency_ms": 41.9
           },
           {
             "id": "h19",
@@ -1661,7 +1668,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 32.38
+            "latency_ms": 31.65
           },
           {
             "id": "h20",
@@ -1675,7 +1682,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 35.47
+            "latency_ms": 33.69
           },
           {
             "id": "h21",
@@ -1689,7 +1696,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 35.77
+            "latency_ms": 31.45
           },
           {
             "id": "h22",
@@ -1703,7 +1710,7 @@
               "architecture/ledger-service.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 33.47
+            "latency_ms": 28.95
           },
           {
             "id": "h23",
@@ -1717,7 +1724,7 @@
               "runbooks/schema-migration-rollback.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 31.9
+            "latency_ms": 29.26
           },
           {
             "id": "h24",
@@ -1731,7 +1738,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 29.7
+            "latency_ms": 29.27
           },
           {
             "id": "h25",
@@ -1745,7 +1752,7 @@
               "runbooks/queue-backlog.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 30.08
+            "latency_ms": 31.2
           },
           {
             "id": "h26",
@@ -1759,7 +1766,7 @@
               "architecture/transaction-api.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 30.32
+            "latency_ms": 35.28
           },
           {
             "id": "h27",
@@ -1787,7 +1794,7 @@
               "architecture/transaction-api.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 29.86
+            "latency_ms": 34.53
           },
           {
             "id": "h29",
@@ -1801,7 +1808,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "runbooks/db-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 32.19
+            "latency_ms": 34.26
           },
           {
             "id": "h30",
@@ -1815,7 +1822,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "architecture/payment-platform-overview.md"
             ],
-            "latency_ms": 31.22
+            "latency_ms": 43.31
           }
         ],
         "misses_at_5": [
@@ -1861,8 +1868,8 @@
           }
         },
         "latency": {
-          "p50_ms": 3.96,
-          "p95_ms": 7.24
+          "p50_ms": 5.07,
+          "p95_ms": 9.46
         },
         "per_question": [
           {
@@ -1877,7 +1884,7 @@
               "architecture/ledger-service.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 8.05
+            "latency_ms": 8.76
           },
           {
             "id": "h02",
@@ -1891,7 +1898,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 6.58
+            "latency_ms": 7.03
           },
           {
             "id": "h03",
@@ -1905,7 +1912,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 4.0
+            "latency_ms": 4.36
           },
           {
             "id": "h04",
@@ -1919,7 +1926,7 @@
               "runbooks/queue-backlog.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 3.77
+            "latency_ms": 4.27
           },
           {
             "id": "h05",
@@ -1933,7 +1940,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 2.98
+            "latency_ms": 4.02
           },
           {
             "id": "h06",
@@ -1947,7 +1954,7 @@
               "runbooks/alert-triage-transient.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 4.34
+            "latency_ms": 5.22
           },
           {
             "id": "h07",
@@ -1961,7 +1968,7 @@
               "errors/error-codes.json",
               "architecture/transaction-api.md"
             ],
-            "latency_ms": 4.12
+            "latency_ms": 4.77
           },
           {
             "id": "h08",
@@ -1975,7 +1982,7 @@
               "runbooks/downstream-timeouts.md",
               "incidents/2026-07-09-fx-provider-latency.md"
             ],
-            "latency_ms": 3.41
+            "latency_ms": 4.66
           },
           {
             "id": "h09",
@@ -1989,7 +1996,7 @@
               "runbooks/downstream-timeouts.md",
               "runbooks/high-5xx-error-rate.md"
             ],
-            "latency_ms": 3.91
+            "latency_ms": 4.86
           },
           {
             "id": "h10",
@@ -2003,7 +2010,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "deployment/database-migration-policy.md"
             ],
-            "latency_ms": 4.49
+            "latency_ms": 5.98
           },
           {
             "id": "h11",
@@ -2017,7 +2024,7 @@
               "deployment/database-migration-policy.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 3.84
+            "latency_ms": 4.79
           },
           {
             "id": "h12",
@@ -2031,7 +2038,7 @@
               "architecture/payment-platform-overview.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 5.07
+            "latency_ms": 6.42
           },
           {
             "id": "h13",
@@ -2043,7 +2050,7 @@
             "top3": [
               "errors/error-codes.json"
             ],
-            "latency_ms": 2.19
+            "latency_ms": 2.38
           },
           {
             "id": "h14",
@@ -2057,7 +2064,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 2.72
+            "latency_ms": 3.13
           },
           {
             "id": "h15",
@@ -2071,7 +2078,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 3.46
+            "latency_ms": 4.44
           },
           {
             "id": "h16",
@@ -2083,7 +2090,7 @@
             "top3": [
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 1.84
+            "latency_ms": 2.53
           },
           {
             "id": "h17",
@@ -2097,7 +2104,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 2.97
+            "latency_ms": 4.26
           },
           {
             "id": "h18",
@@ -2111,7 +2118,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 3.52
+            "latency_ms": 7.18
           },
           {
             "id": "h19",
@@ -2125,7 +2132,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 4.45
+            "latency_ms": 9.86
           },
           {
             "id": "h20",
@@ -2139,7 +2146,7 @@
               "deployment/database-migration-policy.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 3.45
+            "latency_ms": 8.83
           },
           {
             "id": "h21",
@@ -2153,7 +2160,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 4.45
+            "latency_ms": 7.02
           },
           {
             "id": "h22",
@@ -2167,7 +2174,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 5.85
+            "latency_ms": 9.14
           },
           {
             "id": "h23",
@@ -2181,7 +2188,7 @@
               "deployment/database-migration-policy.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 5.05
+            "latency_ms": 6.79
           },
           {
             "id": "h24",
@@ -2195,7 +2202,7 @@
               "runbooks/schema-migration-rollback.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 4.04
+            "latency_ms": 5.36
           },
           {
             "id": "h25",
@@ -2209,7 +2216,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 3.71
+            "latency_ms": 4.92
           },
           {
             "id": "h26",
@@ -2223,7 +2230,7 @@
               "architecture/payment-platform-overview.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 4.91
+            "latency_ms": 6.07
           },
           {
             "id": "h27",
@@ -2237,7 +2244,7 @@
               "errors/error-codes.json",
               "runbooks/db-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 3.14
+            "latency_ms": 3.87
           },
           {
             "id": "h28",
@@ -2251,7 +2258,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 6.47
+            "latency_ms": 8.04
           },
           {
             "id": "h29",
@@ -2265,7 +2272,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 3.45
+            "latency_ms": 4.04
           },
           {
             "id": "h30",
@@ -2279,7 +2286,7 @@
               "architecture/payment-platform-overview.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 4.56
+            "latency_ms": 5.38
           }
         ],
         "misses_at_5": [
@@ -2325,8 +2332,8 @@
           }
         },
         "latency": {
-          "p50_ms": 35.45,
-          "p95_ms": 45.92
+          "p50_ms": 41.66,
+          "p95_ms": 52.83
         },
         "per_question": [
           {
@@ -2341,7 +2348,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 52.66
+            "latency_ms": 49.74
           },
           {
             "id": "h02",
@@ -2355,7 +2362,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "runbooks/db-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 40.4
+            "latency_ms": 45.08
           },
           {
             "id": "h03",
@@ -2369,7 +2376,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 37.32
+            "latency_ms": 36.37
           },
           {
             "id": "h04",
@@ -2383,7 +2390,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 33.93
+            "latency_ms": 38.03
           },
           {
             "id": "h05",
@@ -2397,7 +2404,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "incidents/2026-05-21-settlement-poison-messages.md"
             ],
-            "latency_ms": 31.95
+            "latency_ms": 54.83
           },
           {
             "id": "h06",
@@ -2411,7 +2418,7 @@
               "incidents/2026-05-21-settlement-poison-messages.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 34.09
+            "latency_ms": 40.92
           },
           {
             "id": "h07",
@@ -2425,7 +2432,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 35.35
+            "latency_ms": 45.78
           },
           {
             "id": "h08",
@@ -2439,7 +2446,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 33.89
+            "latency_ms": 43.38
           },
           {
             "id": "h09",
@@ -2453,7 +2460,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 35.55
+            "latency_ms": 40.6
           },
           {
             "id": "h10",
@@ -2467,7 +2474,7 @@
               "deployment/database-migration-policy.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 36.83
+            "latency_ms": 51.2
           },
           {
             "id": "h11",
@@ -2481,7 +2488,7 @@
               "deployment/database-migration-policy.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 35.8
+            "latency_ms": 40.49
           },
           {
             "id": "h12",
@@ -2495,7 +2502,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-07-09-fx-provider-latency.md"
             ],
-            "latency_ms": 36.53
+            "latency_ms": 38.34
           },
           {
             "id": "h13",
@@ -2509,7 +2516,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 32.54
+            "latency_ms": 41.42
           },
           {
             "id": "h14",
@@ -2523,7 +2530,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 33.12
+            "latency_ms": 40.99
           },
           {
             "id": "h15",
@@ -2537,7 +2544,7 @@
               "architecture/settlement-worker.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 34.55
+            "latency_ms": 34.41
           },
           {
             "id": "h16",
@@ -2551,7 +2558,7 @@
               "architecture/settlement-worker.md",
               "runbooks/queue-backlog.md"
             ],
-            "latency_ms": 33.35
+            "latency_ms": 42.68
           },
           {
             "id": "h17",
@@ -2565,7 +2572,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "architecture/ledger-service.md"
             ],
-            "latency_ms": 39.8
+            "latency_ms": 44.29
           },
           {
             "id": "h18",
@@ -2579,7 +2586,7 @@
               "runbooks/downstream-timeouts.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 34.12
+            "latency_ms": 38.49
           },
           {
             "id": "h19",
@@ -2593,7 +2600,7 @@
               "troubleshooting/postgres-troubleshooting.md",
               "deployment/database-migration-policy.md"
             ],
-            "latency_ms": 35.61
+            "latency_ms": 44.3
           },
           {
             "id": "h20",
@@ -2607,7 +2614,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "errors/error-codes.json"
             ],
-            "latency_ms": 35.3
+            "latency_ms": 43.07
           },
           {
             "id": "h21",
@@ -2621,7 +2628,7 @@
               "runbooks/settlement-invalid-payloads.md",
               "architecture/settlement-worker.md"
             ],
-            "latency_ms": 35.66
+            "latency_ms": 43.32
           },
           {
             "id": "h22",
@@ -2635,7 +2642,7 @@
               "architecture/ledger-service.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 37.34
+            "latency_ms": 50.9
           },
           {
             "id": "h23",
@@ -2649,7 +2656,7 @@
               "runbooks/db-connection-pool-exhaustion.md",
               "runbooks/schema-migration-rollback.md"
             ],
-            "latency_ms": 37.74
+            "latency_ms": 37.92
           },
           {
             "id": "h24",
@@ -2663,7 +2670,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 35.36
+            "latency_ms": 41.89
           },
           {
             "id": "h25",
@@ -2677,7 +2684,7 @@
               "architecture/settlement-worker.md",
               "runbooks/settlement-invalid-payloads.md"
             ],
-            "latency_ms": 34.75
+            "latency_ms": 48.41
           },
           {
             "id": "h26",
@@ -2691,7 +2698,7 @@
               "architecture/payment-platform-overview.md",
               "architecture/service-dependency-map.md"
             ],
-            "latency_ms": 37.8
+            "latency_ms": 39.24
           },
           {
             "id": "h27",
@@ -2705,7 +2712,7 @@
               "errors/error-codes.json",
               "runbooks/downstream-timeouts.md"
             ],
-            "latency_ms": 34.55
+            "latency_ms": 36.12
           },
           {
             "id": "h28",
@@ -2719,7 +2726,7 @@
               "incidents/2025-08-14-ledger-column-drop.md",
               "incidents/2026-02-03-connection-pool-exhaustion.md"
             ],
-            "latency_ms": 36.4
+            "latency_ms": 42.0
           },
           {
             "id": "h29",
@@ -2733,7 +2740,7 @@
               "incidents/2026-02-03-connection-pool-exhaustion.md",
               "troubleshooting/postgres-troubleshooting.md"
             ],
-            "latency_ms": 35.74
+            "latency_ms": 35.0
           },
           {
             "id": "h30",
@@ -2747,7 +2754,7 @@
               "incidents/2026-07-09-fx-provider-latency.md",
               "incidents/2025-08-14-ledger-column-drop.md"
             ],
-            "latency_ms": 34.96
+            "latency_ms": 38.61
           }
         ],
         "misses_at_5": []
@@ -2757,7 +2764,7 @@
   "agent_path": {
     "development": {
       "questions": 30,
-      "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5) + get_historical_incidents(top_k=3)",
+      "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5, expand_sections) + get_historical_incidents(top_k=3)",
       "calls_per_question": [
         "get_historical_incidents",
         "search_runbooks"
@@ -2772,14 +2779,17 @@
           5
         ]
       ],
+      "expand_sections": [
+        4
+      ],
       "overall": {
         "hit": 1.0,
         "doc_recall": 0.9778,
         "runbook_path_recall": 0.7889,
-        "mrr": 0.7409,
-        "precision": 0.4542,
-        "passages": 8.0,
-        "excerpt_chars": 349.4833
+        "mrr": 0.7353,
+        "precision": 0.4909,
+        "passages": 9.5333,
+        "excerpt_chars": 345.554
       },
       "by_style": {
         "exact": {
@@ -2787,38 +2797,38 @@
           "doc_recall": 1.0,
           "runbook_path_recall": 0.9,
           "mrr": 0.7667,
-          "precision": 0.4083,
-          "passages": 8.0,
-          "excerpt_chars": 350.1333
+          "precision": 0.4752,
+          "passages": 9.5333,
+          "excerpt_chars": 348.5721
         },
         "paraphrase": {
           "hit": 1.0,
           "doc_recall": 0.9556,
           "runbook_path_recall": 0.6778,
-          "mrr": 0.7151,
-          "precision": 0.5,
-          "passages": 8.0,
-          "excerpt_chars": 348.8333
+          "mrr": 0.704,
+          "precision": 0.5066,
+          "passages": 9.5333,
+          "excerpt_chars": 342.536
         }
       },
       "non_current_passages": 0,
-      "excerpt_truncated_passages": 28,
+      "excerpt_truncated_passages": 31,
       "latency": {
-        "p50_ms": 42.78,
-        "p95_ms": 88.66
+        "p50_ms": 52.67,
+        "p95_ms": 85.47
       },
       "per_question": [
         {
           "id": "q01",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 369.75,
+          "excerpt_chars": 375.1818,
           "excerpt_truncated": 1,
           "top3": [
             "architecture/ledger-service.md",
@@ -2829,14 +2839,14 @@
         {
           "id": "q02",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.2727272727272727,
           "non_current_passages": 0,
-          "excerpt_chars": 382.125,
+          "excerpt_chars": 356.1818,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -2847,14 +2857,14 @@
         {
           "id": "q03",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6,
           "non_current_passages": 0,
-          "excerpt_chars": 346.5,
+          "excerpt_chars": 342.3,
           "excerpt_truncated": 0,
           "top3": [
             "deployment/database-migration-policy.md",
@@ -2865,14 +2875,14 @@
         {
           "id": "q04",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.5,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6,
           "non_current_passages": 0,
-          "excerpt_chars": 407.625,
+          "excerpt_chars": 366.3,
           "excerpt_truncated": 2,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -2883,32 +2893,32 @@
         {
           "id": "q05",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.6666666666666666,
           "mrr": 1.0,
-          "precision": 0.75,
+          "precision": 0.8181818181818182,
           "non_current_passages": 0,
-          "excerpt_chars": 296.25,
+          "excerpt_chars": 328.1818,
           "excerpt_truncated": 0,
           "top3": [
             "runbooks/db-connection-pool-exhaustion.md",
             "incidents/2026-02-03-connection-pool-exhaustion.md",
-            "incidents/2026-02-03-connection-pool-exhaustion.md"
+            "runbooks/db-connection-pool-exhaustion.md"
           ]
         },
         {
           "id": "q06",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.5,
           "mrr": 1.0,
-          "precision": 0.875,
+          "precision": 0.8888888888888888,
           "non_current_passages": 0,
-          "excerpt_chars": 355.25,
+          "excerpt_chars": 348.1111,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
@@ -2937,19 +2947,19 @@
         {
           "id": "q08",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.6666666666666666,
           "mrr": 1.0,
-          "precision": 0.75,
+          "precision": 0.7777777777777778,
           "non_current_passages": 0,
-          "excerpt_chars": 331.25,
-          "excerpt_truncated": 1,
+          "excerpt_chars": 358.6667,
+          "excerpt_truncated": 2,
           "top3": [
             "runbooks/settlement-invalid-payloads.md",
             "incidents/2026-05-21-settlement-poison-messages.md",
-            "incidents/2026-05-21-settlement-poison-messages.md"
+            "runbooks/settlement-invalid-payloads.md"
           ]
         },
         {
@@ -2973,14 +2983,14 @@
         {
           "id": "q10",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.5,
           "mrr": 1.0,
-          "precision": 0.375,
+          "precision": 0.2727272727272727,
           "non_current_passages": 0,
-          "excerpt_chars": 363.625,
+          "excerpt_chars": 342.7273,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-07-09-fx-provider-latency.md",
@@ -3027,14 +3037,14 @@
         {
           "id": "q13",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 377.875,
+          "excerpt_chars": 381.9091,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -3045,32 +3055,32 @@
         {
           "id": "q14",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
-          "mrr": 0.3333333333333333,
-          "precision": 0.375,
+          "mrr": 0.16666666666666666,
+          "precision": 0.2727272727272727,
           "non_current_passages": 0,
-          "excerpt_chars": 318.375,
+          "excerpt_chars": 338.6364,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-07-09-fx-provider-latency.md",
             "runbooks/schema-migration-rollback.md",
-            "deployment/database-migration-policy.md"
+            "runbooks/schema-migration-rollback.md"
           ]
         },
         {
           "id": "q15",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 374.75,
+          "excerpt_chars": 370.0,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -3081,15 +3091,15 @@
         {
           "id": "q16",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 311.75,
-          "excerpt_truncated": 0,
+          "excerpt_chars": 309.5455,
+          "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-05-21-settlement-poison-messages.md",
             "deployment/deployment-procedure.md",
@@ -3153,50 +3163,50 @@
         {
           "id": "q20",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.125,
+          "precision": 0.36363636363636365,
           "non_current_passages": 0,
-          "excerpt_chars": 291.375,
-          "excerpt_truncated": 0,
+          "excerpt_chars": 321.3636,
+          "excerpt_truncated": 1,
           "top3": [
             "runbooks/high-5xx-error-rate.md",
             "incidents/2025-08-14-ledger-column-drop.md",
-            "incidents/2026-05-21-settlement-poison-messages.md"
+            "runbooks/high-5xx-error-rate.md"
           ]
         },
         {
           "id": "q21",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.125,
+          "precision": 0.36363636363636365,
           "non_current_passages": 0,
-          "excerpt_chars": 311.25,
+          "excerpt_chars": 282.3636,
           "excerpt_truncated": 0,
           "top3": [
             "troubleshooting/postgres-troubleshooting.md",
             "incidents/2025-08-14-ledger-column-drop.md",
-            "errors/error-codes.json"
+            "troubleshooting/postgres-troubleshooting.md"
           ]
         },
         {
           "id": "q22",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.0,
           "mrr": 1.0,
-          "precision": 0.375,
+          "precision": 0.2727272727272727,
           "non_current_passages": 0,
-          "excerpt_chars": 404.0,
+          "excerpt_chars": 349.8182,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -3207,14 +3217,14 @@
         {
           "id": "q23",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.625,
+          "precision": 0.7272727272727273,
           "non_current_passages": 0,
-          "excerpt_chars": 392.75,
+          "excerpt_chars": 363.9091,
           "excerpt_truncated": 2,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -3225,14 +3235,14 @@
         {
           "id": "q24",
           "style": "exact",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.25,
+          "precision": 0.4,
           "non_current_passages": 0,
-          "excerpt_chars": 353.125,
+          "excerpt_chars": 317.9,
           "excerpt_truncated": 1,
           "top3": [
             "troubleshooting/postgres-troubleshooting.md",
@@ -3243,19 +3253,19 @@
         {
           "id": "q25",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.0,
           "mrr": 1.0,
-          "precision": 0.375,
+          "precision": 0.3,
           "non_current_passages": 0,
-          "excerpt_chars": 350.75,
+          "excerpt_chars": 367.4,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
             "runbooks/db-connection-pool-exhaustion.md",
-            "incidents/2026-02-03-connection-pool-exhaustion.md"
+            "runbooks/db-connection-pool-exhaustion.md"
           ]
         },
         {
@@ -3353,7 +3363,7 @@
     },
     "heldout": {
       "questions": 30,
-      "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5) + get_historical_incidents(top_k=3)",
+      "path": "InvestigationNodes.knowledge -> MCP search_runbooks(top_k=5, expand_sections) + get_historical_incidents(top_k=3)",
       "calls_per_question": [
         "get_historical_incidents",
         "search_runbooks"
@@ -3368,14 +3378,17 @@
           5
         ]
       ],
+      "expand_sections": [
+        4
+      ],
       "overall": {
         "hit": 1.0,
         "doc_recall": 0.9556,
         "runbook_path_recall": 0.8222,
-        "mrr": 0.6051,
-        "precision": 0.3833,
-        "passages": 8.0,
-        "excerpt_chars": 348.0125
+        "mrr": 0.6026,
+        "precision": 0.4192,
+        "passages": 9.3,
+        "excerpt_chars": 349.6312
       },
       "by_style": {
         "exact": {
@@ -3383,38 +3396,38 @@
           "doc_recall": 1.0,
           "runbook_path_recall": 0.8889,
           "mrr": 0.7778,
-          "precision": 0.4306,
-          "passages": 8.0,
-          "excerpt_chars": 338.9306
+          "precision": 0.5072,
+          "passages": 9.6667,
+          "excerpt_chars": 346.7157
         },
         "paraphrase": {
           "hit": 1.0,
           "doc_recall": 0.9365,
           "runbook_path_recall": 0.7937,
-          "mrr": 0.5311,
-          "precision": 0.3631,
-          "passages": 8.0,
-          "excerpt_chars": 351.9048
+          "mrr": 0.5275,
+          "precision": 0.3815,
+          "passages": 9.1429,
+          "excerpt_chars": 350.8807
         }
       },
       "non_current_passages": 0,
-      "excerpt_truncated_passages": 29,
+      "excerpt_truncated_passages": 31,
       "latency": {
-        "p50_ms": 41.64,
-        "p95_ms": 47.76
+        "p50_ms": 56.66,
+        "p95_ms": 70.95
       },
       "per_question": [
         {
           "id": "h01",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 12,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.14285714285714285,
-          "precision": 0.125,
+          "precision": 0.4166666666666667,
           "non_current_passages": 0,
-          "excerpt_chars": 295.625,
+          "excerpt_chars": 336.3333,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
@@ -3425,14 +3438,14 @@
         {
           "id": "h02",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.625,
+          "precision": 0.7,
           "non_current_passages": 0,
-          "excerpt_chars": 317.375,
+          "excerpt_chars": 326.1,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
@@ -3497,14 +3510,14 @@
         {
           "id": "h06",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.25,
+          "precision": 0.3333333333333333,
           "non_current_passages": 0,
-          "excerpt_chars": 368.0,
+          "excerpt_chars": 340.0,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-05-21-settlement-poison-messages.md",
@@ -3515,19 +3528,19 @@
         {
           "id": "h07",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
-          "mrr": 0.2,
-          "precision": 0.125,
+          "mrr": 0.125,
+          "precision": 0.09090909090909091,
           "non_current_passages": 0,
-          "excerpt_chars": 405.875,
+          "excerpt_chars": 373.4545,
           "excerpt_truncated": 3,
           "top3": [
             "runbooks/high-5xx-error-rate.md",
             "incidents/2026-02-03-connection-pool-exhaustion.md",
-            "incidents/2025-08-14-ledger-column-drop.md"
+            "runbooks/high-5xx-error-rate.md"
           ]
         },
         {
@@ -3551,32 +3564,32 @@
         {
           "id": "h09",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.125,
+          "precision": 0.2222222222222222,
           "non_current_passages": 0,
-          "excerpt_chars": 367.75,
-          "excerpt_truncated": 0,
+          "excerpt_chars": 386.4444,
+          "excerpt_truncated": 1,
           "top3": [
             "runbooks/downstream-timeouts.md",
             "incidents/2025-08-14-ledger-column-drop.md",
-            "runbooks/schema-migration-rollback.md"
+            "runbooks/downstream-timeouts.md"
           ]
         },
         {
           "id": "h10",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 403.25,
+          "excerpt_chars": 349.2727,
           "excerpt_truncated": 1,
           "top3": [
             "deployment/database-migration-policy.md",
@@ -3587,19 +3600,19 @@
         {
           "id": "h11",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.375,
+          "precision": 0.4444444444444444,
           "non_current_passages": 0,
-          "excerpt_chars": 380.125,
+          "excerpt_chars": 373.5556,
           "excerpt_truncated": 0,
           "top3": [
             "runbooks/schema-migration-rollback.md",
             "incidents/2025-08-14-ledger-column-drop.md",
-            "incidents/2025-08-14-ledger-column-drop.md"
+            "runbooks/schema-migration-rollback.md"
           ]
         },
         {
@@ -3623,14 +3636,14 @@
         {
           "id": "h13",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 299.875,
+          "excerpt_chars": 332.1818,
           "excerpt_truncated": 0,
           "top3": [
             "errors/error-codes.json",
@@ -3641,14 +3654,14 @@
         {
           "id": "h14",
           "style": "exact",
-          "passages": 8,
+          "passages": 12,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 0.5,
           "mrr": 1.0,
-          "precision": 0.375,
+          "precision": 0.5833333333333334,
           "non_current_passages": 0,
-          "excerpt_chars": 351.125,
+          "excerpt_chars": 365.3333,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
@@ -3659,15 +3672,15 @@
         {
           "id": "h15",
           "style": "exact",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.4444444444444444,
           "non_current_passages": 0,
-          "excerpt_chars": 317.625,
-          "excerpt_truncated": 1,
+          "excerpt_chars": 346.5556,
+          "excerpt_truncated": 2,
           "top3": [
             "incidents/2026-05-21-settlement-poison-messages.md",
             "architecture/settlement-worker.md",
@@ -3695,19 +3708,19 @@
         {
           "id": "h17",
           "style": "exact",
-          "passages": 8,
+          "passages": 10,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.5,
           "non_current_passages": 0,
-          "excerpt_chars": 306.875,
+          "excerpt_chars": 332.3,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
             "runbooks/db-connection-pool-exhaustion.md",
-            "incidents/2026-02-03-connection-pool-exhaustion.md"
+            "runbooks/db-connection-pool-exhaustion.md"
           ]
         },
         {
@@ -3731,19 +3744,19 @@
         {
           "id": "h19",
           "style": "exact",
-          "passages": 8,
+          "passages": 11,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.6363636363636364,
           "non_current_passages": 0,
-          "excerpt_chars": 379.75,
+          "excerpt_chars": 332.1818,
           "excerpt_truncated": 0,
           "top3": [
             "troubleshooting/postgres-troubleshooting.md",
             "incidents/2025-08-14-ledger-column-drop.md",
-            "incidents/2025-08-14-ledger-column-drop.md"
+            "troubleshooting/postgres-troubleshooting.md"
           ]
         },
         {
@@ -3785,14 +3798,14 @@
         {
           "id": "h22",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 12,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.5,
+          "precision": 0.3333333333333333,
           "non_current_passages": 0,
-          "excerpt_chars": 348.625,
+          "excerpt_chars": 355.1667,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2026-02-03-connection-pool-exhaustion.md",
@@ -3803,14 +3816,14 @@
         {
           "id": "h23",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 12,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.25,
           "non_current_passages": 0,
-          "excerpt_chars": 325.375,
+          "excerpt_chars": 339.6667,
           "excerpt_truncated": 0,
           "top3": [
             "incidents/2026-07-09-fx-provider-latency.md",
@@ -3821,14 +3834,14 @@
         {
           "id": "h24",
           "style": "paraphrase",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.3333333333333333,
           "non_current_passages": 0,
-          "excerpt_chars": 367.5,
+          "excerpt_chars": 378.0,
           "excerpt_truncated": 1,
           "top3": [
             "incidents/2025-08-14-ledger-column-drop.md",
@@ -3875,14 +3888,14 @@
         {
           "id": "h27",
           "style": "exact",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 0.5,
-          "precision": 0.375,
+          "precision": 0.3333333333333333,
           "non_current_passages": 0,
-          "excerpt_chars": 335.75,
+          "excerpt_chars": 358.5556,
           "excerpt_truncated": 2,
           "top3": [
             "incidents/2026-07-09-fx-provider-latency.md",
@@ -3911,14 +3924,14 @@
         {
           "id": "h29",
           "style": "exact",
-          "passages": 8,
+          "passages": 9,
           "hit": true,
           "doc_recall": 1.0,
           "runbook_path_recall": 1.0,
           "mrr": 1.0,
-          "precision": 0.5,
+          "precision": 0.5555555555555556,
           "non_current_passages": 0,
-          "excerpt_chars": 345.375,
+          "excerpt_chars": 339.3333,
           "excerpt_truncated": 0,
           "top3": [
             "runbooks/db-connection-pool-exhaustion.md",

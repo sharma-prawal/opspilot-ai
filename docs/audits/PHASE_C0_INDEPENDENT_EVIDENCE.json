@@ -1,0 +1,597 @@
+{
+  "audit_date": "2026-11-05",
+  "head": "29d019c1ac1bac1276c0350c901bb07dfac02edc",
+  "branch": "hardening/phase-c0",
+  "baseline": "9ec857c",
+  "commits_after_baseline": 21,
+  "initial_working_tree": "clean",
+  "scope_exception": "Protected ground-truth and simulator scenario contents were not opened; the INC-003 answer-key diff is unverified.",
+  "development_counts_before": {
+    "ops.incidents": 86,
+    "ops.investigations": 84,
+    "ops.action_requests": 84,
+    "sim.action_executions": 77,
+    "ops.audit_log": 468
+  },
+  "read_only_final_inventory": {
+    "opspilot": {
+      "counts": {
+        "ops.incidents": 86,
+        "ops.investigations": 84,
+        "ops.action_requests": 84,
+        "sim.action_executions": 77,
+        "ops.audit_log": 468
+      },
+      "bytes": 206952115,
+      "legacy_tokens": {
+        "rows": 58,
+        "expired": 58,
+        "unexpired": 0,
+        "malformed": 0
+      },
+      "checkpoint_key_mentions": {
+        "checkpoint_writes": 334,
+        "checkpoint_blobs": 232
+      },
+      "roles": [
+        [
+          "opspilot_app",
+          4
+        ],
+        [
+          "opspilot_mcp_actions",
+          1
+        ],
+        [
+          "opspilot_mcp_read",
+          5
+        ]
+      ]
+    },
+    "opspilot_test": {
+      "counts": {
+        "ops.incidents": 1956,
+        "ops.investigations": 1795,
+        "ops.action_requests": 1340,
+        "sim.action_executions": 941,
+        "ops.audit_log": 3036
+      },
+      "bytes": 3760019123
+    },
+    "role_read": {
+      "name": "opspilot_mcp_read",
+      "checkpoints_schema_usage": false,
+      "audit_insert": false,
+      "parameters_update": false,
+      "status_update": false
+    },
+    "role_actions": {
+      "name": "opspilot_mcp_actions",
+      "checkpoints_schema_usage": false,
+      "audit_insert": false,
+      "parameters_update": false,
+      "status_update": true
+    }
+  },
+  "in_memory_reproductions": {
+    "verification_scope": {
+      "status": "recovered",
+      "omitted": 0,
+      "checks": [
+        [
+          "svc",
+          "http_5xx_ratio"
+        ],
+        [
+          "worker",
+          "rolled_back:dep-x"
+        ]
+      ],
+      "worker_metric_was_queried": false
+    },
+    "admission_race": {
+      "committed_rows": 2,
+      "admitted_tasks": 1,
+      "results": [
+        "OpsInvestigation",
+        "CapacityError"
+      ],
+      "orphan_has_null_lease": true
+    },
+    "relative_recovery": {
+      "kind": "metric",
+      "service": "svc",
+      "name": "http_5xx_ratio",
+      "evidence_id": "ev-m0",
+      "semantics": "higher_is_bad",
+      "baseline": 0.002,
+      "anomalous": 0.4,
+      "status": "passed",
+      "after": 0.08,
+      "acceptable": "<= 0.1015",
+      "detail": "after 0.08 (acceptable <= 0.1015)"
+    },
+    "duplicate_scoring": {
+      "plan_acceptable": true,
+      "extra_actions": [],
+      "attempted": [
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        },
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        }
+      ]
+    }
+  },
+  "real_test_database_admission_reproduction": {
+    "database": "opspilot_test",
+    "committed_rows": 2,
+    "admitted_tasks": 1,
+    "results": [
+      "OpsInvestigation",
+      "CapacityError"
+    ],
+    "statuses": [
+      "queued",
+      "queued"
+    ],
+    "all_leases_null": true
+  },
+  "reconstructed_rca_messages": [
+    {
+      "set": "traces",
+      "trial": "INC-002-1-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "traces",
+      "trial": "INC-002-2-approve.json",
+      "outcome": "proposal_blocked",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "supplementary-inc002-x5/traces",
+      "trial": "INC-002-1-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "supplementary-inc002-x5/traces",
+      "trial": "INC-002-2-approve.json",
+      "outcome": "proposal_blocked",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "supplementary-inc002-x5/traces",
+      "trial": "INC-002-3-approve.json",
+      "outcome": "proposal_blocked",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "supplementary-inc002-x5/traces",
+      "trial": "INC-002-4-approve.json",
+      "outcome": "proposal_blocked",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "supplementary-inc002-x5/traces",
+      "trial": "INC-002-5-approve.json",
+      "outcome": "proposal_blocked",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "bbbc34e71654e5928523c0e8c66dbcd6cd453cd9110e873c45196c96d9714ad2"
+    },
+    {
+      "set": "ablation-inc002-x5/traces",
+      "trial": "INC-002-1-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "e4e5caca92549e6f9483ec6c74cf256c62ac9d43f2c65d4a568533174136e03a"
+    },
+    {
+      "set": "ablation-inc002-x5/traces",
+      "trial": "INC-002-2-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "e4e5caca92549e6f9483ec6c74cf256c62ac9d43f2c65d4a568533174136e03a"
+    },
+    {
+      "set": "ablation-inc002-x5/traces",
+      "trial": "INC-002-3-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "e4e5caca92549e6f9483ec6c74cf256c62ac9d43f2c65d4a568533174136e03a"
+    },
+    {
+      "set": "ablation-inc002-x5/traces",
+      "trial": "INC-002-4-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "e4e5caca92549e6f9483ec6c74cf256c62ac9d43f2c65d4a568533174136e03a"
+    },
+    {
+      "set": "ablation-inc002-x5/traces",
+      "trial": "INC-002-5-approve.json",
+      "outcome": "mitigated",
+      "before_rca_event_found": true,
+      "observations": 6,
+      "reconstructed_messages_sha256": "e4e5caca92549e6f9483ec6c74cf256c62ac9d43f2c65d4a568533174136e03a"
+    }
+  ],
+  "fresh_checks": {
+    "python_units": {
+      "passed": 88,
+      "failed": 0
+    },
+    "integration_security_first_run": {
+      "passed": 74,
+      "failed": 1,
+      "failure": "tests/integration/test_durable_delivery.py::test_crash_before_decision_commit_leaves_decision_retryable",
+      "failure_stage": "start response lacked investigation_id before injected crash; logs showed admission full during startup reconciliation"
+    },
+    "targeted_failure_rerun": {
+      "passed": 1,
+      "failed": 0
+    },
+    "web_unit": {
+      "passed": 30,
+      "failed": 0
+    },
+    "ruff_check": "passed",
+    "ruff_format": "passed: 191 files already formatted",
+    "mypy": "passed: 89 source files",
+    "import_linter": "4 kept, 0 broken",
+    "eslint": "passed",
+    "tsc": "passed",
+    "forbidden_successful_and_failed_synthetic_attempts": "both rejected by scorer"
+  },
+  "not_run": [
+    "make evaluate",
+    "live model tests",
+    "browser E2E",
+    "full make test (protected answer-key-loading tests excluded)"
+  ],
+  "prompt_reconstruction_method": {
+    "evidence_fields": [
+      "id",
+      "kind",
+      "service",
+      "relevance",
+      "summary"
+    ],
+    "order": [
+      "-relevance",
+      "id"
+    ],
+    "policy_max_prompt_evidence": 34,
+    "incident_fields": [
+      "title",
+      "description",
+      "service",
+      "severity",
+      "detected_at"
+    ],
+    "observations": "workflow_events node_completed observations preceding first node_started/rca",
+    "builder": "opspilot_agents.prompts.rca_messages at audited HEAD; prompts unchanged from baseline",
+    "hash": "SHA256(json.dumps(messages,sort_keys=True).encode())",
+    "limits": "Reconstruction, not captured original HTTP bytes/options/schema/model digest; all relevant incident traces have 29 evidence items, so temporary reconstruction cap32 and actual cap34 select identical inputs."
+  },
+  "phase_b_preservation": [
+    {
+      "archive": "docs/evaluation/history/BASELINE_phase_b_9ec857c.md",
+      "source_at_9ec857c": "docs/evaluation/BASELINE.md",
+      "byte_identical": true,
+      "sha256": "014edfd3bc9b12e8407776cfb3ce363795879f1fdfd0881c64b7a27b792306c2"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/agent_latest.json",
+      "source_at_9ec857c": "datasets/evaluation/results/agent_latest.json",
+      "byte_identical": true,
+      "sha256": "be76fa986e14e9c366299784d9b1d7b0d439803d03b18296c521e121557d4ca4"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/retrieval_latest.json",
+      "source_at_9ec857c": "datasets/evaluation/results/retrieval_latest.json",
+      "byte_identical": true,
+      "sha256": "af3638bf5872b3c77c424602a1f05ee0ae241c800db6f5135b801f17524514bb"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-002-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-002-1-approve.json",
+      "byte_identical": true,
+      "sha256": "ebb80b8028e33b7227e2ae0c7ba1056181837b1012e19591d3444fc6c7458b66"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-001-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-001-1-approve.json",
+      "byte_identical": true,
+      "sha256": "7d03c2a3728adc0d6aab519fa694517cdcb65853f30caece0f5513ee6e5520fe"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-003-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-003-1-approve.json",
+      "byte_identical": true,
+      "sha256": "61562ade921a616fa9a95f6e4fc62d18b3f41b76f5499cc83c05f8f21cb0465d"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-002-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-002-1-approve.json",
+      "byte_identical": true,
+      "sha256": "258d1527ecbbd35ed04b75f429ee7837315804b51261862974ea11c3a386aa37"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-001-1-approve.json",
+      "byte_identical": true,
+      "sha256": "c3a4d0a797d771e14c1b56ee7ec23a9aee8f5a9bcf2cb97ea032a4487b11cf9c"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-3-reject.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-001-3-reject.json",
+      "byte_identical": true,
+      "sha256": "574b5d6fdc6ace455fe2c9198af8d72eeb829e18f8dabb5634e27bbb3794f2eb"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-003-1-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-003-1-approve.json",
+      "byte_identical": true,
+      "sha256": "e0ecc2d3277bb710e74954f78e9fe053c389198e719cbe73011c1775b447c25e"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-001-2-approve.json",
+      "byte_identical": true,
+      "sha256": "21d35a5ec35b7319642acfcc86271fdfbe00b02257cd3779200483418ac96010"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-002-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-002-2-approve.json",
+      "byte_identical": true,
+      "sha256": "2b96abe0a0b09f1cf5cae6e1473c3bfd73a32cb0c21dce2111dcd32d4ececfd1"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-003-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-003-2-approve.json",
+      "byte_identical": true,
+      "sha256": "c995e28261e6ce5817573a02a4522b93aeeac51a39cebbe5857aaf639d7d0a2f"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-001-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/NEG-001-2-approve.json",
+      "byte_identical": true,
+      "sha256": "b450ecaf4e686c173f32dbf83612684eb4f29ff9365776d0e5ac14be019625c3"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-002-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-002-2-approve.json",
+      "byte_identical": true,
+      "sha256": "12bffc3ae9bfdd69589ac65a260c75401995554b71861109c059c269be3a17b5"
+    },
+    {
+      "archive": "datasets/evaluation/history/phase-b-9ec857c/traces/INC-003-2-approve.json",
+      "source_at_9ec857c": "datasets/evaluation/results/traces_latest/INC-003-2-approve.json",
+      "byte_identical": true,
+      "sha256": "f645ab719e345c3dee0fbd172f3eedd4d9160fadfe41c29a5959c50758c8b996"
+    }
+  ],
+  "official_c0_archive_matches_current_results": [
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-3-reject.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/agent_latest.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/retrieval_latest.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/resources_latest.json",
+    "docs/evaluation/BASELINE.md"
+  ],
+  "changed_path_inventory": [
+    ".env.example",
+    ".gitignore",
+    "Makefile",
+    "README.md",
+    "apps/api/opspilot_api/cli.py",
+    "apps/api/opspilot_api/main.py",
+    "apps/api/opspilot_api/repositories.py",
+    "apps/api/opspilot_api/routes/incidents.py",
+    "apps/api/opspilot_api/routes/investigations.py",
+    "apps/api/opspilot_api/routes/knowledge.py",
+    "apps/api/opspilot_api/routes/system.py",
+    "apps/api/opspilot_api/runtime.py",
+    "apps/api/opspilot_api/schemas.py",
+    "apps/api/opspilot_api/services/approvals.py",
+    "apps/api/opspilot_api/services/commands.py",
+    "apps/api/opspilot_api/services/investigations.py",
+    "apps/api/opspilot_api/services/sanitize.py",
+    "apps/web/app/api/ops/[...path]/route.ts",
+    "apps/web/app/api/session/route.ts",
+    "apps/web/app/investigations/[id]/view.tsx",
+    "apps/web/app/layout.tsx",
+    "apps/web/app/login/form.tsx",
+    "apps/web/app/login/page.tsx",
+    "apps/web/components/approval-card.tsx",
+    "apps/web/components/auth-redirect.tsx",
+    "apps/web/components/nav.tsx",
+    "apps/web/e2e/auth.spec.ts",
+    "apps/web/e2e/auth.ts",
+    "apps/web/e2e/global-setup.ts",
+    "apps/web/e2e/investigation.spec.ts",
+    "apps/web/e2e/isolation.ts",
+    "apps/web/e2e/screenshots.spec.ts",
+    "apps/web/eslint.config.mjs",
+    "apps/web/lib/api.ts",
+    "apps/web/lib/server/auth.ts",
+    "apps/web/lib/server/redact.ts",
+    "apps/web/next.config.ts",
+    "apps/web/playwright.config.ts",
+    "apps/web/tests/bff-auth.test.ts",
+    "apps/web/tests/bff-redaction.test.ts",
+    "apps/web/tests/e2e-isolation.test.ts",
+    "apps/web/tsconfig.json",
+    "apps/web/vitest.config.ts",
+    "datasets/evaluation/ground_truth/INC-003.json",
+    "datasets/evaluation/history/phase-b-9ec857c/README.md",
+    "datasets/evaluation/history/phase-b-9ec857c/agent_latest.json",
+    "datasets/evaluation/history/phase-b-9ec857c/retrieval_latest.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-2-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-001-3-reject.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-003-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/INC-003-2-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-001-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-001-2-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-002-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-002-2-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-003-1-approve.json",
+    "datasets/evaluation/history/phase-b-9ec857c/traces/NEG-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/BASELINE.md",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/agent.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/traces/INC-002-3-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/traces/INC-002-4-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/ablation-inc002-x5/traces/INC-002-5-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/agent_latest.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/resources_latest.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/retrieval_latest.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/agent.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/traces/INC-002-3-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/traces/INC-002-4-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/supplementary-inc002-x5/traces/INC-002-5-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-001-3-reject.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/INC-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0-cc275d7/traces/NEG-003-2-approve.json",
+    "datasets/evaluation/results/agent_latest.json",
+    "datasets/evaluation/results/resources_latest.json",
+    "datasets/evaluation/results/retrieval_latest.json",
+    "datasets/evaluation/results/traces_latest/INC-001-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-001-2-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-001-3-reject.json",
+    "datasets/evaluation/results/traces_latest/INC-002-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-002-2-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-003-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-003-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-001-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-001-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-002-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-002-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-003-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-003-2-approve.json",
+    "docs/DECISIONS.md",
+    "docs/PROGRESS.md",
+    "docs/ROADMAP.md",
+    "docs/architecture/AGENT_WORKFLOWS.md",
+    "docs/architecture/API_CONTRACTS.md",
+    "docs/architecture/DATA_MODEL.md",
+    "docs/architecture/DEPLOYMENT.md",
+    "docs/architecture/RAG_PIPELINE.md",
+    "docs/architecture/SECURITY.md",
+    "docs/audits/CODEX_AUDIT_9ec857c.md",
+    "docs/audits/PHASE_C0_REMEDIATION.md",
+    "docs/evaluation/BASELINE.md",
+    "docs/evaluation/history/BASELINE_phase_b_9ec857c.md",
+    "docs/releases/V0.2.1_NOTES.md",
+    "infra/db/migrations/versions/20261104_0004_workflow_command_outbox.py",
+    "infra/db/migrations/versions/20261104_0005_active_investigation_invariant.py",
+    "packages/agents/opspilot_agents/impact.py",
+    "packages/agents/opspilot_agents/nodes.py",
+    "packages/agents/opspilot_agents/report.py",
+    "packages/agents/opspilot_agents/state.py",
+    "packages/agents/opspilot_agents/uncertainty.py",
+    "packages/agents/opspilot_agents/verification.py",
+    "packages/evaluation/opspilot_eval/agent_eval.py",
+    "packages/evaluation/opspilot_eval/agent_path_bench.py",
+    "packages/evaluation/opspilot_eval/resource_bench.py",
+    "packages/evaluation/opspilot_eval/runner.py",
+    "packages/mcp/opspilot_mcp/action_server.py",
+    "packages/mcp/opspilot_mcp/gateway.py",
+    "packages/mcp/opspilot_mcp/read_server.py",
+    "packages/mcp/opspilot_mcp/schemas.py",
+    "packages/rag/opspilot_rag/ingest.py",
+    "packages/rag/opspilot_rag/retrieval.py",
+    "packages/shared/opspilot_shared/approvals.py",
+    "packages/shared/opspilot_shared/config.py",
+    "packages/shared/opspilot_shared/db/models.py",
+    "packages/shared/opspilot_shared/domain/evidence.py",
+    "packages/shared/opspilot_shared/domain/incidents.py",
+    "packages/shared/opspilot_shared/domain/knowledge.py",
+    "packages/shared/opspilot_shared/errors.py",
+    "packages/shared/opspilot_shared/llm/ollama.py",
+    "packages/shared/opspilot_shared/logging.py",
+    "packages/shared/opspilot_shared/redaction.py",
+    "scripts/bootstrap.sh",
+    "scripts/db-roles.sh",
+    "scripts/e2e-api.sh",
+    "scripts/start.sh",
+    "tests/fakes/gateway.py",
+    "tests/integration/test_agent_path_bench.py",
+    "tests/integration/test_api.py",
+    "tests/integration/test_approval_expiry.py",
+    "tests/integration/test_citation_snapshots.py",
+    "tests/integration/test_concurrency.py",
+    "tests/integration/test_durable_delivery.py",
+    "tests/integration/test_ingestion_retrieval.py",
+    "tests/integration/test_mcp_protocol.py",
+    "tests/integration/test_resilience.py",
+    "tests/security/test_cancellation_races.py",
+    "tests/security/test_mcp_db_roles.py",
+    "tests/security/test_secret_redaction.py",
+    "tests/unit/test_impact.py",
+    "tests/unit/test_mcp_child_env.py",
+    "tests/unit/test_plan_scoring.py",
+    "tests/unit/test_remediation_validation.py",
+    "tests/unit/test_resource_bounds.py",
+    "tests/unit/test_uncertainty.py",
+    "tests/unit/test_verification.py"
+  ]
+}
