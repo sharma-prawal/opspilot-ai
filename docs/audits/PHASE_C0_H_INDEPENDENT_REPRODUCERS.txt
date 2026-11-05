@@ -1,0 +1,249 @@
+Phase C0-H independent audit probes. No application source changes.
+
+Run SEQUENTIALLY from the repository root with exclusive use of opspilot_test. These tests load the existing tests.conftest isolation fixtures, enforce the test database, and use deterministic local test models/embeddings. No evaluation ground truth or scenario internals are opened. One control-plane approval test authorizes one sandbox action only through the replacement runtime. Other investigations stop at approval pause and are cancelled. Audit KB documents are UUID-named and retired; checkpoint evidence is retained. The table-owner trigger bypass is inside a rolled-back transaction; final catalog checks confirm all three triggers enabled.
+
+Original N2: extract c0g_ingestion_race byte-for-byte from PHASE_C0_G_INDEPENDENT_REPRODUCERS.txt and execute it with the existing .venv and PYTHONPATH=.; the guarded PostgreSQL run now returns A=2, B=3, no stale results/context. The original process-check program in that file was also rerun byte-for-byte. N1 is intentionally adapted below: startup rejection is success, no timeout or old exit code is interpreted as product failure.
+
+Save the Python below as /private/tmp/test_c0h_independent.py, then use:
+rtk proxy env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. .venv/bin/pytest -q -c pyproject.toml -p tests.conftest --rootdir=. /private/tmp/test_c0h_independent.py
+
+The actual audit ran the first seven cases, then the committed-SQL boundary, then the role/reindex cases as separate targeted selections. record() writes a scratch JSON per process; retain copies between selections if rerunning separately. The committed-SQL and administrative bypass cases are CHARACTERIZATIONS: passing their assertions demonstrates the boundary, not that immutable physical chunks or schema-owner-resistant fencing are guaranteed. They are not normal API execution paths. The reindex case uses the real supported ingestion path; its source content is unchanged, so it demonstrates mutable physical chunk mapping, not two different source revisions being mixed.
+
+===== BEGIN INDEPENDENT_TESTS =====
+import asyncio,json,uuid
+from contextlib import asynccontextmanager
+from datetime import timedelta
+from pathlib import Path
+import pytest
+from psycopg import AsyncConnection
+from sqlalchemy import select,update,text
+from sqlalchemy.exc import DBAPIError
+from langgraph.checkpoint.base import empty_checkpoint
+from opspilot_api.runtime import AppRuntime
+from opspilot_api.ownership import ExecutionOwnership,RuntimeState,RuntimeLifecycle
+from opspilot_api.checkpointing import checkpointer_pool
+from opspilot_shared.db.models import KbDocument,KbChunk,OpsInvestigation,OpsActionRequest,OpsWorkflowCommand,SimActionExecution
+from opspilot_shared.domain.actions import ApprovalDecisionKind
+from opspilot_shared.domain.common import utcnow
+from opspilot_shared.ids import sha256_hex
+from tests.integration.helpers import inprocess_gateways,make_incident
+from tests.integration.test_revision_consistency import Source,search,Hook,assert_single_revision
+from tests.integration.test_owner_fencing import terminate_lock_session,checkpoint_rows,until,put_checkpoint
+from tests.fakes.models import ScriptedChatModel
+RESULTS={}
+
+def record(key,value):
+ RESULTS[key]=value
+ Path('/private/tmp/c0h_independent_results.json').write_text(json.dumps(RESULTS,indent=2))
+
+def settings_for(settings):
+ assert settings.db_name=='opspilot_test'
+ return settings.model_copy(update={'execution_owner_check_seconds':60,'execution_owner_acquire_timeout_seconds':5})
+
+@pytest.mark.parametrize('stage',['gateway','after_pool'])
+async def test_startup_loss_never_publishes_ready(stage,settings,session_factory,embedder,ingested,monkeypatch):
+ import opspilot_api.runtime as module
+ s=settings_for(settings)
+ if stage=='gateway':s=s.model_copy(update={'execution_owner_check_seconds':.1})
+ entered,go=asyncio.Event(),asyncio.Event();lifecycles=[];opened=False;chat=ScriptedChatModel()
+ class Recorded(RuntimeLifecycle):
+  def __init__(self):
+   super().__init__();self.history=[];self.on_change(lambda state,reason:self.history.append(state.value));lifecycles.append(self)
+ monkeypatch.setattr(module,'RuntimeLifecycle',Recorded)
+ factory=inprocess_gateways(s,session_factory,embedder)
+ @asynccontextmanager
+ async def gateway(profile):
+  if stage=='gateway' and profile=='read':entered.set();await go.wait()
+  async with factory(profile) as gw:yield gw
+ original=module._require_fencing;visits=0
+ async def after_pool(infra):
+  nonlocal visits
+  await original(infra);visits+=1
+  if stage=='after_pool' and visits==1:entered.set();await go.wait()
+ monkeypatch.setattr(module,'_require_fencing',after_pool)
+ async def old():
+  nonlocal opened
+  async with AppRuntime.open(s,chat=chat,embedder=embedder,gateways=gateway):opened=True
+ async with await AsyncConnection.connect(s.libpq_dsn(),autocommit=True) as c:
+  assert (await (await c.execute('select current_database()')).fetchone())[0]=='opspilot_test'
+  async def counts():return await (await c.execute('select (select count(*) from langgraph.checkpoints),(select count(*) from langgraph.checkpoint_blobs),(select count(*) from langgraph.checkpoint_writes),(select count(*) from sim.action_executions)')).fetchone()
+  before=await counts();task=asyncio.create_task(old())
+  try:
+   await asyncio.wait_for(entered.wait(),10);await terminate_lock_session(s)
+   if stage=='gateway':await until(lambda:lifecycles[0].lost)
+   async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as new:
+    go.set()
+    with pytest.raises(BaseException) as refused:await asyncio.wait_for(task,15)
+    assert 'OwnershipError' in repr(refused.value)
+    assert not opened and 'ready' not in lifecycles[0].history and not chat.calls
+    assert await counts()==before
+    inc,_=await make_incident(session_factory);inv=await new.investigations.start(inc)
+    await asyncio.wait_for(new.runner.wait(inv.id),20)
+    assert new.ownership.lifecycle.ready and new.ownership.held
+    assert (await new.investigations.get(inv.id)).status=='awaiting_approval'
+    assert await checkpoint_rows(s,str(inv.id))>0
+    await new.investigations.cancel(inv.id,'independent-audit-cleanup')
+    record('startup_'+stage,{'old_states':lifecycles[0].history,'old_context_entered':opened,'old_model_calls':len(chat.calls),'old_checkpoint_or_effect_growth':False,'replacement_held':new.ownership.held,'replacement_checkpointed':True,'error_type_contains_OwnershipError':True})
+  finally:
+   go.set()
+   if not task.done():task.cancel()
+   await asyncio.gather(task,return_exceptions=True)
+
+async def test_ABA_revision_during_retrieval_is_not_mistaken_for_same_revision(tmp_path,settings,session_factory,embedder):
+ src=Source(tmp_path,session_factory,settings)
+ try:
+  await src.ingest(src.snapshot('BASE'),embedder);first=await search(src,embedder);old=first.results[0];digest=old.metadata['document_hash']
+  async def aba():
+   await src.ingest(src.snapshot('ALPHA'),embedder)
+   r=await src.ingest(src.snapshot('BASE'),embedder);assert r.version==3
+  during=await search(src,embedder,Hook(aba))
+  assert during.results==[] and during.context==[]
+  fresh=await search(src,embedder);assert assert_single_revision(fresh)=={(3,digest)}
+  assert sha256_hex(old.content)==old.content_sha256
+  record('ABA_revision',{'old_version':1,'final_version':3,'same_document_hash':True,'stale_results':len(during.results),'stale_context':len(during.context),'historical_passage_hash_valid':True})
+ finally:
+  async with session_factory() as db,db.begin():await db.execute(update(KbDocument).where(KbDocument.id==src.doc_id).values(status='retired'))
+
+async def test_database_chunk_guard_characterization(tmp_path,settings,session_factory,embedder):
+ src=Source(tmp_path,session_factory,settings)
+ try:
+  await src.ingest(src.snapshot('BASE'),embedder);committed=await src.committed();blocked=False
+  async with session_factory() as db:
+   try:
+    async with db.begin():
+     await db.execute(update(KbChunk).where(KbChunk.document_id==src.doc_id).values(content='DIFFERENT BYTES SAME REVISION'))
+     await db.flush()
+     assert (await db.execute(select(KbDocument.version,KbDocument.content_hash).where(KbDocument.id==src.doc_id))).one()==(committed[0],committed[1])
+     await db.rollback()
+   except DBAPIError:blocked=True
+  assert await src.committed()==committed
+  record('chunk_content_guard',{'direct_content_update_blocked':blocked,'writer':'opspilot_app','all_changes_rolled_back':True})
+ finally:
+  async with session_factory() as db,db.begin():await db.execute(update(KbDocument).where(KbDocument.id==src.doc_id).values(status='retired'))
+
+async def test_new_pool_after_takeover_keeps_old_fence_and_refuses_writes(settings):
+ s=settings_for(settings);old=ExecutionOwnership(s);new=ExecutionOwnership(s);await old.acquire();fence=old.fence;thread='independent-pool-'+str(uuid.uuid4())
+ try:
+  await terminate_lock_session(s);await new.acquire()
+  async with checkpointer_pool(s,fence=fence) as saver:
+   with pytest.raises(Exception,match='execution fence'):await put_checkpoint(saver,thread)
+  assert await checkpoint_rows(s,thread)==0
+  async with checkpointer_pool(s,fence=new.fence) as saver:await put_checkpoint(saver,thread)
+  assert await checkpoint_rows(s,thread)==1
+  record('new_pool_after_takeover',{'old_epoch':fence[0],'new_epoch':new.fence[0],'stale_rows':0,'current_rows':1})
+ finally:await new.release();await old.release()
+
+async def test_start_commit_spanning_takeover_is_recoverable(settings,session_factory,embedder,ingested):
+ s=settings_for(settings);factory=inprocess_gateways(s,session_factory,embedder);entered,go=asyncio.Event(),asyncio.Event();captured={}
+ async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as old:
+  inc,_=await make_incident(session_factory);original=old.investigations._started
+  async def hold(db,inv):captured['id']=inv.id;entered.set();await go.wait();await original(db,inv)
+  old.investigations._started=hold
+  job=asyncio.create_task(old.investigations.start(inc))
+  try:
+   await asyncio.wait_for(entered.wait(),10);await terminate_lock_session(s)
+   async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as new:
+    assert old.ownership.lifecycle.ready
+    go.set();inv=await asyncio.wait_for(job,10)
+    for _ in range(100):
+     if not old.runner.is_active(inv.id):break
+     await asyncio.sleep(.02)
+    assert await checkpoint_rows(s,str(inv.id))==0
+    assert (await new.investigations.get(inv.id)).status=='queued'
+    # Model the normal lease timeout deterministically, without waiting 60 seconds.
+    async with session_factory() as db,db.begin():await db.execute(update(OpsInvestigation).where(OpsInvestigation.id==inv.id).values(run_lease_until=utcnow()-timedelta(seconds=1)))
+    counts=await new.investigations.reconcile(expired_leases_only=True);await asyncio.wait_for(new.runner.wait(inv.id),20)
+    assert (await new.investigations.get(inv.id)).status=='awaiting_approval'
+    assert await checkpoint_rows(s,str(inv.id))>0
+    await new.investigations.cancel(inv.id,'independent-audit-cleanup')
+    record('start_takeover',{'stale_checkpoint_rows':0,'durable_queued':True,'replacement_counts':counts,'replacement_recovered':True})
+  finally:
+   go.set()
+   if not job.done():job.cancel()
+   await asyncio.gather(job,return_exceptions=True)
+
+async def test_stale_process_approval_is_durable_but_only_replacement_executes(settings,session_factory,embedder,ingested):
+ s=settings_for(settings);factory=inprocess_gateways(s,session_factory,embedder)
+ async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as old:
+  inc,_=await make_incident(session_factory);inv=await old.investigations.start(inc);await asyncio.wait_for(old.runner.wait(inv.id),20)
+  [action]=[a for a in await old.approvals.list('pending') if a.investigation_id==inv.id]
+  before=await checkpoint_rows(s,str(inv.id));await terminate_lock_session(s)
+  async with AppRuntime.open(s,chat=ScriptedChatModel(),embedder=embedder,gateways=factory) as new:
+   await old.approvals.decide(action.id,decision=ApprovalDecisionKind.APPROVE,params_hash=action.params_hash,decided_by='independent-audit',comment='isolated takeover test')
+   for _ in range(100):
+    if not old.runner.is_active(inv.id):break
+    await asyncio.sleep(.02)
+   assert await checkpoint_rows(s,str(inv.id))==before
+   async with session_factory() as db:
+    assert await db.get(SimActionExecution,action.id) is None
+    cmd=(await db.execute(select(OpsWorkflowCommand).where(OpsWorkflowCommand.action_id==action.id))).scalar_one();cid=cmd.id
+   # Model normal outbox lease expiration; do not change its approved payload.
+   async with session_factory() as db,db.begin():await db.execute(update(OpsWorkflowCommand).where(OpsWorkflowCommand.id==cid).values(claimed_at=utcnow()-timedelta(seconds=s.command_lease_seconds+1)))
+   await new.investigations.reconcile();await asyncio.wait_for(new.runner.wait(inv.id),20)
+   async with session_factory() as db:
+    assert await db.get(SimActionExecution,action.id) is not None
+    assert (await db.get(OpsWorkflowCommand,cid)).status=='delivered'
+   assert (await new.investigations.get(inv.id)).status=='completed'
+   record('approval_takeover',{'stale_checkpoint_growth':0,'stale_effects':0,'replacement_completed':True,'decision_delivered':True})
+
+async def test_direct_SQL_chunk_replacement_boundary(tmp_path,settings,session_factory,embedder):
+ src=Source(tmp_path,session_factory,settings)
+ try:
+  await src.ingest(src.snapshot('BASE'),embedder);version,digest,_,_=await src.committed()
+  async def mutate():
+   async with session_factory() as db,db.begin():
+    await db.execute(update(KbChunk).where(KbChunk.document_id==src.doc_id).values(content='ALPHA direct SQL replacement bytes'))
+  resp=await search(src,embedder,Hook(mutate))
+  all_passages=[*resp.results,*resp.context]
+  assert (await src.committed())[:2]==(version,digest)
+  assert any('BASE' in (x.content or '') for x in resp.results)
+  assert any('ALPHA' in (x.content or '') for x in resp.context)
+  assert all(x.document_version==version and x.metadata['document_hash']==digest and x.metadata['lifecycle_validated'] for x in all_passages)
+  record('direct_SQL_chunk_boundary',{'committed_different_bytes_without_new_version':True,'ranked_BASE_with_expanded_ALPHA':True,'all_marked_validated':True,'warnings':resp.warnings,'writer':'opspilot_app','source_of_write':'explicit audit SQL, not ingestion API'})
+ finally:
+  async with session_factory() as db,db.begin():await db.execute(update(KbDocument).where(KbDocument.id==src.doc_id).values(status='retired'))
+
+async def test_database_role_fencing_boundary(settings):
+ s=settings_for(settings);thread='independent-ddl-'+str(uuid.uuid4());roles=[]
+ for user,password in ((s.mcp_read_db_user,s.mcp_read_db_password),(s.mcp_actions_db_user,s.mcp_actions_db_password)):
+  role_settings=s.model_copy(update={'db_user':user,'db_password':password})
+  async with await AsyncConnection.connect(role_settings.libpq_dsn(),autocommit=True) as c:
+   assert (await (await c.execute('select current_database()')).fetchone())[0]=='opspilot_test'
+   for statement in ("UPDATE ops.execution_owner SET epoch=epoch+1 WHERE id=1","ALTER TABLE langgraph.checkpoint_writes DISABLE TRIGGER trg_fence_checkpoint_writes","SET ROLE opspilot_app"):
+    with pytest.raises(Exception) as exc:await c.execute(statement)
+    assert getattr(exc.value,'sqlstate',None)=='42501'
+   roles.append({'role':user,'epoch_update_denied':True,'trigger_disable_denied':True,'set_role_app_denied':True})
+ async with await AsyncConnection.connect(s.libpq_dsn(),autocommit=False) as c:
+  assert (await (await c.execute('select current_database()')).fetchone())[0]=='opspilot_test'
+  await c.execute('ALTER TABLE langgraph.checkpoint_writes DISABLE TRIGGER trg_fence_checkpoint_writes')
+  await c.execute("INSERT INTO langgraph.checkpoint_writes (thread_id,checkpoint_ns,checkpoint_id,task_id,idx,channel,type,blob,task_path) VALUES (%s,'','c','t',0,'channel','null',%s,'')",(thread,b''))
+  assert (await (await c.execute('select count(*) from langgraph.checkpoint_writes where thread_id=%s',(thread,))).fetchone())[0]==1
+  await c.rollback()
+ assert await checkpoint_rows(s,thread)==0
+ record('database_role_boundary',{'unprivileged_roles':roles,'application_is_table_owner':True,'owner_can_disable_trigger_and_write':True,'DDL_and_write_rolled_back':True})
+
+async def test_reindex_changed_chunking_snapshot_boundary(tmp_path,settings,session_factory,embedder):
+ from opspilot_rag.ingest import IngestionService,document_id_for
+ from opspilot_rag.retrieval import HybridRetriever
+ from opspilot_shared.domain.knowledge import RetrievalMode,RetrievalFilters,DocType
+ token='reindex'+uuid.uuid4().hex;uri='audit/'+token+'.md';did=document_id_for(uri);path=tmp_path/'same-document.md'
+ body=token+' '+' '.join('word'+str(i) for i in range(124))
+ path.write_text('---\ntitle: Reindex consistency\ndoc_type: runbook\nstatus: current\n---\n# Reindex consistency\n\n## Mitigation\n'+body+'\n')
+ first=settings.model_copy(update={'chunk_max_words':200,'chunk_overlap_words':0});second=settings.model_copy(update={'chunk_max_words':50,'chunk_overlap_words':0});reports=[]
+ try:
+  reports.append((await IngestionService(session_factory,embedder,first)._ingest_file(path,uri,reindex=False)).version)
+  async def reindex():reports.append((await IngestionService(session_factory,embedder,second)._ingest_file(path,uri,reindex=True)).version)
+  resp=await HybridRetriever(session_factory,embedder,first,reranker=Hook(reindex)).search(token,mode=RetrievalMode.KEYWORD,top_k=1,filters=__import__('opspilot_shared.domain.knowledge',fromlist=['RetrievalFilters']).RetrievalFilters(doc_types=[DocType.RUNBOOK]),record=False,expand_sections=4,exclude_obsolete=True)
+  assert len(resp.results)==1
+  hit=resp.results[0]
+  async with session_factory() as db:
+   stored=await db.get(KbChunk,hit.chunk_id);doc=await db.get(KbDocument,did)
+   assert stored.document_version==hit.document_version==doc.version==1
+   assert doc.content_hash==hit.metadata['document_hash']
+   assert stored.content!=hit.content and sha256_hex(stored.content)!=hit.content_sha256
+   assert hit.metadata['lifecycle_validated'] and resp.warnings==[]
+   record('reindex_chunk_snapshot',{'published_versions':reports,'ranked_word_count':len(hit.content.split()),'current_word_count_for_same_chunk_id':len(stored.content.split()),'same_document_version_and_hash':True,'passage_equals_current_chunk_at_validation':False,'marked_validated':True,'warnings':resp.warnings,'via':'real IngestionService reindex, no direct SQL mutation'})
+ finally:
+  async with session_factory() as db,db.begin():await db.execute(update(KbDocument).where(KbDocument.id==did).values(status='retired'))
+
+===== END INDEPENDENT_TESTS =====
