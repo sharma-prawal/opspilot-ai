@@ -11,7 +11,10 @@ Invariants
   or when the checkpoint shows the decision was already consumed (crash after consumption).
 
 State machine: pending -> delivering -> delivered | failed; a stale ``delivering`` (lease expired, no live
-task) is re-claimed. The approval token is minted at delivery time and is never stored in the outbox.
+task) is re-claimed; pending | delivering -> cancelled when the investigation is cancelled (C0-G2, in the
+cancellation's transaction). Releasing a claim is conditional on the command still being ``delivering``, so a
+concurrent cancellation is never reverted to ``pending``; ``delivered`` is recorded only from pending/delivering.
+The approval token is minted at delivery time and is never stored in the outbox.
 """
 
 from __future__ import annotations
@@ -35,7 +38,7 @@ from opspilot_shared.ids import stable_uuid
 from opspilot_shared.logging import get_logger
 
 _log = get_logger(__name__)
-TERMINAL = {"completed", "failed", "cancelled"}
+TERMINAL = {"completed", "failed", "cancelled"}  # == InvestigationStatus.terminal
 
 
 def command_id_for(action_id: uuid.UUID) -> uuid.UUID:
@@ -98,14 +101,19 @@ class CommandDispatcher:
         return row
 
     async def _set(self, command_id: uuid.UUID, **values: Any) -> None:
+        """Release/settle a claimed command; a no-op once it left ``delivering`` (e.g. revoked by a cancellation)."""
         async with self._sf() as s, s.begin():
-            await s.execute(update(OpsWorkflowCommand).where(OpsWorkflowCommand.id == command_id).values(**values))
+            await s.execute(
+                update(OpsWorkflowCommand)
+                .where(OpsWorkflowCommand.id == command_id, OpsWorkflowCommand.status == "delivering")
+                .values(**values)
+            )
 
     async def mark_delivered(self, command_id: uuid.UUID) -> None:
         async with self._sf() as s, s.begin():
             await s.execute(
                 update(OpsWorkflowCommand)
-                .where(OpsWorkflowCommand.id == command_id, OpsWorkflowCommand.status != "delivered")
+                .where(OpsWorkflowCommand.id == command_id, OpsWorkflowCommand.status.in_(["pending", "delivering"]))
                 .values(status="delivered", delivered_at=utcnow(), last_error=None)
             )
 

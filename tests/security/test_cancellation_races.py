@@ -225,6 +225,32 @@ async def test_decision_accepted_before_cancel_is_never_delivered(settings, sess
     await InvestigationService(session_factory, Runner(), None, "m").cancel(inv, actor="sre")  # type: ignore[arg-type]
     graph = StubGraph(waiting_on=str(aid))  # the checkpoint is still paused on the action
     runner = InvestigationRunner(session_factory, graph, 1)
+    # C0-G2: the cancellation revokes the undelivered command in its own transaction, so it is not even claimable.
+    assert await CommandDispatcher(session_factory, runner, graph, settings).deliver_for_action(aid) == (
+        "not_claimable"
+    )
+    assert graph.runs == 0 and not runner.is_active(inv)
+    async with session_factory() as s:
+        cmd = (await s.execute(select(OpsWorkflowCommand).where(OpsWorkflowCommand.action_id == aid))).scalar_one()
+    assert cmd.status == "cancelled"
+    assert await facts(session_factory, aid) == ("cancelled", 0, "cancelled")
+
+
+async def test_command_created_after_cancel_is_refused_at_delivery(settings, session_factory) -> None:  # type: ignore[no-untyped-def]
+    """Second layer: a command that appears after the cancellation committed (nothing revoked it) is still refused
+    at delivery because the investigation is terminal, and is settled as failed."""
+    aid, ph, _ = await make_action(session_factory, status="approved")
+    inv = await investigation_of(session_factory, aid)
+    await InvestigationService(session_factory, Runner(), None, "m").cancel(inv, actor="sre")  # type: ignore[arg-type]
+    async with session_factory() as s, s.begin():
+        await enqueue_decision(
+            s,
+            investigation_id=inv,
+            action_id=aid,
+            payload={"decision": "approve", "params_hash": ph, "action_id": str(aid)},
+        )
+    graph = StubGraph(waiting_on=str(aid))
+    runner = InvestigationRunner(session_factory, graph, 1)
     assert await CommandDispatcher(session_factory, runner, graph, settings).deliver_for_action(aid) == (
         "investigation_terminal"
     )

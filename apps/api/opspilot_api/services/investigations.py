@@ -52,6 +52,11 @@ class LeaseLostError(RuntimeError):
     """This process no longer owns the investigation's execution lease; it must stop writing (C0-F2)."""
 
 
+class TerminalStateError(LeaseLostError):
+    """The investigation reached a terminal state (e.g. an operator cancellation committed); the segment must stop
+    writing and must never move it back to an active state (C0-G2)."""
+
+
 class Reservation:
     """One admission slot, taken synchronously and handed to ``submit`` (C0-F2).
 
@@ -206,14 +211,19 @@ class InvestigationRunner:
 
     async def _fence(self, s: AsyncSession, investigation_id: uuid.UUID) -> None:
         """Inside a write transaction: lock the row and verify this process still owns the execution lease."""
-        owner = (
+        row = (
             await s.execute(
-                select(OpsInvestigation.run_owner).where(OpsInvestigation.id == investigation_id).with_for_update()
+                select(OpsInvestigation.run_owner, OpsInvestigation.status)
+                .where(OpsInvestigation.id == investigation_id)
+                .with_for_update(key_share=True)
             )
-        ).scalar_one_or_none()
+        ).one_or_none()
+        owner = row.run_owner if row else None
         if owner != self.owner or investigation_id in self._lost:
             self._lost.add(investigation_id)
             raise LeaseLostError(f"execution lease for {investigation_id} is held by {owner or 'nobody'}")
+        if row is not None and InvestigationStatus(row.status).terminal:
+            raise TerminalStateError(f"investigation {investigation_id} is {row.status}")
 
     def submit(
         self,
@@ -269,12 +279,14 @@ class InvestigationRunner:
         if t:
             await asyncio.shield(t)
 
-    async def finalize(self, investigation_id: uuid.UUID) -> None:
-        """Persist the final application state of a graph that has already finished (crash recovery)."""
+    async def finalize(self, investigation_id: uuid.UUID) -> bool:
+        """Persist the final application state of a graph that has already finished (crash recovery).
+        Returns False when the row was already terminal (nothing written)."""
         async with self._sf() as s:
             inv = await s.get(OpsInvestigation, investigation_id)
-        if inv is not None:
-            await self._finish_segment(investigation_id, inv.incident_id, thread_config(investigation_id))
+        if inv is None:
+            return False
+        return await self._finish_segment(investigation_id, inv.incident_id, thread_config(investigation_id))
 
     async def run(
         self,
@@ -337,15 +349,21 @@ class InvestigationRunner:
         ):
             span.set_attribute("investigation.id", str(investigation_id))
             async with self._sf() as s, s.begin():
-                await self._fence(s, investigation_id)
-                await repo.set_investigation(
+                try:
+                    await self._fence(s, investigation_id)
+                except TerminalStateError:
+                    _log.warning("run_skipped_terminal", investigation_id=str(investigation_id))
+                    return
+                if not await repo.transition_investigation(
                     s,
                     investigation_id,
-                    status=InvestigationStatus.RUNNING.value,
+                    InvestigationStatus.RUNNING.value,
+                    reason="segment_start",
                     started_at=inv.started_at or utcnow(),
                     error=None,
                     error_class=None,
-                )
+                ):
+                    return
                 await repo.set_incident_status(s, incident_id, IncidentStatus.INVESTIGATING.value)
                 await repo.add_event(
                     s,
@@ -393,14 +411,16 @@ class InvestigationRunner:
                 _log.error("mark_skipped_lease_lost", investigation_id=str(investigation_id), status=status.value)
                 return
             inv = await s.get(OpsInvestigation, investigation_id)
-            await repo.set_investigation(
+            if not await repo.transition_investigation(
                 s,
                 investigation_id,
-                status=status.value,
+                status.value,
+                reason=error_class,
                 error=error,
                 error_class=error_class,
                 completed_at=utcnow() if status.terminal else None,
-            )
+            ):
+                return
             await repo.add_event(
                 s, investigation_id, "run_" + status.value, None, {"error": error, "error_class": error_class}
             )
@@ -450,6 +470,20 @@ class InvestigationRunner:
     ) -> None:
         action = value["action"]
         action_id = uuid.UUID(action["action_id"])
+        # C0-G2: the status transition is checked (row locked) *before* the request is created. A terminal
+        # investigation (e.g. cancelled while a stale checkpoint still shows the interrupt) never gets a new
+        # approval request and is never moved back to awaiting_approval.
+        if not await repo.transition_investigation(
+            s,
+            investigation_id,
+            InvestigationStatus.AWAITING_APPROVAL.value,
+            reason="interrupt",
+            current_step="await_approval",
+        ):
+            await repo.add_event(
+                s, investigation_id, "stale_interrupt_ignored", "await_approval", {"action_id": str(action_id)}
+            )
+            return
         async with self._sf() as ro:
             inc = await ro.get(OpsIncident, incident_id)
         assert inc is not None
@@ -472,9 +506,6 @@ class InvestigationRunner:
         )
         # Idempotent: re-running the interrupt (or reconciling after a restart) never duplicates the request.
         created = (await s.execute(stmt)).scalar_one_or_none() is not None
-        await repo.set_investigation(
-            s, investigation_id, status=InvestigationStatus.AWAITING_APPROVAL.value, current_step="await_approval"
-        )
         await repo.set_incident_status(s, incident_id, IncidentStatus.AWAITING_APPROVAL.value)
         if created:
             await repo.add_event(s, investigation_id, "approval_requested", "await_approval", {"action": action})
@@ -546,13 +577,16 @@ class InvestigationRunner:
 
     async def _finish_segment(
         self, investigation_id: uuid.UUID, incident_id: uuid.UUID, config: dict[str, Any], *, fenced: bool = False
-    ) -> None:
+    ) -> bool:
         snapshot = await self._graph.aget_state(config)
         values = snapshot.values
         if snapshot.next:  # paused (interrupt): status already recorded; expose the RCA for the reviewer
             async with self._sf() as s, s.begin():
                 if fenced:
                     await self._fence(s, investigation_id)
+                current = await repo.locked_status(s, investigation_id)
+                if current is None or InvestigationStatus(current).terminal:
+                    return False  # C0-G2: a terminal row is never rewritten from a checkpoint
                 await repo.set_investigation(
                     s,
                     investigation_id,
@@ -573,7 +607,7 @@ class InvestigationRunner:
                         }
                     ),
                 )
-            return
+            return True
         status = values.get("status")
         final = InvestigationStatus.COMPLETED if status == "completed" else InvestigationStatus.FAILED
         result = redact(
@@ -604,17 +638,19 @@ class InvestigationRunner:
         async with self._sf() as s, s.begin():
             if fenced:
                 await self._fence(s, investigation_id)
-            await repo.set_investigation(
+            if not await repo.transition_investigation(
                 s,
                 investigation_id,
-                status=final.value,
+                final.value,
+                reason="graph_finished",
                 completed_at=utcnow(),
                 result=result,
                 report_markdown=(values.get("report") or {}).get("markdown"),
                 current_step=values.get("current_step"),
                 error=(errs[-1]["message"] if final is InvestigationStatus.FAILED and errs else None),
                 error_class=(errs[-1]["error_class"] if final is InvestigationStatus.FAILED and errs else None),
-            )
+            ):
+                return False  # C0-G2: already terminal (e.g. cancelled); the committed decision stands
             await repo.set_incident_status(s, incident_id, incident_status.value)
             await repo.add_event(
                 s,
@@ -623,6 +659,7 @@ class InvestigationRunner:
                 None,
                 {"incident_status": incident_status.value, "outcome": outcome},
             )
+        return True
 
 
 class InvestigationService:
@@ -848,6 +885,14 @@ class InvestigationService:
         else:
             graph_input = None  # continue from the last checkpoint
         async with self._sf() as s, s.begin():
+            current = await repo.locked_status(s, investigation_id)
+            if current == InvestigationStatus.FAILED.value:
+                # The only way out of ``failed``: an explicit operator resume (C0-G2 OPERATOR_ONLY).
+                await repo.transition_investigation(
+                    s, investigation_id, InvestigationStatus.INTERRUPTED.value, operator=True, reason="operator_resume"
+                )
+            elif current is None or InvestigationStatus(current).terminal:
+                raise ConflictError(f"investigation is {current}")
             await repo.add_event(s, investigation_id, "resume_requested", None, {"from_next": list(snap.next)})
         self.runner.submit(investigation_id, graph_input)
         return inv
@@ -863,6 +908,11 @@ class InvestigationService:
         if InvestigationStatus(inv.status).terminal:
             raise ConflictError(f"investigation is already {inv.status}")
         async with self._sf() as s, s.begin():
+            # C0-G2: lock the investigation row first (the same order every writer uses: investigation, then its
+            # actions) and decide on the committed status, not on the snapshot read above.
+            current = await repo.locked_status(s, investigation_id)
+            if current is None or InvestigationStatus(current).terminal:
+                raise ConflictError(f"investigation is already {current}")
             locked = list(
                 (
                     await s.execute(
@@ -887,11 +937,18 @@ class InvestigationService:
                 await repo.audit(
                     s, actor=actor, action="action.cancelled", entity_type="action_request", entity_id=str(a.id)
                 )
-            await repo.set_investigation(
-                s, investigation_id, status=InvestigationStatus.CANCELLED.value, completed_at=utcnow()
+            # Outstanding decision deliveries are invalidated in the same transaction: a pending/delivering command
+            # can never resume a cancelled workflow (delivery also re-checks, and its claim release is conditional).
+            revoked = await repo.revoke_commands(s, investigation_id, reason=f"investigation cancelled by {actor}")
+            await repo.transition_investigation(
+                s,
+                investigation_id,
+                InvestigationStatus.CANCELLED.value,
+                reason="operator_cancel",
+                completed_at=utcnow(),
             )
             await repo.set_incident_status(s, inv.incident_id, IncidentStatus.OPEN.value)
-            await repo.add_event(s, investigation_id, "run_cancelled", None, {"by": actor})
+            await repo.add_event(s, investigation_id, "run_cancelled", None, {"by": actor, "commands_revoked": revoked})
         await self.runner.cancel(investigation_id)
         return await self.get(investigation_id)
 
@@ -941,17 +998,19 @@ class InvestigationService:
         for inv in rows:
             if self.runner.is_active(inv.id) or await self.runner.owned_elsewhere(inv.id):
                 continue
+            # Every write below is a locked compare-and-set against the transition policy (C0-G2), so a cancellation
+            # that commits after this row was selected (or after the checkpoint is read) always wins.
             try:
                 snap = await self._graph.aget_state(thread_config(inv.id))
                 interrupts = [i.value for t in snap.tasks for i in (t.interrupts or ())]
                 if snap.values and not snap.next:
-                    await self.runner.finalize(inv.id)
-                    bump("finalized")
+                    bump("finalized" if await self.runner.finalize(inv.id) else "skipped_terminal")
                 elif interrupts:
                     async with self._sf() as s, s.begin():
                         for value in interrupts:
                             await self.runner._on_interrupt(s, inv.id, inv.incident_id, value)
-                    bump("awaiting_approval")
+                        restored = await repo.locked_status(s, inv.id) == InvestigationStatus.AWAITING_APPROVAL.value
+                    bump("awaiting_approval" if restored else "skipped_terminal")
                 elif snap.values and self.dispatcher and await self.dispatcher.pending_for(inv.id):
                     self.runner.submit(inv.id, None)
                     bump("resumed")
@@ -966,17 +1025,20 @@ class InvestigationService:
                         bump("dispatched")
                 elif inv.status in ("running", "queued"):
                     async with self._sf() as s, s.begin():
-                        await repo.set_investigation(
+                        current = await repo.locked_status(s, inv.id)
+                        moved = current in ("running", "queued") and await repo.transition_investigation(
                             s,
                             inv.id,
-                            status=InvestigationStatus.INTERRUPTED.value,
+                            InvestigationStatus.INTERRUPTED.value,
+                            reason="reconcile_abandoned",
                             run_owner=None,
                             run_lease_until=None,
                         )
-                        await repo.add_event(
-                            s, inv.id, "run_interrupted", inv.current_step, {"reason": "process restart"}
-                        )
-                    bump("interrupted")
+                        if moved:
+                            await repo.add_event(
+                                s, inv.id, "run_interrupted", inv.current_step, {"reason": "process restart"}
+                            )
+                    bump("interrupted" if moved else "skipped_terminal")
             except Exception:
                 _log.exception("reconcile_failed", investigation_id=str(inv.id))
                 bump("errors")
