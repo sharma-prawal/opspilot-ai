@@ -6,7 +6,8 @@ expanded and once more, against committed state, before the response is assemble
 obsolete documents entirely, while explicitly authorised historical search still returns them (labelled).
 
 Fixture documents use a unique token so keyword retrieval is deterministic and isolated from the corpus. They are
-left ``retired`` (never deleted).
+removed on teardown: the test database's knowledge base is scratch data (the session fixture truncates it), and
+other tests count its chunks.
 """
 
 from __future__ import annotations
@@ -88,16 +89,19 @@ class KB:
             await s.execute(delete(KbChunk).where(KbChunk.document_id == did))
             await self._chunks(s, did, version, row.title, sections)
 
-    async def retire(self) -> None:
+    async def cleanup(self) -> None:
+        from sqlalchemy import delete
+
         async with self.sf() as s, s.begin():
-            await s.execute(update(KbDocument).where(KbDocument.id.in_(self.docs)).values(status="retired"))
+            await s.execute(delete(KbChunk).where(KbChunk.document_id.in_(self.docs)))
+            await s.execute(delete(KbDocument).where(KbDocument.id.in_(self.docs)))
 
 
 @pytest.fixture
 async def kb(session_factory, settings) -> AsyncIterator[KB]:  # type: ignore[no-untyped-def]
     k = KB(session_factory, settings.embedding_dimensions)
     yield k
-    await k.retire()
+    await k.cleanup()
 
 
 class Hook:
