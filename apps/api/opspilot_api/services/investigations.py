@@ -8,6 +8,7 @@ progress and nothing is lost if the process dies (the checkpoint has the rest).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import socket
 import uuid
@@ -47,6 +48,34 @@ def thread_config(investigation_id: uuid.UUID) -> dict[str, Any]:
     return {"configurable": {"thread_id": str(investigation_id)}, "recursion_limit": 80}
 
 
+class LeaseLostError(RuntimeError):
+    """This process no longer owns the investigation's execution lease; it must stop writing (C0-F2)."""
+
+
+class Reservation:
+    """One admission slot, taken synchronously and handed to ``submit`` (C0-F2).
+
+    A start reserves its slot *before* it writes anything, so admission is decided once: two concurrent
+    starts can no longer both commit a row and then have one refused. An unused reservation must be released."""
+
+    __slots__ = ("_runner", "state")
+
+    def __init__(self, runner: InvestigationRunner) -> None:
+        self._runner = runner
+        self.state = "held"
+
+    def release(self) -> None:
+        if self.state == "held":
+            self.state = "released"
+            self._runner._reserved -= 1
+
+    def consume(self) -> None:
+        if self.state != "held":
+            raise RuntimeError(f"admission reservation is {self.state}")
+        self.state = "used"
+        self._runner._reserved -= 1
+
+
 class InvestigationRunner:
     """Runs graph segments as bounded background tasks (one per investigation at a time).
 
@@ -54,6 +83,13 @@ class InvestigationRunner:
     claims ``run_owner``/``run_lease_until`` with compare-and-set and renews the lease while it runs. A
     second API process cannot run the same workflow concurrently; a crashed owner's lease simply expires.
     The in-process task registry is only a fast path for this process.
+
+    Lease loss is fenced (C0-F2): when a renewal finds another owner, the segment is cancelled without any
+    further application writes, and every persistence transaction re-checks ownership under a row lock, so a
+    stale owner that resumes after a takeover cannot overwrite the new owner's (or a cancellation's) state.
+
+    Admission (C0-F2): ``reserve()`` takes a slot synchronously; ``submit(..., reservation=...)`` consumes it
+    without a second capacity check. Running tasks plus held reservations never exceed ``max_pending``.
     """
 
     def __init__(
@@ -73,7 +109,13 @@ class InvestigationRunner:
         self._shutting_down = False
         self._lease = lease_seconds
         self._max_pending = max_pending if max_pending is not None else max(4, max_concurrency)
+        self._reserved = 0
+        self._lost: set[uuid.UUID] = set()
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
+
+    @property
+    def lease_seconds(self) -> float:
+        return self._lease
 
     def is_active(self, investigation_id: uuid.UUID) -> bool:
         t = self._tasks.get(investigation_id)
@@ -81,13 +123,21 @@ class InvestigationRunner:
 
     @property
     def pending(self) -> int:
-        """Graph segments running or waiting for a concurrency slot in this process."""
-        return sum(1 for t in self._tasks.values() if not t.done())
+        """Graph segments running or waiting for a concurrency slot, plus reserved admissions, in this process."""
+        return sum(1 for t in self._tasks.values() if not t.done()) + self._reserved
 
     def admit(self) -> None:
-        """Raise ``CapacityError`` when the bounded queue is full (C0 item P)."""
+        """Raise ``CapacityError`` when the bounded queue is full (C0 item P). Does not reserve."""
         if self.pending >= self._max_pending:
             raise CapacityError(f"{self.pending} investigation segment(s) running or queued; retry shortly")
+
+    def reserve(self) -> Reservation:
+        """Check and take an admission slot atomically (no await between the check and the increment)."""
+        if self._shutting_down:
+            raise CapacityError("process is shutting down; retry shortly")
+        self.admit()
+        self._reserved += 1
+        return Reservation(self)
 
     # -- execution ownership lease ----------------------------------------------------
     async def claim(self, investigation_id: uuid.UUID) -> bool:
@@ -133,12 +183,37 @@ class InvestigationRunner:
             return False
         return row.run_lease_until is not None and row.run_lease_until > utcnow()
 
-    async def _heartbeat(self, investigation_id: uuid.UUID) -> None:
+    async def _heartbeat(self, investigation_id: uuid.UUID, segment: asyncio.Task[Any] | None) -> None:
+        """Renew the lease; on loss (or when it cannot be renewed before it expires) stop the segment."""
+        loop = asyncio.get_running_loop()
+        renewed_at = loop.time()
         while True:
             await asyncio.sleep(self._lease / 3)
-            if not await self.claim(investigation_id):  # pragma: no cover - lease stolen after expiry
+            try:
+                owned = await self.claim(investigation_id)
+            except Exception as exc:  # DB blip: keep trying until the lease would have expired
+                _log.warning("run_lease_renewal_failed", investigation_id=str(investigation_id), error=str(exc))
+                owned = loop.time() - renewed_at < self._lease
+            else:
+                if owned:
+                    renewed_at = loop.time()
+            if not owned:
                 _log.error("run_lease_lost", investigation_id=str(investigation_id), owner=self.owner)
+                self._lost.add(investigation_id)
+                if segment is not None:
+                    segment.cancel()
                 return
+
+    async def _fence(self, s: AsyncSession, investigation_id: uuid.UUID) -> None:
+        """Inside a write transaction: lock the row and verify this process still owns the execution lease."""
+        owner = (
+            await s.execute(
+                select(OpsInvestigation.run_owner).where(OpsInvestigation.id == investigation_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if owner != self.owner or investigation_id in self._lost:
+            self._lost.add(investigation_id)
+            raise LeaseLostError(f"execution lease for {investigation_id} is held by {owner or 'nobody'}")
 
     def submit(
         self,
@@ -148,14 +223,20 @@ class InvestigationRunner:
         on_success: Callable[[uuid.UUID], Awaitable[None]] | None = None,
         command_id: uuid.UUID | None = None,
         expect_action_id: str | None = None,
+        reservation: Reservation | None = None,
     ) -> None:
         """Start a graph segment. ``on_success(command_id)`` runs only after the segment's results are persisted.
 
         ``expect_action_id``: deliver a resume only if, once the lease is held, the workflow is still paused on
-        that action (closes the window between the dispatcher's check and execution)."""
+        that action (closes the window between the dispatcher's check and execution).
+
+        ``reservation``: an admission slot taken earlier with ``reserve()``; it is consumed here without a second
+        capacity check. Without one, a slot is reserved now (and refused with ``CapacityError`` when full).
+        On failure the caller's reservation is left held for the caller to release."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
-        self.admit()
+        slot = reservation if reservation is not None else self.reserve()
+        slot.consume()  # synchronous from here to registration: the slot becomes the task
         task = asyncio.create_task(
             self.run(
                 investigation_id,
@@ -209,13 +290,26 @@ class InvestigationRunner:
             if not await self.claim(investigation_id):
                 _log.warning("run_skipped_owned_elsewhere", investigation_id=str(investigation_id))
                 return
-            heartbeat = asyncio.create_task(self._heartbeat(investigation_id), name=f"lease-{investigation_id}")
+            self._lost.discard(investigation_id)
+            segment = asyncio.create_task(
+                self._run_owned(investigation_id, graph_input, config, on_success, command_id, expect_action_id),
+                name=f"segment-{investigation_id}",
+            )
+            heartbeat = asyncio.create_task(
+                self._heartbeat(investigation_id, segment), name=f"lease-{investigation_id}"
+            )
             try:
-                await self._run_owned(investigation_id, graph_input, config, on_success, command_id, expect_action_id)
+                await segment  # cancelling this task (operator/shutdown) cancels the segment too
+            except asyncio.CancelledError:
+                me = asyncio.current_task()
+                if (me is not None and me.cancelling()) or investigation_id not in self._lost:
+                    raise
+                # Stopped because another owner took over: not an operator cancellation, nothing to record.
             finally:
                 heartbeat.cancel()
                 await asyncio.gather(heartbeat, return_exceptions=True)
-                await self.release(investigation_id)
+                await self.release(investigation_id)  # conditional on ownership: never frees a new owner's lease
+                self._lost.discard(investigation_id)
 
     async def _run_owned(
         self,
@@ -243,6 +337,7 @@ class InvestigationRunner:
         ):
             span.set_attribute("investigation.id", str(investigation_id))
             async with self._sf() as s, s.begin():
+                await self._fence(s, investigation_id)
                 await repo.set_investigation(
                     s,
                     investigation_id,
@@ -261,11 +356,14 @@ class InvestigationRunner:
                 )
             try:
                 async for mode, chunk in self._graph.astream(graph_input, config, stream_mode=["updates", "custom"]):
-                    await self._persist(investigation_id, incident_id, mode, chunk)
-                await self._finish_segment(investigation_id, incident_id, config)
+                    await self._persist(investigation_id, incident_id, mode, chunk, fenced=True)
+                await self._finish_segment(investigation_id, incident_id, config, fenced=True)
                 if on_success is not None and command_id is not None:
                     await on_success(command_id)
             except asyncio.CancelledError:
+                if investigation_id in self._lost:
+                    _log.error("run_stopped_lease_lost", investigation_id=str(investigation_id))
+                    raise
                 if self._shutting_down:
                     await self._mark(
                         investigation_id,
@@ -278,6 +376,8 @@ class InvestigationRunner:
                         investigation_id, InvestigationStatus.CANCELLED, "cancelled by operator", "cancelled"
                     )
                 raise
+            except LeaseLostError:
+                _log.error("run_stopped_lease_lost", investigation_id=str(investigation_id))
             except Exception as exc:
                 error_class = exc.error_class if isinstance(exc, OpsPilotError) else type(exc).__name__
                 _log.exception("investigation_failed", error_class=error_class)
@@ -287,6 +387,11 @@ class InvestigationRunner:
         self, investigation_id: uuid.UUID, status: InvestigationStatus, error: str, error_class: str
     ) -> None:
         async with self._sf() as s, s.begin():
+            try:
+                await self._fence(s, investigation_id)
+            except LeaseLostError:
+                _log.error("mark_skipped_lease_lost", investigation_id=str(investigation_id), status=status.value)
+                return
             inv = await s.get(OpsInvestigation, investigation_id)
             await repo.set_investigation(
                 s,
@@ -302,8 +407,12 @@ class InvestigationRunner:
             if inv:
                 await repo.set_incident_status(s, inv.incident_id, IncidentStatus.OPEN.value)
 
-    async def _persist(self, investigation_id: uuid.UUID, incident_id: uuid.UUID, mode: str, chunk: Any) -> None:
+    async def _persist(
+        self, investigation_id: uuid.UUID, incident_id: uuid.UUID, mode: str, chunk: Any, *, fenced: bool = False
+    ) -> None:
         async with self._sf() as s, s.begin():
+            if fenced:
+                await self._fence(s, investigation_id)
             if mode == "custom" and isinstance(chunk, dict) and chunk.get("event") == "node_started":
                 await repo.set_investigation(s, investigation_id, current_step=chunk["node"])
                 await repo.add_event(s, investigation_id, "node_started", chunk["node"], {})
@@ -436,12 +545,14 @@ class InvestigationRunner:
             )
 
     async def _finish_segment(
-        self, investigation_id: uuid.UUID, incident_id: uuid.UUID, config: dict[str, Any]
+        self, investigation_id: uuid.UUID, incident_id: uuid.UUID, config: dict[str, Any], *, fenced: bool = False
     ) -> None:
         snapshot = await self._graph.aget_state(config)
         values = snapshot.values
         if snapshot.next:  # paused (interrupt): status already recorded; expose the RCA for the reviewer
             async with self._sf() as s, s.begin():
+                if fenced:
+                    await self._fence(s, investigation_id)
                 await repo.set_investigation(
                     s,
                     investigation_id,
@@ -491,6 +602,8 @@ class InvestigationRunner:
         )
         errs = values.get("errors") or []
         async with self._sf() as s, s.begin():
+            if fenced:
+                await self._fence(s, investigation_id)
             await repo.set_investigation(
                 s,
                 investigation_id,
@@ -525,46 +638,89 @@ class InvestigationService:
         self._graph = graph
         self._model = model_name
         self.dispatcher: Any = None  # CommandDispatcher, wired by the runtime (avoids an import cycle)
+        self._starting: dict[uuid.UUID, asyncio.Event] = {}
+
+    @staticmethod
+    async def _active_for(s: AsyncSession, incident_id: uuid.UUID) -> OpsInvestigation | None:
+        return (
+            (
+                await s.execute(
+                    select(OpsInvestigation).where(
+                        OpsInvestigation.incident_id == incident_id,
+                        OpsInvestigation.status.in_(ACTIVE_INVESTIGATION_STATUSES),
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
 
     async def start(self, incident_id: uuid.UUID) -> OpsInvestigation:
-        """Create the incident's single active investigation (audit finding G).
+        """Create the incident's single active investigation and dispatch it (audit G, C0 item P, C0-F2).
 
-        The incident row is locked so concurrent starts serialize, and the partial unique index
-        ``uq_ops_investigations_one_active_per_incident`` enforces the invariant even for writers that
-        bypass this method. A violation is reported as a conflict, never as a server error.
+        Invariants
+        - One active investigation per incident: the incident row is locked so concurrent starts serialize, and
+          the partial unique index ``uq_ops_investigations_one_active_per_incident`` enforces it even for writers
+          that bypass this method. A violation is a 409, never a 500. Duplicate requests are effect-idempotent:
+          they never create a second row (in-process duplicates are also single-flighted, so they answer 409
+          deterministically instead of competing for admission slots).
+        - Atomic admission: an admission slot is reserved synchronously *before* anything is written and is
+          handed to ``submit`` without a second check. A refused start writes nothing; a failed transaction
+          releases its slot.
+        - Durable ownership: the row is created with this process's execution lease. If dispatch fails, or the
+          process dies before or after dispatch, the lease expires and the maintenance sweep dispatches the
+          queued row again (``reconcile``). No transaction is held open while the graph (model inference) runs.
+        """
+        while (inflight := self._starting.get(incident_id)) is not None:
+            await inflight.wait()
+        done = self._starting[incident_id] = asyncio.Event()
+        try:
+            return await self._start(incident_id)
+        finally:
+            del self._starting[incident_id]
+            done.set()
 
-        Admission is checked before anything is written, so a refused start leaves no orphan row (C0 item P)."""
-        self.runner.admit()
+    async def _start(self, incident_id: uuid.UUID) -> OpsInvestigation:
+        async with self._sf() as s:  # read-only: an existing run is a conflict, whatever the capacity
+            if active := await self._active_for(s, incident_id):
+                raise ConflictError(f"investigation {active.id} is already {active.status} for this incident")
+        reservation = self.runner.reserve()  # synchronous check-and-reserve, before any write
         try:
             async with self._sf() as s, s.begin():
                 incident = await s.get(OpsIncident, incident_id, with_for_update=True)
                 if incident is None:
                     raise NotFoundError(f"incident {incident_id} not found")
-                active = (
-                    (
-                        await s.execute(
-                            select(OpsInvestigation).where(
-                                OpsInvestigation.incident_id == incident_id,
-                                OpsInvestigation.status.in_(ACTIVE_INVESTIGATION_STATUSES),
-                            )
-                        )
-                    )
-                    .scalars()
-                    .first()
-                )
-                if active:
+                if active := await self._active_for(s, incident_id):
                     raise ConflictError(f"investigation {active.id} is already {active.status} for this incident")
                 inv = OpsInvestigation(
-                    id=uuid.uuid4(), incident_id=incident_id, status=InvestigationStatus.QUEUED.value, model=self._model
+                    id=uuid.uuid4(),
+                    incident_id=incident_id,
+                    status=InvestigationStatus.QUEUED.value,
+                    model=self._model,
+                    run_owner=self.runner.owner,
+                    run_lease_until=utcnow() + timedelta(seconds=self.runner.lease_seconds),
                 )
                 s.add(inv)
                 await s.flush()
                 await self._started(s, inv)
         except IntegrityError as exc:
+            reservation.release()
             if "uq_ops_investigations_one_active_per_incident" not in str(exc.orig):
                 raise
             raise ConflictError("an investigation is already active for this incident") from exc
-        self.runner.submit(inv.id, {"investigation_id": str(inv.id), "incident_id": str(incident_id)})
+        except BaseException:
+            reservation.release()
+            raise
+        try:
+            self.runner.submit(
+                inv.id, {"investigation_id": str(inv.id), "incident_id": str(incident_id)}, reservation=reservation
+            )
+        except Exception:
+            # Accepted and durable, but not running: free the slot and the lease so the sweep re-dispatches it.
+            reservation.release()
+            _log.exception("dispatch_failed", investigation_id=str(inv.id))
+            with contextlib.suppress(Exception):
+                await self.runner.release(inv.id)
         return inv
 
     async def _started(self, s: AsyncSession, inv: OpsInvestigation) -> None:
@@ -749,7 +905,11 @@ class InvestigationService:
         then deliver every pending / stale delivery command. Idempotent; safe to run repeatedly.
 
         Rows whose execution lease is held by another live process are skipped (finding G). The periodic
-        sweep passes ``expired_leases_only`` to pick up runs whose owner died after start-up.
+        sweep passes ``expired_leases_only`` to pick up runs whose owner died after start-up, and rows that have
+        no lease at all (C0-F2: e.g. accepted work whose dispatch failed).
+
+        Accepted work that never started (``queued`` with no checkpoint) is dispatched again rather than
+        interrupted; when admission is full it stays queued and is retried by the next sweep (``deferred``).
         """
         counts: dict[str, int] = {}
 
@@ -764,7 +924,16 @@ class InvestigationService:
                             OpsInvestigation.status.in_(["queued", "running"])
                             if expired_leases_only
                             else OpsInvestigation.status.in_(ACTIVE_INVESTIGATION_STATUSES),
-                            *([OpsInvestigation.run_lease_until < utcnow()] if expired_leases_only else []),
+                            *(
+                                [
+                                    or_(
+                                        OpsInvestigation.run_lease_until.is_(None),
+                                        OpsInvestigation.run_lease_until < utcnow(),
+                                    )
+                                ]
+                                if expired_leases_only
+                                else []
+                            ),
                         )
                     )
                 ).scalars()
@@ -786,6 +955,15 @@ class InvestigationService:
                 elif snap.values and self.dispatcher and await self.dispatcher.pending_for(inv.id):
                     self.runner.submit(inv.id, None)
                     bump("resumed")
+                elif not snap.values and inv.status == InvestigationStatus.QUEUED.value:
+                    try:  # accepted but never started: dispatch it (the run claims the expired/absent lease)
+                        self.runner.submit(
+                            inv.id, {"investigation_id": str(inv.id), "incident_id": str(inv.incident_id)}
+                        )
+                    except CapacityError:
+                        bump("deferred")
+                    else:
+                        bump("dispatched")
                 elif inv.status in ("running", "queued"):
                     async with self._sf() as s, s.begin():
                         await repo.set_investigation(

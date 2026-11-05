@@ -42,7 +42,11 @@ class StubGraph:
 
 
 class NoopRunner:
+    """Runner double: unlimited admission, records submissions (the start/uniqueness tests need no execution)."""
+
     submitted: list[uuid.UUID]
+    owner = "noop-runner"
+    lease_seconds = 60.0
 
     def __init__(self) -> None:
         self.submitted = []
@@ -51,6 +55,12 @@ class NoopRunner:
         self.submitted.append(investigation_id)
 
     def admit(self) -> None:
+        return None
+
+    def reserve(self) -> Any:
+        return SimpleNamespace(release=lambda: None, consume=lambda: None)
+
+    async def release(self, _investigation_id: uuid.UUID) -> None:
         return None
 
 
