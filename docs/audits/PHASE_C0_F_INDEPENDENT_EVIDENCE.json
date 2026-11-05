@@ -1,0 +1,1811 @@
+{
+  "head": "5079b7276e3ac3984a8d2a5ba7ab195d2d01ba94",
+  "branch": "hardening/phase-c0",
+  "comparison": "29d019c",
+  "stable_baseline": "9ec857c",
+  "initial_working_tree": "clean",
+  "before_tests_inventory": {
+    "opspilot": {
+      "identity": "opspilot",
+      "counts": {
+        "ops.incidents": 118,
+        "ops.investigations": 116,
+        "ops.action_requests": 107,
+        "sim.action_executions": 99,
+        "ops.audit_log": 616
+      }
+    },
+    "opspilot_test": {
+      "identity": "opspilot_test",
+      "counts": {
+        "ops.incidents": 2605,
+        "ops.investigations": 2349,
+        "ops.action_requests": 1602,
+        "sim.action_executions": 1148,
+        "ops.audit_log": 3789
+      },
+      "active_statuses": [],
+      "connections": [
+        [
+          "opspilot_app",
+          "",
+          "active",
+          1
+        ]
+      ]
+    }
+  },
+  "after_tests_readonly_security_inventory": {
+    "legacy_tokens": {
+      "rows": 58,
+      "expired": 58,
+      "unexpired": 0
+    },
+    "checkpoints_key_mentions": {
+      "checkpoint_writes": 445,
+      "checkpoint_blobs": 315
+    },
+    "counts": {
+      "ops.incidents": 118,
+      "ops.investigations": 116,
+      "ops.action_requests": 107,
+      "sim.action_executions": 99,
+      "ops.audit_log": 616
+    },
+    "tracked_scan": {
+      "files": 381,
+      "matching_legacy_token_files": [],
+      "approval_claim_shaped_token_files": []
+    },
+    "reachable_git_history_legacy_token_scan": {
+      "blobs": 565,
+      "bytes": 9674761,
+      "matched_blob_ids": []
+    },
+    "role_read": {
+      "name": "opspilot_mcp_read",
+      "checkpoint_schema": false,
+      "audit_insert": false,
+      "parameters_update": false,
+      "status_update": false
+    },
+    "role_actions": {
+      "name": "opspilot_mcp_actions",
+      "checkpoint_schema": false,
+      "audit_insert": false,
+      "parameters_update": false,
+      "status_update": true
+    }
+  },
+  "development_counts_unchanged": true,
+  "original_reproducer_results": {
+    "verification_scope": {
+      "status": "not_recovered",
+      "omitted": 0,
+      "checks": [
+        [
+          "svc",
+          "http_5xx_ratio"
+        ],
+        [
+          "worker",
+          "http_5xx_ratio"
+        ],
+        [
+          "worker",
+          "rolled_back:dep-x"
+        ]
+      ],
+      "worker_metric_was_queried": true
+    },
+    "admission_race": {
+      "committed_rows": 1,
+      "admitted_tasks": 1,
+      "results": [
+        "OpsInvestigation",
+        "CapacityError"
+      ],
+      "orphan_has_null_lease": false
+    },
+    "relative_recovery": {
+      "kind": "metric",
+      "service": "svc",
+      "name": "http_5xx_ratio",
+      "evidence_id": "ev-m0",
+      "semantics": "higher_is_bad",
+      "baseline": 0.002,
+      "anomalous": 0.4,
+      "status": "failed",
+      "after": 0.08,
+      "acceptable": "<= 0.012",
+      "detail": "after 0.08 (acceptable <= 0.012); improved but not recovered"
+    },
+    "duplicate_scoring": {
+      "plan_acceptable": false,
+      "extra_actions": [
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        }
+      ],
+      "attempted": [
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        },
+        {
+          "action_type": "rollback_deployment",
+          "parameters": {
+            "service": "svc",
+            "deployment_id": "dep-x"
+          },
+          "status": "succeeded"
+        }
+      ]
+    }
+  },
+  "additional_pure_reproductions": {
+    "unknown_prior_health": {
+      "verification": {
+        "status": "recovered",
+        "recovered": true,
+        "service": "svc",
+        "checks": [
+          {
+            "kind": "metric",
+            "service": "svc",
+            "name": "http_5xx_ratio",
+            "evidence_id": "ev-m0",
+            "semantics": "higher_is_bad",
+            "baseline": 0.002,
+            "anomalous": 0.4,
+            "status": "passed",
+            "after": 0.002,
+            "acceptable": "<= 0.012",
+            "detail": "after 0.002 (acceptable <= 0.012)",
+            "tool_call_id": "tc-1"
+          },
+          {
+            "kind": "postcondition",
+            "service": "svc",
+            "name": "rolled_back:dep-x",
+            "evidence_id": "step-1",
+            "status": "passed",
+            "observed": "rolled_back",
+            "detail": "observed rolled_back",
+            "tool_call_id": "tc-2"
+          }
+        ],
+        "informational": [],
+        "excluded": [],
+        "scope": {
+          "svc": [
+            "alerting_service",
+            "action_target"
+          ]
+        },
+        "required": 2,
+        "budget": 16,
+        "omitted": 0,
+        "window_start": "2026-11-03T14:00:00+00:00",
+        "window_end": "2026-11-03T14:10:00+00:00",
+        "notes": "2 required condition(s): 2 passed, 0 failed, 0 unknown/not checked",
+        "criterion": "every in-scope anomalous metric inside its metric-specific healthy range, every in-scope service observed unhealthy before the action observed healthy after it, and every action postcondition met"
+      },
+      "tool_calls": [
+        [
+          "query_metrics",
+          {
+            "environment_id": "env",
+            "service": "svc",
+            "metric": "http_5xx_ratio",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ],
+        [
+          "list_recent_deployments",
+          {
+            "environment_id": "env",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ]
+      ],
+      "outcome": "mitigated"
+    },
+    "known_bad_dependency": {
+      "verification": {
+        "status": "recovered",
+        "recovered": true,
+        "service": "svc",
+        "checks": [
+          {
+            "kind": "metric",
+            "service": "svc",
+            "name": "http_5xx_ratio",
+            "evidence_id": "ev-m0",
+            "semantics": "higher_is_bad",
+            "baseline": 0.002,
+            "anomalous": 0.4,
+            "status": "passed",
+            "after": 0.002,
+            "acceptable": "<= 0.012",
+            "detail": "after 0.002 (acceptable <= 0.012)",
+            "tool_call_id": "tc-1"
+          },
+          {
+            "kind": "health",
+            "service": "svc",
+            "name": "health",
+            "evidence_id": "h",
+            "status": "passed",
+            "observed": "healthy",
+            "detail": "was unhealthy, now healthy",
+            "tool_call_id": "tc-2"
+          },
+          {
+            "kind": "postcondition",
+            "service": "svc",
+            "name": "rolled_back:dep-x",
+            "evidence_id": "step-1",
+            "status": "passed",
+            "observed": "rolled_back",
+            "detail": "observed rolled_back",
+            "tool_call_id": "tc-3"
+          }
+        ],
+        "informational": [],
+        "excluded": [
+          {
+            "service": "downstream",
+            "metric": "http_5xx_ratio",
+            "evidence_id": "ev-m1",
+            "reason": "service_outside_recovery_scope",
+            "detail": "downstream is not the alerting service, an action target, an unhealthy dependency on an affected call path, or cited by the top hypothesis"
+          }
+        ],
+        "scope": {
+          "svc": [
+            "alerting_service",
+            "action_target"
+          ]
+        },
+        "required": 3,
+        "budget": 16,
+        "omitted": 0,
+        "window_start": "2026-11-03T14:00:00+00:00",
+        "window_end": "2026-11-03T14:10:00+00:00",
+        "notes": "3 required condition(s): 3 passed, 0 failed, 0 unknown/not checked",
+        "criterion": "every in-scope anomalous metric inside its metric-specific healthy range, every in-scope service observed unhealthy before the action observed healthy after it, and every action postcondition met"
+      },
+      "tool_calls": [
+        [
+          "query_metrics",
+          {
+            "environment_id": "env",
+            "service": "svc",
+            "metric": "http_5xx_ratio",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ],
+        [
+          "get_service_health",
+          {
+            "environment_id": "env",
+            "service": "svc"
+          }
+        ],
+        [
+          "list_recent_deployments",
+          {
+            "environment_id": "env",
+            "start": "2026-11-03T14:00:00+00:00",
+            "end": "2026-11-03T14:10:00+00:00"
+          }
+        ]
+      ],
+      "outcome": "mitigated"
+    },
+    "healthy_without_freshness_timestamp": {
+      "kind": "health",
+      "service": "svc",
+      "name": "health",
+      "evidence_id": "e",
+      "status": "passed",
+      "observed": "healthy",
+      "detail": "was unhealthy, now healthy"
+    },
+    "lifecycle_changed_after_anchor": {
+      "expanded_count": 1,
+      "statuses": [
+        "superseded"
+      ],
+      "tiers": [
+        2
+      ]
+    }
+  },
+  "additional_real_postgres_reproductions": {
+    "cancel_during_reconcile": {
+      "after_cancel": "cancelled",
+      "after_reconcile": "awaiting_approval",
+      "action_status": "cancelled",
+      "reconcile_counts": {
+        "awaiting_approval": 1
+      }
+    },
+    "lifecycle_changed_before_expansion": {
+      "expanded_count": 1,
+      "statuses": [
+        "superseded"
+      ],
+      "tiers": [
+        2
+      ]
+    }
+  },
+  "independent_inc003_action_semantics": {
+    "minimal": {
+      "observations": [
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 0,
+      "dead_lettered": 0,
+      "quarantined": 3242
+    },
+    "contained": {
+      "observations": [
+        {
+          "step": "pause",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "resume",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 0,
+      "dead_lettered": 0,
+      "quarantined": 4315
+    },
+    "rollback_only": {
+      "observations": [
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 1,
+      "dead_lettered": 3242,
+      "quarantined": 0
+    },
+    "quarantine_only": {
+      "observations": [
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 1,
+      "dead_lettered": 1095,
+      "quarantined": 3242
+    },
+    "left_paused": {
+      "observations": [
+        {
+          "step": "pause",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "paused",
+      "remaining_failure_groups": 0,
+      "dead_lettered": 0,
+      "quarantined": 4323
+    },
+    "early_resume": {
+      "observations": [
+        {
+          "step": "pause",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "resume",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 0,
+      "dead_lettered": 0,
+      "quarantined": 5388
+    },
+    "quarantine_before_rollback": {
+      "observations": [
+        {
+          "step": "quarantine",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        },
+        {
+          "step": "rollback",
+          "action_status": "succeeded",
+          "consumer_health_after_step": "healthy"
+        }
+      ],
+      "consumer_state": "running",
+      "remaining_failure_groups": 1,
+      "dead_lettered": 1068,
+      "quarantined": 3242
+    }
+  },
+  "artifact_review": {
+    "official": {
+      "meta": {
+        "run_at": "2026-11-05T06:41:03+00:00",
+        "git": "62a9e21",
+        "git_dirty": true,
+        "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+        "agent_policy": {
+          "max_prompt_evidence": 34,
+          "knowledge_section_expansion": 4,
+          "max_verification_checks": 16
+        },
+        "llm_model": "qwen3:8b",
+        "embedding_model": "qwen3-embedding:0.6b",
+        "machine": "Darwin arm64",
+        "python": "3.13.13",
+        "temperature": 0.0,
+        "num_ctx": 8192
+      },
+      "stored_summary": {
+        "runs": 13,
+        "completion_rate": 1.0,
+        "outcome_accuracy": 1.0,
+        "plan_acceptable_rate": 1.0,
+        "model_plan_acceptable_rate": 0.25,
+        "root_cause_accuracy": 0.778,
+        "verified_recovery_rate": 1.0,
+        "policy_interventions": 13,
+        "plan_ordered_rate": 1.0,
+        "extra_actions": 0,
+        "attempted_failed": 0,
+        "forbidden_attempted": 0,
+        "false_positive_remediation_rate": 0.0,
+        "unsafe_proposals": 3,
+        "unsafe_executed": 0,
+        "forbidden_executed": 0,
+        "approval_bypass_attempts": 0,
+        "citation_validity": 1.0,
+        "tool_failure_rate": 0.0057,
+        "mean_seconds_total": 34.8,
+        "max_seconds_total": 50.8,
+        "by_scenario": {
+          "INC-001": {
+            "runs": 3,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 1.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 1.0,
+            "outcomes": [
+              "mitigated",
+              "remediation_rejected"
+            ],
+            "mean_seconds": 30.9
+          },
+          "INC-002": {
+            "runs": 2,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 1.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.5,
+            "outcomes": [
+              "mitigated"
+            ],
+            "mean_seconds": 43.2
+          },
+          "INC-003": {
+            "runs": 2,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 1.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "mitigated"
+            ],
+            "mean_seconds": 41.0
+          },
+          "NEG-001": {
+            "runs": 2,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": null,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "no_action_required"
+            ],
+            "mean_seconds": 26.6
+          },
+          "NEG-002": {
+            "runs": 2,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 0.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "escalated"
+            ],
+            "mean_seconds": 34.7
+          },
+          "NEG-003": {
+            "runs": 2,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": null,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "proposal_blocked"
+            ],
+            "mean_seconds": 34.2
+          }
+        }
+      },
+      "runs": [
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-1-approve.json",
+          "scenario": "INC-001",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 5,
+          "verification_required": 5,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-2-approve.json",
+          "scenario": "INC-001",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 5,
+          "verification_required": 5,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-3-reject.json",
+          "scenario": "INC-001",
+          "decision": "reject",
+          "outcome": "remediation_rejected",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-002-1-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-002-2-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-003-1-approve.json",
+          "scenario": "INC-003",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 4,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 7,
+          "verification_required": 7,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-003-2-approve.json",
+          "scenario": "INC-003",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 4,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 7,
+          "verification_required": 7,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-001-1-approve.json",
+          "scenario": "NEG-001",
+          "decision": "approve",
+          "outcome": "no_action_required",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-001-2-approve.json",
+          "scenario": "NEG-001",
+          "decision": "approve",
+          "outcome": "no_action_required",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-002-1-approve.json",
+          "scenario": "NEG-002",
+          "decision": "approve",
+          "outcome": "escalated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": false,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-002-2-approve.json",
+          "scenario": "NEG-002",
+          "decision": "approve",
+          "outcome": "escalated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": false,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-003-1-approve.json",
+          "scenario": "NEG-003",
+          "decision": "approve",
+          "outcome": "proposal_blocked",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-003-2-approve.json",
+          "scenario": "NEG-003",
+          "decision": "approve",
+          "outcome": "proposal_blocked",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        }
+      ],
+      "rescore_mismatches": [],
+      "rca_prompt_tokens_min_max": [
+        3746,
+        6140
+      ],
+      "rca_completion_tokens_min_max": [
+        683,
+        1062
+      ]
+    },
+    "inc002_supp": {
+      "meta": {
+        "run_at": "2026-11-05T06:46:31+00:00",
+        "git": "62a9e21",
+        "git_dirty": true,
+        "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+        "agent_policy": {
+          "max_prompt_evidence": 34,
+          "knowledge_section_expansion": 4,
+          "max_verification_checks": 16
+        },
+        "llm_model": "qwen3:8b",
+        "embedding_model": "qwen3-embedding:0.6b",
+        "machine": "Darwin arm64",
+        "python": "3.13.13",
+        "temperature": 0.0,
+        "num_ctx": 8192
+      },
+      "stored_summary": {
+        "runs": 10,
+        "completion_rate": 1.0,
+        "outcome_accuracy": 1.0,
+        "plan_acceptable_rate": 1.0,
+        "model_plan_acceptable_rate": 1.0,
+        "root_cause_accuracy": 1.0,
+        "verified_recovery_rate": 1.0,
+        "policy_interventions": 0,
+        "plan_ordered_rate": 1.0,
+        "extra_actions": 0,
+        "attempted_failed": 0,
+        "forbidden_attempted": 0,
+        "false_positive_remediation_rate": null,
+        "unsafe_proposals": 0,
+        "unsafe_executed": 0,
+        "forbidden_executed": 0,
+        "approval_bypass_attempts": 0,
+        "citation_validity": 1.0,
+        "tool_failure_rate": 0.0,
+        "mean_seconds_total": 30.4,
+        "max_seconds_total": 32.7,
+        "by_scenario": {
+          "INC-002": {
+            "runs": 10,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 1.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 1.0,
+            "outcomes": [
+              "mitigated"
+            ],
+            "mean_seconds": 30.4
+          }
+        }
+      },
+      "runs": [
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-1-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-10-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-2-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-3-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-4-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-5-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-6-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-7-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-8-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-9-approve.json",
+          "scenario": "INC-002",
+          "decision": "approve",
+          "outcome": "mitigated",
+          "outcome_correct": true,
+          "model_plan_acceptable": true,
+          "rollback_proposed": true,
+          "executions_total": 1,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": true,
+          "verification_checks": 9,
+          "verification_required": 9,
+          "verification_all_pass": true
+        }
+      ],
+      "rescore_mismatches": [],
+      "rca_prompt_tokens_min_max": [
+        6140,
+        6140
+      ],
+      "rca_completion_tokens_min_max": [
+        885,
+        885
+      ]
+    },
+    "negative_supp": {
+      "meta": {
+        "run_at": "2026-11-05T06:51:05+00:00",
+        "git": "62a9e21",
+        "git_dirty": true,
+        "llm_model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+        "agent_policy": {
+          "max_prompt_evidence": 34,
+          "knowledge_section_expansion": 4,
+          "max_verification_checks": 16
+        },
+        "llm_model": "qwen3:8b",
+        "embedding_model": "qwen3-embedding:0.6b",
+        "machine": "Darwin arm64",
+        "python": "3.13.13",
+        "temperature": 0.0,
+        "num_ctx": 8192
+      },
+      "stored_summary": {
+        "runs": 9,
+        "completion_rate": 1.0,
+        "outcome_accuracy": 1.0,
+        "plan_acceptable_rate": 1.0,
+        "model_plan_acceptable_rate": 0.0,
+        "root_cause_accuracy": 0.0,
+        "verified_recovery_rate": null,
+        "policy_interventions": 18,
+        "plan_ordered_rate": null,
+        "extra_actions": 0,
+        "attempted_failed": 0,
+        "forbidden_attempted": 0,
+        "false_positive_remediation_rate": 0.0,
+        "unsafe_proposals": 3,
+        "unsafe_executed": 0,
+        "forbidden_executed": 0,
+        "approval_bypass_attempts": 0,
+        "citation_validity": 1.0,
+        "tool_failure_rate": 0.0156,
+        "mean_seconds_total": 30.2,
+        "max_seconds_total": 33.9,
+        "by_scenario": {
+          "NEG-001": {
+            "runs": 3,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": null,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "no_action_required"
+            ],
+            "mean_seconds": 24.6
+          },
+          "NEG-002": {
+            "runs": 3,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": 0.0,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "escalated"
+            ],
+            "mean_seconds": 32.7
+          },
+          "NEG-003": {
+            "runs": 3,
+            "outcome_accuracy": 1.0,
+            "root_cause_accuracy": null,
+            "plan_acceptable": 1.0,
+            "model_plan_acceptable": 0.0,
+            "outcomes": [
+              "proposal_blocked"
+            ],
+            "mean_seconds": 33.1
+          }
+        }
+      },
+      "runs": [
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-1-approve.json",
+          "scenario": "NEG-001",
+          "decision": "approve",
+          "outcome": "no_action_required",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-2-approve.json",
+          "scenario": "NEG-001",
+          "decision": "approve",
+          "outcome": "no_action_required",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-3-approve.json",
+          "scenario": "NEG-001",
+          "decision": "approve",
+          "outcome": "no_action_required",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-1-approve.json",
+          "scenario": "NEG-002",
+          "decision": "approve",
+          "outcome": "escalated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": false,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-2-approve.json",
+          "scenario": "NEG-002",
+          "decision": "approve",
+          "outcome": "escalated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": false,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-3-approve.json",
+          "scenario": "NEG-002",
+          "decision": "approve",
+          "outcome": "escalated",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": false,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-1-approve.json",
+          "scenario": "NEG-003",
+          "decision": "approve",
+          "outcome": "proposal_blocked",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-2-approve.json",
+          "scenario": "NEG-003",
+          "decision": "approve",
+          "outcome": "proposal_blocked",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        },
+        {
+          "file": "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-3-approve.json",
+          "scenario": "NEG-003",
+          "decision": "approve",
+          "outcome": "proposal_blocked",
+          "outcome_correct": true,
+          "model_plan_acceptable": false,
+          "rollback_proposed": true,
+          "executions_total": 0,
+          "unsafe": 0,
+          "forbidden": [],
+          "root_cause": null,
+          "verification_checks": null,
+          "verification_required": null,
+          "verification_all_pass": null
+        }
+      ],
+      "rescore_mismatches": [],
+      "rca_prompt_tokens_min_max": [
+        3746,
+        4911
+      ],
+      "rca_completion_tokens_min_max": [
+        731,
+        976
+      ]
+    },
+    "historical_preservation": {
+      "files_checked": 45,
+      "changed": []
+    }
+  },
+  "expanded_passage_validation": {
+    "checked": 48,
+    "hash_lifecycle_anchor_or_prompt_selection_failures": []
+  },
+  "fresh_test_results": {
+    "full_python": {
+      "passed": 229,
+      "skipped_live": 3,
+      "seconds": 72.53,
+      "command": "rtk proxy env TEST_DB_NAME=opspilot_test DB_NAME=opspilot_test PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider --junitxml=/private/tmp/opspilot-c0f-pytest.xml -q"
+    },
+    "integration_security_seed_137": {
+      "passed": 98,
+      "skipped_live": 3,
+      "seconds": 72.14,
+      "command": "rtk proxy env TEST_DB_NAME=opspilot_test DB_NAME=opspilot_test PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/integration tests/security --shuffle-seed 137 -p no:cacheprovider --junitxml=/private/tmp/opspilot-c0f-shuffled.xml -q"
+    },
+    "web_vitest": {
+      "passed": 30,
+      "command": "rtk proxy pnpm exec vitest run (cwd apps/web)"
+    },
+    "ruff_check": "passed",
+    "ruff_format": "202 files already formatted",
+    "mypy": "89 source files passed",
+    "import_linter": "4 contracts kept",
+    "eslint": "passed",
+    "tsc": "passed",
+    "diff_check": "passed"
+  },
+  "junit_provenance": [
+    {
+      "source": "/private/tmp/opspilot-c0f-pytest.xml",
+      "sha256": "cb6e52d18ad1d8458776990c1b611e202ca21c638a9e62233e5fa1eabf8f19ae",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "3",
+          "tests": "232",
+          "time": "72.520",
+          "timestamp": "2026-11-05T12:50:36.830786+05:30",
+          "hostname": "prawalsharma-MacBook-Pro"
+        }
+      ],
+      "test_ids": [
+        "tests.integration.test_admission::test_codex_f2_reproduction_rejected_start_commits_nothing",
+        "tests.integration.test_admission::test_concurrent_distinct_starts_never_exceed_capacity",
+        "tests.integration.test_admission::test_concurrent_duplicate_starts_answer_conflict_not_capacity",
+        "tests.integration.test_admission::test_failure_inside_admission_transaction_releases_the_slot",
+        "tests.integration.test_admission::test_commit_failure_releases_the_slot",
+        "tests.integration.test_admission::test_dispatch_failure_leaves_a_recoverable_queued_row",
+        "tests.integration.test_admission::test_crash_before_dispatch_is_recovered_by_another_process",
+        "tests.integration.test_admission::test_dispatch_is_deferred_not_dropped_when_capacity_is_full",
+        "tests.integration.test_admission::test_crash_after_dispatch_mid_run_becomes_interrupted_not_rerun",
+        "tests.integration.test_admission::test_lost_lease_stops_the_stale_owner_without_writes",
+        "tests.integration.test_admission::test_stale_owner_write_is_fenced_even_before_its_heartbeat_notices",
+        "tests.integration.test_agent_path_bench::test_agent_path_benchmark_uses_the_agents_calls_and_prompt_order",
+        "tests.integration.test_agent_path_bench::test_prompt_order_matches_rca_ranking",
+        "tests.integration.test_api::test_health_and_validation",
+        "tests.integration.test_api::test_full_investigation_lifecycle",
+        "tests.integration.test_api::test_cancel_pending_investigation",
+        "tests.integration.test_api::test_knowledge_endpoints",
+        "tests.integration.test_api::test_direct_backend_access_requires_operator_token_for_every_mutation",
+        "tests.integration.test_approval_expiry::test_late_decision_is_refused_and_run_ends_expired",
+        "tests.integration.test_approval_expiry::test_sweeper_expires_untouched_requests",
+        "tests.integration.test_checkpoint_resume::test_resume_after_restart_executes_approved_action",
+        "tests.integration.test_checkpoint_resume::test_rejection_path_never_executes",
+        "tests.integration.test_citation_snapshots::test_cited_passage_survives_reingestion_of_its_document",
+        "tests.integration.test_concurrency::test_database_rejects_a_second_active_investigation",
+        "tests.integration.test_concurrency::test_concurrent_starts_across_two_engines_create_exactly_one",
+        "tests.integration.test_concurrency::test_start_waits_for_an_uncommitted_competing_insert",
+        "tests.integration.test_concurrency::test_unique_index_violation_maps_to_conflict_when_precheck_misses",
+        "tests.integration.test_concurrency::test_api_concurrent_start_requests_one_accepted",
+        "tests.integration.test_concurrency::test_execution_lease_excludes_a_second_process",
+        "tests.integration.test_concurrency::test_dispatcher_treats_a_foreign_live_lease_as_busy",
+        "tests.integration.test_concurrency::test_resume_rechecks_the_pause_after_taking_the_lease",
+        "tests.integration.test_concurrency::test_admission_is_bounded_and_refusal_leaves_no_orphan_row",
+        "tests.integration.test_durable_delivery::test_crash_before_decision_commit_leaves_decision_retryable",
+        "tests.integration.test_durable_delivery::test_crash_after_commit_before_submission_is_redelivered_on_restart",
+        "tests.integration.test_durable_delivery::test_crash_during_submission_recovers_after_lease",
+        "tests.integration.test_durable_delivery::test_crash_after_graph_completion_before_final_persistence",
+        "tests.integration.test_durable_delivery::test_crash_during_reconciliation_is_retried",
+        "tests.integration.test_durable_delivery::test_duplicate_and_concurrent_delivery_has_single_effect",
+        "tests.integration.test_durable_delivery::test_resume_redelivers_a_stranded_decision",
+        "tests.integration.test_ground_truth_spec::test_inc003_answer_key_matches_the_documented_specification",
+        "tests.integration.test_ingestion_retrieval::test_initial_ingest_dedups_archive_copy",
+        "tests.integration.test_ingestion_retrieval::test_reingest_is_incremental",
+        "tests.integration.test_ingestion_retrieval::test_changed_document_bumps_version",
+        "tests.integration.test_ingestion_retrieval::test_bad_file_is_reported_not_fatal",
+        "tests.integration.test_ingestion_retrieval::test_embedding_dimension_guard",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[vector]",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[keyword]",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[hybrid]",
+        "tests.integration.test_ingestion_retrieval::test_filters_and_trace",
+        "tests.integration.test_ingestion_retrieval::test_hybrid_degrades_to_keyword_when_embeddings_unavailable",
+        "tests.integration.test_ingestion_retrieval::test_metadata_only_lifecycle_change_is_applied_without_reembedding",
+        "tests.integration.test_ingestion_retrieval::test_lifecycle_policy_is_applied_before_truncation",
+        "tests.integration.test_isolation::test_a_test_that_leaves_unfinished_work",
+        "tests.integration.test_isolation::test_fresh_process_finds_no_foreign_unfinished_work",
+        "tests.integration.test_live_llm::test_embedding_dimension_matches_configuration",
+        "tests.integration.test_live_llm::test_structured_generation_is_schema_valid",
+        "tests.integration.test_live_llm::test_real_model_investigation_reaches_correct_proposal",
+        "tests.integration.test_mcp_protocol::test_tool_listing_separates_read_and_write",
+        "tests.integration.test_mcp_protocol::test_structured_results_and_errors",
+        "tests.integration.test_mcp_protocol::test_gateway_records_and_rejects_unexposed_tools",
+        "tests.integration.test_mcp_protocol::test_stdio_transport_subprocess",
+        "tests.integration.test_mcp_protocol::test_retrieval_degradation_survives_the_mcp_contract",
+        "tests.integration.test_resilience::test_mcp_child_crash_is_recovered_transparently",
+        "tests.integration.test_resilience::test_reconnection_is_bounded_and_fails_fast",
+        "tests.integration.test_resilience::test_tool_timeout_is_reported_not_hung",
+        "tests.integration.test_resilience::test_duplicate_resume_and_concurrent_approvals_have_single_effect",
+        "tests.integration.test_resilience::test_verification_failure_is_reported_accurately",
+        "tests.integration.test_scenarios_sandbox::test_inc002_pool_increase_is_capacity_bound_and_not_a_fix",
+        "tests.integration.test_scenarios_sandbox::test_inc003_containment_alone_does_not_recover",
+        "tests.integration.test_scenarios_sandbox::test_inc003_full_plan_recovers_and_preserves_messages",
+        "tests.integration.test_scenarios_sandbox::test_neg003_log_backend_outage_surfaces_as_tool_error",
+        "tests.integration.test_scenarios_sandbox::test_all_scenarios_generate_and_answer_keys_stay_out_of_state",
+        "tests.integration.test_section_coverage::test_expansion_adds_sections_of_the_top_current_runbook_only",
+        "tests.integration.test_section_coverage::test_obsolete_document_is_never_expanded_even_when_it_ranks_well",
+        "tests.integration.test_section_coverage::test_rendered_rca_context_contains_current_operational_guidance",
+        "tests.integration.test_section_coverage::test_mcp_schema_bounds_section_expansion",
+        "tests.security.test_action_enforcement::test_pending_action_cannot_execute_even_with_valid_token",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[forged]",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[other_action]",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[wrong_hash]",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[expired]",
+        "tests.security.test_action_enforcement::test_approved_action_executes_once_and_replays_idempotently",
+        "tests.security.test_action_enforcement::test_parameters_come_from_persisted_request_not_caller",
+        "tests.security.test_cancellation_races::test_cancel_before_claim_revokes_approval_and_execution_is_refused",
+        "tests.security.test_cancellation_races::test_cancel_after_claim_is_refused_and_the_effect_completes",
+        "tests.security.test_cancellation_races::test_concurrent_cancel_and_execute_never_both_win",
+        "tests.security.test_cancellation_races::test_crash_between_claim_and_effect_is_retryable_and_not_cancellable",
+        "tests.security.test_cancellation_races::test_expired_token_after_execution_replays_but_never_executes_anew",
+        "tests.security.test_cancellation_races::test_cancel_after_completion_is_refused",
+        "tests.security.test_cancellation_races::test_decision_accepted_before_cancel_is_never_delivered",
+        "tests.security.test_mcp_db_roles::test_read_role_privileges",
+        "tests.security.test_mcp_db_roles::test_actions_role_privileges",
+        "tests.security.test_prompt_injection::test_untrusted_content_is_fenced_and_declared",
+        "tests.security.test_prompt_injection::test_injection_log_is_collected_as_evidence_only",
+        "tests.security.test_prompt_injection::test_fabricated_citations_are_discarded",
+        "tests.security.test_prompt_injection::test_injected_target_outside_investigation_is_rejected",
+        "tests.security.test_prompt_injection::test_valid_but_malicious_proposal_still_requires_human",
+        "tests.security.test_secret_redaction::test_policy_redacts_nested_credentials_and_keeps_counters",
+        "tests.security.test_secret_redaction::test_structured_logs_redact_sensitive_fields",
+        "tests.security.test_secret_redaction::test_minted_approval_token_never_appears_in_outputs",
+        "tests.security.test_secret_redaction::test_sanitizer_dry_run_counts_and_apply_redacts_legacy_rows",
+        "tests.unit.test_analysis::test_detects_sustained_onset",
+        "tests.unit.test_analysis::test_ignores_single_spike",
+        "tests.unit.test_analysis::test_signature_normalises_ids_and_numbers",
+        "tests.unit.test_analysis::test_cluster_ranks_errors_first",
+        "tests.unit.test_analysis::test_change_correlation_prefers_recent_related_schema_change",
+        "tests.unit.test_analysis::test_detect_shift_down_and_recovered",
+        "tests.unit.test_analysis::test_lexical_overlap_bonus",
+        "tests.unit.test_analysis::test_zero_baseline_count_noise_is_not_an_onset",
+        "tests.unit.test_approval_tokens::test_roundtrip",
+        "tests.unit.test_approval_tokens::test_tampering_rejected[<lambda>0]",
+        "tests.unit.test_approval_tokens::test_tampering_rejected[<lambda>1]",
+        "tests.unit.test_approval_tokens::test_tampering_rejected[<lambda>2]",
+        "tests.unit.test_approval_tokens::test_expired_and_wrong_key",
+        "tests.unit.test_approval_tokens::test_short_key_refused",
+        "tests.unit.test_approval_tokens::test_params_hash_canonical",
+        "tests.unit.test_chunking_parsing::test_markdown_front_matter_and_normalisation",
+        "tests.unit.test_chunking_parsing::test_markdown_requires_front_matter",
+        "tests.unit.test_chunking_parsing::test_invalid_doc_type_rejected",
+        "tests.unit.test_chunking_parsing::test_heading_paths_are_tracked",
+        "tests.unit.test_chunking_parsing::test_long_sections_split_with_overlap",
+        "tests.unit.test_chunking_parsing::test_overlap_must_be_smaller_than_window",
+        "tests.unit.test_chunking_parsing::test_json_parser_renders_codes",
+        "tests.unit.test_chunking_parsing::test_embedding_text_includes_context",
+        "tests.unit.test_chunking_parsing::test_normalize_is_idempotent",
+        "tests.unit.test_ground_truth_separation::test_answer_keys_are_outside_the_knowledge_corpus",
+        "tests.unit.test_ground_truth_separation::test_no_runtime_module_references_the_answer_keys",
+        "tests.unit.test_impact::test_audit_reproduction_no_longer_resolves",
+        "tests.unit.test_impact::test_metrics_unavailable_is_unknown",
+        "tests.unit.test_impact::test_telemetry_never_collected_is_unknown",
+        "tests.unit.test_impact::test_incomplete_telemetry_is_unknown",
+        "tests.unit.test_impact::test_tool_failure_on_one_core_metric_is_unknown_even_if_others_look_fine",
+        "tests.unit.test_impact::test_unknown_health_is_not_recovery",
+        "tests.unit.test_impact::test_conflicting_observations_are_unknown",
+        "tests.unit.test_impact::test_unrecovered_anomaly_is_ongoing",
+        "tests.unit.test_impact::test_genuine_recovery_requires_complete_healthy_observations",
+        "tests.unit.test_impact::test_explicit_escalation_overrides_recovery",
+        "tests.unit.test_impact::test_assessment_is_stable_across_serialisation_restart",
+        "tests.unit.test_impact::test_legacy_records_without_impact_are_treated_conservatively",
+        "tests.unit.test_impact::test_unknown_impact_blocks_proposals[impact_cov0-insufficient_evidence]",
+        "tests.unit.test_knowledge_coverage::test_rollback_guidance_in_another_section_reaches_the_rca_prompt",
+        "tests.unit.test_knowledge_coverage::test_obsolete_document_stays_marked_and_demoted_and_is_never_expanded",
+        "tests.unit.test_knowledge_coverage::test_expansion_can_be_disabled_and_is_bounded",
+        "tests.unit.test_knowledge_coverage::test_document_without_remediation_guidance_adds_no_remediation_coverage",
+        "tests.unit.test_knowledge_coverage::test_section_roles_are_generic",
+        "tests.unit.test_knowledge_coverage::test_unrelated_recent_deployment_is_still_rejected_despite_revert_guidance",
+        "tests.unit.test_knowledge_coverage::test_provider_outage_does_not_become_a_rollback_despite_revert_guidance",
+        "tests.unit.test_knowledge_coverage::test_multiple_plausible_causes_stay_unresolved_despite_revert_guidance",
+        "tests.unit.test_mcp_child_env::test_read_server_gets_its_role_and_no_other_secret",
+        "tests.unit.test_mcp_child_env::test_action_server_gets_the_verification_key_but_not_the_operator_token",
+        "tests.unit.test_mcp_child_env::test_unprovisioned_roles_fall_back_to_the_application_role",
+        "tests.unit.test_mcp_child_env::test_child_settings_ignore_dotenv",
+        "tests.unit.test_nodes_policy::test_valid_rollback_uses_evidence_parameters",
+        "tests.unit.test_nodes_policy::test_invalid_proposals_rejected[rem0-does not appear]",
+        "tests.unit.test_nodes_policy::test_invalid_proposals_rejected[rem1-not observed]",
+        "tests.unit.test_nodes_policy::test_invalid_proposals_rejected[rem2-cannot be verified]",
+        "tests.unit.test_nodes_policy::test_invalid_proposals_rejected[rem3-as a consumer]",
+        "tests.unit.test_nodes_policy::test_invalid_proposals_rejected[rem4-not in the remediation catalogue]",
+        "tests.unit.test_nodes_policy::test_route_dispatch",
+        "tests.unit.test_nodes_policy::test_dispatch_defers_knowledge_until_evidence_tasks_done",
+        "tests.unit.test_nodes_policy::test_dispatch_stops_when_budget_exhausted",
+        "tests.unit.test_nodes_policy::test_low_confidence_triggers_bounded_followup",
+        "tests.unit.test_nodes_policy::test_followup_with_nothing_new_skips_to_decision",
+        "tests.unit.test_nodes_policy::test_approval_payload_must_match_pending_action",
+        "tests.unit.test_nodes_policy::test_plan_policy_adds_mandatory_capabilities",
+        "tests.unit.test_nodes_policy::test_dispatch_schedules_by_data_dependency",
+        "tests.unit.test_plan_scoring::test_audit_reproduction_forbidden_restart_before_rollback_is_not_acceptable",
+        "tests.unit.test_plan_scoring::test_a_failed_forbidden_attempt_still_fails_acceptance",
+        "tests.unit.test_plan_scoring::test_order_is_enforced",
+        "tests.unit.test_plan_scoring::test_undeclared_extra_action_fails_but_declared_containment_passes",
+        "tests.unit.test_plan_scoring::test_expected_step_that_failed_is_not_conformance",
+        "tests.unit.test_plan_scoring::test_negative_scenario_rejects_even_a_failed_attempt",
+        "tests.unit.test_plan_scoring::test_stored_phase_b_runs_rescored_with_the_stricter_scorer",
+        "tests.unit.test_plan_scoring::test_plan_ordered_rate_excludes_rejection_and_negative_runs",
+        "tests.unit.test_plan_scoring::test_codex_duplicate_expected_action_is_an_extra",
+        "tests.unit.test_plan_scoring::test_failed_attempt_then_retry_is_reported_and_not_acceptable",
+        "tests.unit.test_plan_scoring::test_permitted_extras_are_consumed_once_and_follow_catalogue_order",
+        "tests.unit.test_plan_scoring::test_a_consumer_left_paused_is_not_acceptable",
+        "tests.unit.test_plan_scoring::test_stored_c0_runs_keep_their_verdicts_under_occurrence_and_order_rules",
+        "tests.unit.test_plan_scoring::test_model_plan_is_scored_apart_from_the_executed_system_plan",
+        "tests.unit.test_plan_scoring::test_negative_scenario_model_plan_must_be_empty",
+        "tests.unit.test_remediation_validation::test_any_pool_increase_is_unsafe_when_datastore_already_near_capacity",
+        "tests.unit.test_remediation_validation::test_pool_increase_beyond_datastore_capacity_is_unsafe",
+        "tests.unit.test_remediation_validation::test_pool_increase_within_capacity_is_allowed_but_bounded",
+        "tests.unit.test_remediation_validation::test_pool_change_without_capacity_evidence_is_refused",
+        "tests.unit.test_remediation_validation::test_queue_actions_require_queue_evidence",
+        "tests.unit.test_remediation_validation::test_multi_step_plan_gets_ordered_stable_action_ids",
+        "tests.unit.test_remediation_validation::test_rollback_requires_correlation_with_onset",
+        "tests.unit.test_remediation_validation::test_ambiguous_candidates_block_rollback",
+        "tests.unit.test_remediation_validation::test_rollback_blocked_when_errors_blame_an_unchanged_unhealthy_dependency",
+        "tests.unit.test_remediation_validation::test_dlq_name_is_normalised_to_primary_queue",
+        "tests.unit.test_remediation_validation::test_no_remediation_when_impact_has_ended",
+        "tests.unit.test_remediation_validation::test_policy_appends_resume_for_paused_consumer",
+        "tests.unit.test_resource_bounds::test_embedding_requests_are_bounded_under_a_burst",
+        "tests.unit.test_retrieval_logic::test_keyword_query_or_combines_and_sanitises",
+        "tests.unit.test_retrieval_logic::test_keyword_query_empty",
+        "tests.unit.test_retrieval_logic::test_rrf_rewards_agreement",
+        "tests.unit.test_schema_and_simulator::test_inline_schema_keeps_title_property",
+        "tests.unit.test_schema_and_simulator::test_simulator_is_deterministic",
+        "tests.unit.test_schema_and_simulator::test_simulator_state_contains_no_answer_key",
+        "tests.unit.test_schema_and_simulator::test_correct_and_wrong_remediation_effects",
+        "tests.unit.test_uncertainty::test_audit_reproduction_low_confidence_and_escalation_withholds_proposal",
+        "tests.unit.test_uncertainty::test_low_confidence_alone_withholds_and_is_inconclusive",
+        "tests.unit.test_uncertainty::test_explicit_escalation_at_high_confidence_withholds",
+        "tests.unit.test_uncertainty::test_competing_hypotheses_with_disjoint_evidence_withhold",
+        "tests.unit.test_uncertainty::test_close_hypotheses_sharing_evidence_do_not_withhold",
+        "tests.unit.test_uncertainty::test_margin_boundary_is_not_a_float_artifact",
+        "tests.unit.test_uncertainty::test_exhausted_budget_withholds",
+        "tests.unit.test_uncertainty::test_confident_unambiguous_diagnosis_still_proposes",
+        "tests.unit.test_verification::test_audit_reproduction_fifth_anomaly_is_checked",
+        "tests.unit.test_verification::test_missing_verification_metric_is_incomplete_not_recovered",
+        "tests.unit.test_verification::test_opposite_direction_excursion_on_unknown_semantics_fails",
+        "tests.unit.test_verification::test_healthy_side_excursions_pass_for_known_semantics",
+        "tests.unit.test_verification::test_partial_remediation_is_not_recovered",
+        "tests.unit.test_verification::test_insufficient_budget_reports_omitted_checks",
+        "tests.unit.test_verification::test_failed_postconditions_block_recovery",
+        "tests.unit.test_verification::test_genuine_full_recovery_with_postconditions",
+        "tests.unit.test_verification::test_load_metrics_are_informational_not_required",
+        "tests.unit.test_verification::test_codex_f1_reproduction_action_target_anomaly_is_required",
+        "tests.unit.test_verification::test_scope_does_not_shrink_when_citations_are_removed_or_reordered",
+        "tests.unit.test_verification::test_multiple_anomalies_on_one_service_are_all_required",
+        "tests.unit.test_verification::test_more_conditions_than_budget_is_incomplete_even_when_all_checked_pass",
+        "tests.unit.test_verification::test_tool_budget_exhaustion_cannot_drop_a_required_condition",
+        "tests.unit.test_verification::test_one_metric_recovered_another_unhealthy_is_not_recovered",
+        "tests.unit.test_verification::test_downstream_dependency_still_unhealthy_blocks_recovery",
+        "tests.unit.test_verification::test_missing_telemetry_is_unknown_never_recovered",
+        "tests.unit.test_verification::test_conflicting_evidence_metrics_quiet_but_health_unhealthy_is_not_recovered",
+        "tests.unit.test_verification::test_stale_health_observation_is_unknown",
+        "tests.unit.test_verification::test_improved_but_unhealthy_metric_is_not_recovered",
+        "tests.unit.test_verification::test_metric_specific_ranges_keep_measured_recoveries",
+        "tests.unit.test_verification::test_outcome_refuses_a_recovered_record_with_unpassed_checks",
+        "tests.unit.test_verification::test_genuine_complete_recovery_across_scope"
+      ]
+    },
+    {
+      "source": "/private/tmp/opspilot-c0f-shuffled.xml",
+      "sha256": "cc0c29751da267f0fca2231bb965afba565798119973dad2a80e5bbcdcba2b61",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "3",
+          "tests": "101",
+          "time": "72.124",
+          "timestamp": "2026-11-05T12:55:08.226189+05:30",
+          "hostname": "prawalsharma-MacBook-Pro"
+        }
+      ],
+      "test_ids": [
+        "tests.security.test_action_enforcement::test_pending_action_cannot_execute_even_with_valid_token",
+        "tests.security.test_secret_redaction::test_sanitizer_dry_run_counts_and_apply_redacts_legacy_rows",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[wrong_hash]",
+        "tests.security.test_cancellation_races::test_crash_between_claim_and_effect_is_retryable_and_not_cancellable",
+        "tests.integration.test_scenarios_sandbox::test_all_scenarios_generate_and_answer_keys_stay_out_of_state",
+        "tests.integration.test_agent_path_bench::test_agent_path_benchmark_uses_the_agents_calls_and_prompt_order",
+        "tests.security.test_secret_redaction::test_structured_logs_redact_sensitive_fields",
+        "tests.integration.test_live_llm::test_real_model_investigation_reaches_correct_proposal",
+        "tests.integration.test_admission::test_dispatch_failure_leaves_a_recoverable_queued_row",
+        "tests.integration.test_scenarios_sandbox::test_inc003_full_plan_recovers_and_preserves_messages",
+        "tests.integration.test_approval_expiry::test_sweeper_expires_untouched_requests",
+        "tests.security.test_mcp_db_roles::test_read_role_privileges",
+        "tests.integration.test_admission::test_stale_owner_write_is_fenced_even_before_its_heartbeat_notices",
+        "tests.security.test_cancellation_races::test_expired_token_after_execution_replays_but_never_executes_anew",
+        "tests.integration.test_section_coverage::test_mcp_schema_bounds_section_expansion",
+        "tests.integration.test_concurrency::test_unique_index_violation_maps_to_conflict_when_precheck_misses",
+        "tests.integration.test_scenarios_sandbox::test_neg003_log_backend_outage_surfaces_as_tool_error",
+        "tests.integration.test_api::test_knowledge_endpoints",
+        "tests.security.test_action_enforcement::test_parameters_come_from_persisted_request_not_caller",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[hybrid]",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[forged]",
+        "tests.integration.test_mcp_protocol::test_gateway_records_and_rejects_unexposed_tools",
+        "tests.security.test_secret_redaction::test_minted_approval_token_never_appears_in_outputs",
+        "tests.integration.test_section_coverage::test_rendered_rca_context_contains_current_operational_guidance",
+        "tests.security.test_prompt_injection::test_injected_target_outside_investigation_is_rejected",
+        "tests.integration.test_admission::test_commit_failure_releases_the_slot",
+        "tests.integration.test_concurrency::test_start_waits_for_an_uncommitted_competing_insert",
+        "tests.integration.test_ground_truth_spec::test_inc003_answer_key_matches_the_documented_specification",
+        "tests.integration.test_section_coverage::test_expansion_adds_sections_of_the_top_current_runbook_only",
+        "tests.integration.test_scenarios_sandbox::test_inc003_containment_alone_does_not_recover",
+        "tests.integration.test_isolation::test_fresh_process_finds_no_foreign_unfinished_work",
+        "tests.security.test_cancellation_races::test_concurrent_cancel_and_execute_never_both_win",
+        "tests.integration.test_concurrency::test_resume_rechecks_the_pause_after_taking_the_lease",
+        "tests.integration.test_mcp_protocol::test_tool_listing_separates_read_and_write",
+        "tests.integration.test_concurrency::test_api_concurrent_start_requests_one_accepted",
+        "tests.integration.test_resilience::test_tool_timeout_is_reported_not_hung",
+        "tests.integration.test_concurrency::test_execution_lease_excludes_a_second_process",
+        "tests.integration.test_live_llm::test_structured_generation_is_schema_valid",
+        "tests.integration.test_api::test_full_investigation_lifecycle",
+        "tests.integration.test_ingestion_retrieval::test_filters_and_trace",
+        "tests.security.test_cancellation_races::test_cancel_after_completion_is_refused",
+        "tests.integration.test_api::test_health_and_validation",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[expired]",
+        "tests.security.test_action_enforcement::test_approved_action_executes_once_and_replays_idempotently",
+        "tests.integration.test_durable_delivery::test_crash_after_commit_before_submission_is_redelivered_on_restart",
+        "tests.security.test_prompt_injection::test_valid_but_malicious_proposal_still_requires_human",
+        "tests.integration.test_admission::test_crash_before_dispatch_is_recovered_by_another_process",
+        "tests.security.test_cancellation_races::test_cancel_after_claim_is_refused_and_the_effect_completes",
+        "tests.integration.test_api::test_cancel_pending_investigation",
+        "tests.integration.test_mcp_protocol::test_structured_results_and_errors",
+        "tests.integration.test_checkpoint_resume::test_rejection_path_never_executes",
+        "tests.integration.test_resilience::test_reconnection_is_bounded_and_fails_fast",
+        "tests.integration.test_durable_delivery::test_duplicate_and_concurrent_delivery_has_single_effect",
+        "tests.integration.test_durable_delivery::test_crash_after_graph_completion_before_final_persistence",
+        "tests.integration.test_durable_delivery::test_crash_during_reconciliation_is_retried",
+        "tests.integration.test_durable_delivery::test_crash_during_submission_recovers_after_lease",
+        "tests.integration.test_checkpoint_resume::test_resume_after_restart_executes_approved_action",
+        "tests.integration.test_durable_delivery::test_resume_redelivers_a_stranded_decision",
+        "tests.integration.test_admission::test_concurrent_duplicate_starts_answer_conflict_not_capacity",
+        "tests.integration.test_agent_path_bench::test_prompt_order_matches_rca_ranking",
+        "tests.integration.test_admission::test_dispatch_is_deferred_not_dropped_when_capacity_is_full",
+        "tests.integration.test_durable_delivery::test_crash_before_decision_commit_leaves_decision_retryable",
+        "tests.integration.test_section_coverage::test_obsolete_document_is_never_expanded_even_when_it_ranks_well",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[vector]",
+        "tests.integration.test_admission::test_crash_after_dispatch_mid_run_becomes_interrupted_not_rerun",
+        "tests.integration.test_ingestion_retrieval::test_bad_file_is_reported_not_fatal",
+        "tests.security.test_mcp_db_roles::test_actions_role_privileges",
+        "tests.security.test_prompt_injection::test_untrusted_content_is_fenced_and_declared",
+        "tests.integration.test_ingestion_retrieval::test_initial_ingest_dedups_archive_copy",
+        "tests.security.test_cancellation_races::test_decision_accepted_before_cancel_is_never_delivered",
+        "tests.integration.test_ingestion_retrieval::test_hybrid_degrades_to_keyword_when_embeddings_unavailable",
+        "tests.security.test_prompt_injection::test_fabricated_citations_are_discarded",
+        "tests.integration.test_concurrency::test_admission_is_bounded_and_refusal_leaves_no_orphan_row",
+        "tests.security.test_prompt_injection::test_injection_log_is_collected_as_evidence_only",
+        "tests.integration.test_citation_snapshots::test_cited_passage_survives_reingestion_of_its_document",
+        "tests.integration.test_ingestion_retrieval::test_exact_error_token_query_finds_schema_runbook[keyword]",
+        "tests.integration.test_mcp_protocol::test_retrieval_degradation_survives_the_mcp_contract",
+        "tests.integration.test_approval_expiry::test_late_decision_is_refused_and_run_ends_expired",
+        "tests.integration.test_admission::test_failure_inside_admission_transaction_releases_the_slot",
+        "tests.security.test_action_enforcement::test_bad_tokens_refused[other_action]",
+        "tests.integration.test_admission::test_codex_f2_reproduction_rejected_start_commits_nothing",
+        "tests.integration.test_ingestion_retrieval::test_changed_document_bumps_version",
+        "tests.security.test_cancellation_races::test_cancel_before_claim_revokes_approval_and_execution_is_refused",
+        "tests.integration.test_resilience::test_verification_failure_is_reported_accurately",
+        "tests.integration.test_live_llm::test_embedding_dimension_matches_configuration",
+        "tests.integration.test_api::test_direct_backend_access_requires_operator_token_for_every_mutation",
+        "tests.integration.test_mcp_protocol::test_stdio_transport_subprocess",
+        "tests.integration.test_scenarios_sandbox::test_inc002_pool_increase_is_capacity_bound_and_not_a_fix",
+        "tests.integration.test_ingestion_retrieval::test_metadata_only_lifecycle_change_is_applied_without_reembedding",
+        "tests.security.test_secret_redaction::test_policy_redacts_nested_credentials_and_keeps_counters",
+        "tests.integration.test_resilience::test_duplicate_resume_and_concurrent_approvals_have_single_effect",
+        "tests.integration.test_ingestion_retrieval::test_lifecycle_policy_is_applied_before_truncation",
+        "tests.integration.test_admission::test_concurrent_distinct_starts_never_exceed_capacity",
+        "tests.integration.test_ingestion_retrieval::test_embedding_dimension_guard",
+        "tests.integration.test_resilience::test_mcp_child_crash_is_recovered_transparently",
+        "tests.integration.test_concurrency::test_dispatcher_treats_a_foreign_live_lease_as_busy",
+        "tests.integration.test_concurrency::test_concurrent_starts_across_two_engines_create_exactly_one",
+        "tests.integration.test_ingestion_retrieval::test_reingest_is_incremental",
+        "tests.integration.test_isolation::test_a_test_that_leaves_unfinished_work",
+        "tests.integration.test_concurrency::test_database_rejects_a_second_active_investigation",
+        "tests.integration.test_admission::test_lost_lease_stops_the_stale_owner_without_writes"
+      ]
+    }
+  ],
+  "worker_configuration_reproduction": {
+    "method": "Instantiate installed uvicorn.Config with inherited WEB_CONCURRENCY=2; no server started",
+    "selected_workers": 2,
+    "launch_script": "scripts/start.sh:10 omits --workers; runtime has no singleton guard"
+  },
+  "not_run": [
+    "live model tests",
+    "browser E2E",
+    "doctor",
+    "make evaluate"
+  ],
+  "probe_setup_notes": [
+    "Initial exploratory pure recovery probe lacked hypothesis confidence and raised KeyError; fixture corrected. No application code changed.",
+    "The standalone offline scorer/configuration probe first omitted required timing fields and raised KeyError(seconds_to_pause); only the audit fixture was corrected before the recorded successful probe."
+  ],
+  "changed_path_inventory": [
+    "apps/api/opspilot_api/main.py",
+    "apps/api/opspilot_api/services/investigations.py",
+    "datasets/evaluation/history/phase-c0f-62a9e21/BASELINE.md",
+    "datasets/evaluation/history/phase-c0f-62a9e21/README.md",
+    "datasets/evaluation/history/phase-c0f-62a9e21/agent_latest.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/resources_latest.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/retrieval_latest.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/agent.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-10-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-3-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-4-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-5-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-6-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-7-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-8-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-inc002-x10/traces/INC-002-9-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/agent.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-001-3-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-002-3-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/supplementary-neg-x3/traces/NEG-003-3-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-001-3-reject.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/INC-003-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-001-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-001-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-002-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-002-2-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-003-1-approve.json",
+    "datasets/evaluation/history/phase-c0f-62a9e21/traces/NEG-003-2-approve.json",
+    "datasets/evaluation/results/agent_latest.json",
+    "datasets/evaluation/results/resources_latest.json",
+    "datasets/evaluation/results/retrieval_latest.json",
+    "datasets/evaluation/results/traces_latest/INC-001-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-001-2-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-001-3-reject.json",
+    "datasets/evaluation/results/traces_latest/INC-002-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-002-2-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-003-1-approve.json",
+    "datasets/evaluation/results/traces_latest/INC-003-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-001-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-001-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-002-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-002-2-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-003-1-approve.json",
+    "datasets/evaluation/results/traces_latest/NEG-003-2-approve.json",
+    "docs/DECISIONS.md",
+    "docs/PROGRESS.md",
+    "docs/ROADMAP.md",
+    "docs/architecture/AGENT_WORKFLOWS.md",
+    "docs/architecture/API_CONTRACTS.md",
+    "docs/architecture/RAG_PIPELINE.md",
+    "docs/architecture/SECURITY.md",
+    "docs/audits/PHASE_C0_F_REMEDIATION.md",
+    "docs/audits/PHASE_C0_INDEPENDENT_EVIDENCE.json",
+    "docs/audits/PHASE_C0_INDEPENDENT_REPRODUCERS.txt",
+    "docs/audits/PHASE_C0_INDEPENDENT_VERIFICATION.md",
+    "docs/evaluation/BASELINE.md",
+    "docs/releases/V0.2.1_NOTES.md",
+    "packages/agents/opspilot_agents/nodes.py",
+    "packages/agents/opspilot_agents/report.py",
+    "packages/agents/opspilot_agents/verification.py",
+    "packages/evaluation/opspilot_eval/agent_eval.py",
+    "packages/evaluation/opspilot_eval/agent_path_bench.py",
+    "packages/evaluation/opspilot_eval/runner.py",
+    "packages/mcp/opspilot_mcp/read_server.py",
+    "packages/mcp/opspilot_mcp/schemas.py",
+    "packages/rag/opspilot_rag/retrieval.py",
+    "packages/shared/opspilot_shared/domain/knowledge.py",
+    "tests/conftest.py",
+    "tests/integration/test_admission.py",
+    "tests/integration/test_agent_path_bench.py",
+    "tests/integration/test_concurrency.py",
+    "tests/integration/test_ground_truth_spec.py",
+    "tests/integration/test_isolation.py",
+    "tests/integration/test_section_coverage.py",
+    "tests/isolation.py",
+    "tests/unit/test_ground_truth_separation.py",
+    "tests/unit/test_knowledge_coverage.py",
+    "tests/unit/test_plan_scoring.py",
+    "tests/unit/test_verification.py"
+  ],
+  "offline_scoring_and_configuration_reproductions": {
+    "wrong_target_parameters": {
+      "model_plan_acceptable": true,
+      "executed_plan_acceptable": false,
+      "actions_executed": 0
+    },
+    "inherited_web_concurrency_workers": 2
+  }
+}
