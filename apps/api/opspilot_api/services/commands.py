@@ -130,6 +130,9 @@ class CommandDispatcher:
             raise
 
     async def _deliver_claimed(self, cmd: OpsWorkflowCommand) -> str:
+        if self._runner.refusal() is not None:  # C0-H2: only a READY execution owner delivers decisions
+            await self._set(cmd.id, status="pending", claimed_at=None)
+            return "not_owner"
         if self._runner.is_active(cmd.investigation_id) or await self._runner.owned_elsewhere(cmd.investigation_id):
             await self._set(cmd.id, status="pending", claimed_at=None)
             return "busy"
@@ -149,12 +152,15 @@ class CommandDispatcher:
         if any(w.get("action", {}).get("action_id") == str(cmd.action_id) for w in waiting):
             resume = dict(cmd.payload)
             if resume.get("decision") == "approve":
+                fence = self._runner.fence  # C0-H2: the token is bound to the minting owner's epoch
                 resume["approval_token"] = issue_token(
                     self._s.action_signing_key.get_secret_value(),
                     action_id=cmd.action_id,
                     params_hash=resume["params_hash"],
                     approved_by=resume.get("decided_by") or "operator",
                     ttl_seconds=self._s.approval_token_ttl_seconds,
+                    epoch=fence[0] if fence else None,
+                    owner_pid=fence[1] if fence else None,
                 )
             self._runner.submit(
                 cmd.investigation_id,

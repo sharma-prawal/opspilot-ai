@@ -27,6 +27,8 @@ class ApprovalClaims:
     issued_at: int
     expires_at: int
     expired: bool = False
+    epoch: int | None = None  # minting execution owner's fence (C0-H2)
+    owner_pid: int | None = None
 
 
 def _b64(data: bytes) -> str:
@@ -38,16 +40,31 @@ def _unb64(data: str) -> bytes:
 
 
 def issue_token(
-    key: str, *, action_id: uuid.UUID, params_hash: str, approved_by: str, ttl_seconds: int, now: int | None = None
+    key: str,
+    *,
+    action_id: uuid.UUID,
+    params_hash: str,
+    approved_by: str,
+    ttl_seconds: int,
+    now: int | None = None,
+    epoch: int | None = None,
+    owner_pid: int | None = None,
 ) -> str:
+    """``epoch``/``owner_pid``: the minting execution owner's fence (C0-H2). The action server executes only tokens
+    that carry one, and only while it is still the database's current owner."""
     if len(key) < 16:
         raise ApprovalError("ACTION_SIGNING_KEY is missing or too short")
     iat = int(now if now is not None else time.time())
-    body = json.dumps(
-        {"aid": str(action_id), "ph": params_hash, "by": approved_by, "iat": iat, "exp": iat + ttl_seconds},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
+    claims: dict[str, object] = {
+        "aid": str(action_id),
+        "ph": params_hash,
+        "by": approved_by,
+        "iat": iat,
+        "exp": iat + ttl_seconds,
+    }
+    if epoch is not None and owner_pid is not None:
+        claims.update({"ep": int(epoch), "op": int(owner_pid)})
+    body = json.dumps(claims, sort_keys=True, separators=(",", ":")).encode()
     sig = hmac.new(key.encode(), body, hashlib.sha256).digest()
     return f"{_b64(body)}.{_b64(sig)}"
 
@@ -70,7 +87,14 @@ def verify_token(key: str, token: str, *, now: int | None = None, allow_expired:
     if expired and not allow_expired:
         raise ApprovalError("approval token expired")
     return ApprovalClaims(
-        uuid.UUID(claims["aid"]), claims["ph"], claims["by"], int(claims["iat"]), int(claims["exp"]), expired=expired
+        uuid.UUID(claims["aid"]),
+        claims["ph"],
+        claims["by"],
+        int(claims["iat"]),
+        int(claims["exp"]),
+        expired=expired,
+        epoch=int(claims["ep"]) if "ep" in claims else None,
+        owner_pid=int(claims["op"]) if "op" in claims else None,
     )
 
 

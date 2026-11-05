@@ -105,3 +105,22 @@ def inprocess_gateways(settings: Settings, sf: async_sessionmaker[AsyncSession],
             )
 
     return factory
+
+
+def owner_token(
+    settings: Settings, owner: Any, aid: uuid.UUID, ph: str, *, ttl: int = 60, now: int | None = None
+) -> str:
+    """An approval token bound to the test's execution owner (C0-H2), as the dispatcher mints it."""
+    from opspilot_shared.approvals import issue_token
+
+    epoch, pid = owner.fence
+    return issue_token(
+        settings.action_signing_key.get_secret_value(),
+        action_id=aid,
+        params_hash=ph,
+        approved_by="tester",
+        ttl_seconds=ttl,
+        now=now,
+        epoch=epoch,
+        owner_pid=pid,
+    )

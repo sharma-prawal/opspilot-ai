@@ -3,8 +3,9 @@
 # creates/updates two LOGIN roles and grants; never revokes from or drops anything else.
 #
 #   opspilot_mcp_read     SELECT on sim.* and kb.*, SELECT on ops.incidents, INSERT on kb.retrieval_queries
-#   opspilot_mcp_actions  SELECT/INSERT/UPDATE on sim.* (no DELETE), SELECT on ops.action_requests and
-#                         UPDATE of ops.action_requests.status only (the execution claim)
+#   opspilot_mcp_actions  SELECT/INSERT/UPDATE on sim.* (no DELETE), SELECT on ops.action_requests,
+#                         UPDATE of ops.action_requests.status only (the execution claim) and EXECUTE on
+#                         ops.execution_fence (the claim's owner fence, C0-H2)
 #
 # Run after migrations (bootstrap does). Future sim/kb tables are covered by default privileges.
 source "$(dirname "$0")/lib.sh"
@@ -41,6 +42,9 @@ SELECT format('GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA sim TO %I', 
 SELECT format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sim TO %I', :'a') \gexec
 SELECT format('GRANT SELECT ON ops.action_requests TO %I', :'a') \gexec
 SELECT format('GRANT UPDATE (status) ON ops.action_requests TO %I', :'a') \gexec
+-- C0-H2: the execution claim is fenced on the minting owner's epoch (function from migration 0008)
+SELECT format('GRANT EXECUTE ON FUNCTION ops.execution_fence(bigint, integer) TO %I', :'a')
+WHERE to_regprocedure('ops.execution_fence(bigint, integer)') IS NOT NULL \gexec
 SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA sim GRANT SELECT, INSERT, UPDATE ON TABLES TO %I', :'app', :'a') \gexec
 SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA sim GRANT USAGE, SELECT ON SEQUENCES TO %I', :'app', :'a') \gexec
 SQL

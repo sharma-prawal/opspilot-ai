@@ -16,10 +16,9 @@ from sqlalchemy import func, select
 from opspilot_api.services.commands import CommandDispatcher, enqueue_decision
 from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
 from opspilot_mcp.action_server import build_action_server
-from opspilot_shared.approvals import issue_token
 from opspilot_shared.db.models import OpsActionRequest, OpsInvestigation, OpsWorkflowCommand, SimActionExecution
 from opspilot_shared.errors import ConflictError
-from tests.integration.helpers import backend, make_action
+from tests.integration.helpers import backend, make_action, owner_token
 from tests.integration.test_concurrency import StubGraph
 
 pytestmark = pytest.mark.integration
@@ -37,15 +36,8 @@ class Runner:
         return True
 
 
-def token(settings, aid, ph, now=None) -> str:  # type: ignore[no-untyped-def]
-    return issue_token(
-        settings.action_signing_key.get_secret_value(),
-        action_id=aid,
-        params_hash=ph,
-        approved_by="tester",
-        ttl_seconds=60,
-        now=now,
-    )
+def token(settings, owner, aid, ph, now=None) -> str:  # type: ignore[no-untyped-def]
+    return owner_token(settings, owner, aid, ph, now=now)  # bound to the test's execution owner (C0-H2)
 
 
 async def facts(sf, aid) -> tuple[str, int, str]:  # type: ignore[no-untyped-def]
@@ -70,7 +62,7 @@ async def investigation_of(sf, aid) -> uuid.UUID:  # type: ignore[no-untyped-def
 
 
 async def test_cancel_before_claim_revokes_approval_and_execution_is_refused(
-    settings, session_factory, embedder
+    settings, session_factory, embedder, owner
 ) -> None:  # type: ignore[no-untyped-def]
     aid, ph, _ = await make_action(session_factory, status="approved")
     runner = Runner()
@@ -78,7 +70,7 @@ async def test_cancel_before_claim_revokes_approval_and_execution_is_refused(
     await svc.cancel(await investigation_of(session_factory, aid), actor="sre")
     async with Client(build_action_server(backend(settings, session_factory, embedder))) as c:
         res = await c.call_tool(
-            "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, aid, ph)}
+            "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, owner, aid, ph)}
         )
     assert res.is_error and "'cancelled'" in res.content[0].text
     assert await facts(session_factory, aid) == ("cancelled", 0, "cancelled")
@@ -86,7 +78,7 @@ async def test_cancel_before_claim_revokes_approval_and_execution_is_refused(
 
 
 async def test_cancel_after_claim_is_refused_and_the_effect_completes(  # type: ignore[no-untyped-def]
-    settings, session_factory, embedder, monkeypatch: pytest.MonkeyPatch
+    settings, session_factory, embedder, monkeypatch: pytest.MonkeyPatch, owner
 ) -> None:
     aid, ph, _ = await make_action(session_factory, status="approved")
     b = backend(settings, session_factory, embedder)
@@ -102,7 +94,9 @@ async def test_cancel_after_claim_is_refused_and_the_effect_completes(  # type: 
     svc = InvestigationService(session_factory, Runner(), None, "m")  # type: ignore[arg-type]
     async with Client(build_action_server(b)) as c:
         call = asyncio.create_task(
-            c.call_tool("execute_remediation", {"action_id": str(aid), "approval_token": token(settings, aid, ph)})
+            c.call_tool(
+                "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, owner, aid, ph)}
+            )
         )
         await asyncio.wait_for(entered.wait(), 10)  # claimed, effect in progress
         with pytest.raises(ConflictError, match="past the execution claim"):
@@ -113,7 +107,7 @@ async def test_cancel_after_claim_is_refused_and_the_effect_completes(  # type: 
     assert await facts(session_factory, aid) == ("executing", 1, "awaiting_approval")  # runner records the result
 
 
-async def test_concurrent_cancel_and_execute_never_both_win(settings, session_factory, embedder) -> None:  # type: ignore[no-untyped-def]
+async def test_concurrent_cancel_and_execute_never_both_win(settings, session_factory, embedder, owner) -> None:  # type: ignore[no-untyped-def]
     b = backend(settings, session_factory, embedder)
     outcomes: set[str] = set()
     async with Client(build_action_server(b)) as c:
@@ -131,7 +125,7 @@ async def test_concurrent_cancel_and_execute_never_both_win(settings, session_fa
             async def delayed_execute(aid: uuid.UUID = aid, ph: str = ph, d: float = offset) -> Any:
                 await asyncio.sleep(max(-d, 0))
                 return await c.call_tool(
-                    "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, aid, ph)}
+                    "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, owner, aid, ph)}
                 )
 
             cancel, execute = await asyncio.gather(
@@ -152,7 +146,7 @@ async def test_concurrent_cancel_and_execute_never_both_win(settings, session_fa
 
 
 async def test_crash_between_claim_and_effect_is_retryable_and_not_cancellable(  # type: ignore[no-untyped-def]
-    settings, session_factory, embedder, monkeypatch: pytest.MonkeyPatch
+    settings, session_factory, embedder, monkeypatch: pytest.MonkeyPatch, owner
 ) -> None:
     aid, ph, _ = await make_action(session_factory, status="approved")
     b = backend(settings, session_factory, embedder)
@@ -168,7 +162,7 @@ async def test_crash_between_claim_and_effect_is_retryable_and_not_cancellable( 
 
     monkeypatch.setattr(b.store, "execute_action", crash_once)
     svc = InvestigationService(session_factory, Runner(), None, "m")  # type: ignore[arg-type]
-    args = {"action_id": str(aid), "approval_token": token(settings, aid, ph)}
+    args = {"action_id": str(aid), "approval_token": token(settings, owner, aid, ph)}
     async with Client(build_action_server(b)) as c:
         first = await c.call_tool("execute_remediation", args)
         assert first.is_error
@@ -183,17 +177,18 @@ async def test_crash_between_claim_and_effect_is_retryable_and_not_cancellable( 
 
 
 async def test_expired_token_after_execution_replays_but_never_executes_anew(
-    settings, session_factory, embedder
+    settings, session_factory, embedder, owner
 ) -> None:  # type: ignore[no-untyped-def]
     aid, ph, _ = await make_action(session_factory, status="approved")
-    fresh, (other, other_ph, _) = token(settings, aid, ph), await make_action(session_factory, status="approved")
+    fresh, (other, other_ph, _) = token(settings, owner, aid, ph), await make_action(session_factory, status="approved")
     async with Client(build_action_server(backend(settings, session_factory, embedder))) as c:
         assert not (await c.call_tool("execute_remediation", {"action_id": str(aid), "approval_token": fresh})).is_error
         replay = await c.call_tool(
-            "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, aid, ph, now=0)}
+            "execute_remediation", {"action_id": str(aid), "approval_token": token(settings, owner, aid, ph, now=0)}
         )
         refused = await c.call_tool(
-            "execute_remediation", {"action_id": str(other), "approval_token": token(settings, other, other_ph, now=0)}
+            "execute_remediation",
+            {"action_id": str(other), "approval_token": token(settings, owner, other, other_ph, now=0)},
         )
     assert not replay.is_error and replay.structured_content["replayed"] is True
     assert refused.is_error and "expired" in refused.content[0].text

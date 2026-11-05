@@ -63,6 +63,20 @@ def migrated(settings: Settings) -> Settings:
     return settings
 
 
+@pytest.fixture
+async def owner(migrated: Settings) -> AsyncIterator[object]:
+    """C0-H2: this test owns execution of the test database (advisory lock + fresh epoch), so its checkpoint writes
+    and action executions pass the database's owner fence. Do not combine with a test app (it acquires its own)."""
+    from opspilot_api.ownership import ExecutionOwnership
+
+    o = ExecutionOwnership(migrated.model_copy(update={"execution_owner_acquire_timeout_seconds": 10}))
+    await o.acquire()
+    try:
+        yield o
+    finally:
+        await o.release()
+
+
 @pytest.fixture(scope="session")
 async def session_factory(migrated: Settings) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_engine(migrated)
@@ -76,7 +90,7 @@ async def session_factory(migrated: Settings) -> AsyncIterator[async_sessionmake
 
 
 # Fixtures through which a test reaches the shared test database (directly or via an application stack).
-DB_FIXTURES = frozenset({"session_factory", "ingested", "client", "migrated"})
+DB_FIXTURES = frozenset({"session_factory", "ingested", "client", "migrated", "owner"})
 _stale_work_retired = False
 
 

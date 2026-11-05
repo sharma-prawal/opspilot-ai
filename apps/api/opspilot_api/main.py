@@ -86,6 +86,8 @@ def create_app(
                 # sweep from racing start-up work (C0-F4: a test's explicit reconciliation competed with it).
                 while True:
                     await asyncio.sleep(15)
+                    if not rt.ownership.lifecycle.ready:  # C0-H2: maintenance only while this process owns execution
+                        return
                     try:
                         if n := await rt.approvals.expire_stale():
                             _log.warning("approval_requests_expired", count=n)
@@ -95,6 +97,12 @@ def create_app(
                         _log.exception("maintenance_sweep_failed")
 
             sweeper = asyncio.create_task(sweep(), name="approval-sweeper")
+
+            def stop_maintenance(state: Any, _reason: str | None) -> None:
+                if str(state) == "ownership_lost":  # synchronous with the loss: no further reconciliation/delivery
+                    sweeper.cancel()
+
+            rt.ownership.lifecycle.on_change(stop_maintenance)
             try:
                 yield
             finally:

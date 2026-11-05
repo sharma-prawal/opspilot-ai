@@ -17,12 +17,13 @@ from datetime import timedelta
 from typing import Any
 
 from langgraph.types import Command
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opspilot_api import repositories as repo
+from opspilot_api.ownership import is_fence_violation
 from opspilot_shared.db.models import (
     ACTIVE_INVESTIGATION_STATUSES,
     OpsActionRequest,
@@ -50,6 +51,10 @@ def thread_config(investigation_id: uuid.UUID) -> dict[str, Any]:
 
 class LeaseLostError(RuntimeError):
     """This process no longer owns the investigation's execution lease; it must stop writing (C0-F2)."""
+
+
+class StaleOwnerError(LeaseLostError):
+    """The database refused a fenced write: this process is not the current execution owner (C0-H2)."""
 
 
 class TerminalStateError(LeaseLostError):
@@ -95,6 +100,13 @@ class InvestigationRunner:
 
     Admission (C0-F2): ``reserve()`` takes a slot synchronously; ``submit(..., reservation=...)`` consumes it
     without a second capacity check. Running tasks plus held reservations never exceed ``max_pending``.
+
+    Execution ownership (C0-H2): with a ``lifecycle`` the runner admits, starts and continues work only while the
+    runtime is READY; the transition to OWNERSHIP_LOST suspends it synchronously (admission refused, every running
+    segment cancelled). With a ``fence`` every lease claim/renewal and every persistence transaction also calls
+    ``ops.execution_fence`` in the same transaction, so a stale owner's state writes are refused by the database even
+    before it notices the loss; a refusal triggers ``on_fence_violation`` (the runtime's synchronous loss). Test
+    doubles may omit both; the production runtime always passes them.
     """
 
     def __init__(
@@ -106,8 +118,14 @@ class InvestigationRunner:
         lease_seconds: float = 60.0,
         owner: str | None = None,
         max_pending: int | None = None,
+        lifecycle: Any | None = None,
+        fence: tuple[int, int] | None = None,
+        on_fence_violation: Callable[[str], None] | None = None,
     ) -> None:
         self._sf = session_factory
+        self._lifecycle = lifecycle
+        self.fence = fence
+        self._on_fence_violation = on_fence_violation
         self._graph = graph
         self._sem = asyncio.Semaphore(max_concurrency)
         self._tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
@@ -118,6 +136,47 @@ class InvestigationRunner:
         self._reserved = 0
         self._lost: set[uuid.UUID] = set()
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
+        if lifecycle is not None:
+            lifecycle.on_change(self._on_lifecycle)
+
+    # -- execution ownership (C0-H2) ---------------------------------------------------
+    def _on_lifecycle(self, state: Any, reason: str | None) -> None:
+        if str(state) == "ownership_lost":
+            self.suspend_now(reason or "execution ownership lost")
+
+    def refusal(self) -> str | None:
+        """Why this process may not start or continue work right now, or None."""
+        if self.suspended is not None:
+            return f"this process no longer owns execution: {self.suspended}"
+        if self._lifecycle is not None and not self._lifecycle.ready:
+            return f"runtime is {self._lifecycle.state.value}, not ready"
+        return None
+
+    def gate(self) -> None:
+        if (why := self.refusal()) is not None:
+            raise OwnershipError(why)
+
+    async def db_fence(self, s: AsyncSession) -> None:
+        """Inside a write transaction: the database confirms this process is the current owner (FOR SHARE on the
+        epoch row until commit). Raises ``StaleOwnerError`` and records the loss otherwise."""
+        if self.fence is None:
+            return
+        try:
+            async with s.begin_nested():
+                await s.execute(
+                    text("SELECT ops.execution_fence(:epoch, :pid)"), {"epoch": self.fence[0], "pid": self.fence[1]}
+                )
+        except DBAPIError as exc:
+            if is_fence_violation(exc):
+                self.fence_violated(str(exc.orig or exc))
+                raise StaleOwnerError(str(exc.orig or exc)[:500]) from exc
+            raise
+
+    def fence_violated(self, reason: str) -> None:
+        reason = f"database refused a fenced write: {reason}"[:500]
+        if self._on_fence_violation is not None:
+            self._on_fence_violation(reason)  # synchronous loss: lifecycle listeners suspend this runner
+        self.suspend_now(reason)
 
     @property
     def lease_seconds(self) -> float:
@@ -139,8 +198,7 @@ class InvestigationRunner:
 
     def reserve(self) -> Reservation:
         """Check and take an admission slot atomically (no await between the check and the increment)."""
-        if self.suspended is not None:
-            raise OwnershipError(f"this process no longer owns execution: {self.suspended}")
+        self.gate()
         if self._shutting_down:
             raise CapacityError("process is shutting down; retry shortly")
         self.admit()
@@ -152,6 +210,11 @@ class InvestigationRunner:
         """Take (or renew) the execution lease unless another live owner holds it."""
         now = utcnow()
         async with self._sf() as s, s.begin():
+            if self.fence is not None:
+                try:
+                    await self.db_fence(s)  # a stale owner can neither take nor renew a lease (C0-H2)
+                except StaleOwnerError:
+                    return False
             got = (
                 await s.execute(
                     update(OpsInvestigation)
@@ -227,6 +290,7 @@ class InvestigationRunner:
             raise LeaseLostError(f"execution lease for {investigation_id} is held by {owner or 'nobody'}")
         if row is not None and InvestigationStatus(row.status).terminal:
             raise TerminalStateError(f"investigation {investigation_id} is {row.status}")
+        await self.db_fence(s)  # C0-H2: and this process is still the database's execution owner
 
     def submit(
         self,
@@ -248,10 +312,10 @@ class InvestigationRunner:
         On failure the caller's reservation is left held for the caller to release."""
         if self.is_active(investigation_id):
             raise ConflictError("investigation is already executing")
-        if self.suspended is not None:
+        if (why := self.refusal()) is not None:
             if reservation is not None:
                 reservation.release()
-            raise OwnershipError(f"this process no longer owns execution: {self.suspended}")
+            raise OwnershipError(why)
         slot = reservation if reservation is not None else self.reserve()
         slot.consume()  # synchronous from here to registration: the slot becomes the task
         task = asyncio.create_task(
@@ -274,10 +338,19 @@ class InvestigationRunner:
             return True
         return False
 
+    def suspend_now(self, reason: str) -> None:
+        """Synchronous: refuse all new work and cancel every running segment (C0-H2). Idempotent."""
+        if self.suspended is None:
+            self.suspended = reason
+            _log.error("runner_suspended", reason=reason)
+        self._shutting_down = True
+        for t in list(self._tasks.values()):
+            t.cancel()
+
     async def suspend(self, reason: str) -> None:
         """Execution ownership was lost (C0-G4): refuse all new work and stop running segments (resumable)."""
-        self.suspended = reason
-        await self.shutdown()
+        self.suspend_now(reason)
+        await asyncio.gather(*self._tasks.values(), return_exceptions=True)
 
     async def shutdown(self) -> None:
         # Shutdown interrupts runs (resumable); it is not an operator cancellation (terminal).
@@ -311,6 +384,9 @@ class InvestigationRunner:
     ) -> None:
         config = thread_config(investigation_id)
         async with self._sem:
+            if (why := self.refusal()) is not None:  # ownership may have been lost while this task waited
+                _log.warning("run_skipped_not_owner", investigation_id=str(investigation_id), reason=why)
+                return
             if not await self.claim(investigation_id):
                 _log.warning("run_skipped_owned_elsewhere", investigation_id=str(investigation_id))
                 return
@@ -409,6 +485,10 @@ class InvestigationRunner:
             except LeaseLostError:
                 _log.error("run_stopped_lease_lost", investigation_id=str(investigation_id))
             except Exception as exc:
+                if is_fence_violation(exc):  # e.g. a checkpoint write refused by the database (C0-H2)
+                    self.fence_violated(str(exc))
+                    _log.error("run_stopped_stale_owner", investigation_id=str(investigation_id))
+                    return
                 error_class = exc.error_class if isinstance(exc, OpsPilotError) else type(exc).__name__
                 _log.exception("investigation_failed", error_class=error_class)
                 await self._mark(investigation_id, InvestigationStatus.FAILED, str(exc)[:2000], error_class)
@@ -596,6 +676,8 @@ class InvestigationRunner:
             async with self._sf() as s, s.begin():
                 if fenced:
                     await self._fence(s, investigation_id)
+                else:
+                    await self.db_fence(s)
                 current = await repo.locked_status(s, investigation_id)
                 if current is None or InvestigationStatus(current).terminal:
                     return False  # C0-G2: a terminal row is never rewritten from a checkpoint
@@ -650,6 +732,8 @@ class InvestigationRunner:
         async with self._sf() as s, s.begin():
             if fenced:
                 await self._fence(s, investigation_id)
+            else:
+                await self.db_fence(s)
             if not await repo.transition_investigation(
                 s,
                 investigation_id,
@@ -985,6 +1069,10 @@ class InvestigationService:
         def bump(k: str) -> None:
             counts[k] = counts.get(k, 0) + 1
 
+        if (why := self.runner.refusal()) is not None:  # C0-H2: only a READY owner reconciles
+            _log.warning("reconcile_skipped_not_owner", reason=why)
+            return {"skipped_not_owner": 1}
+
         async with self._sf() as s:
             rows = list(
                 (
@@ -1008,6 +1096,9 @@ class InvestigationService:
                 ).scalars()
             )
         for inv in rows:
+            if self.runner.refusal() is not None:  # ownership lost during reconciliation: stop at once
+                bump("stopped_not_owner")
+                break
             if self.runner.is_active(inv.id) or await self.runner.owned_elsewhere(inv.id):
                 continue
             # Every write below is a locked compare-and-set against the transition policy (C0-G2), so a cancellation
@@ -1019,6 +1110,7 @@ class InvestigationService:
                     bump("finalized" if await self.runner.finalize(inv.id) else "skipped_terminal")
                 elif interrupts:
                     async with self._sf() as s, s.begin():
+                        await self.runner.db_fence(s)
                         for value in interrupts:
                             await self.runner._on_interrupt(s, inv.id, inv.incident_id, value)
                         restored = await repo.locked_status(s, inv.id) == InvestigationStatus.AWAITING_APPROVAL.value
@@ -1037,6 +1129,7 @@ class InvestigationService:
                         bump("dispatched")
                 elif inv.status in ("running", "queued"):
                     async with self._sf() as s, s.begin():
+                        await self.runner.db_fence(s)
                         current = await repo.locked_status(s, inv.id)
                         moved = current in ("running", "queued") and await repo.transition_investigation(
                             s,
@@ -1051,10 +1144,13 @@ class InvestigationService:
                                 s, inv.id, "run_interrupted", inv.current_step, {"reason": "process restart"}
                             )
                     bump("interrupted" if moved else "skipped_terminal")
+            except StaleOwnerError:
+                bump("stopped_not_owner")  # the database refused this process's write: stop reconciling
+                break
             except Exception:
                 _log.exception("reconcile_failed", investigation_id=str(inv.id))
                 bump("errors")
-        if self.dispatcher is not None and not expired_leases_only:
+        if self.dispatcher is not None and not expired_leases_only and self.runner.refusal() is None:
             for k, v in (await self.dispatcher.dispatch_due()).items():
                 counts[f"command_{k}"] = v
         if counts:

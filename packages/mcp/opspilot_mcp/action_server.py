@@ -23,7 +23,8 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 
 from opspilot_mcp.backend import OpsBackend
 from opspilot_mcp.schemas import ExecutionOutcome
@@ -89,8 +90,21 @@ def build_action_server(backend: OpsBackend) -> MCPServer:
         spec = REMEDIATION_CATALOG.get(ActionType(req.action_type))
         if spec is None or not spec.implemented:
             raise ToolError(f"unsupported action type {req.action_type!r}")
-        # Execution claim: authorisation is re-read under a row lock and committed before any effect.
+        if claims.epoch is None or claims.owner_pid is None:
+            raise ToolError("approval: token is not bound to an execution owner")
+        # Execution claim: authorisation is re-read under a row lock and committed before any effect. C0-H2: in the
+        # same transaction the database confirms that the owner that minted the token is still the current
+        # execution owner (FOR SHARE on its epoch until commit), so a stale owner can never start a new effect.
         async with backend.session_factory() as s, s.begin():
+            try:
+                async with s.begin_nested():
+                    await s.execute(
+                        text("SELECT ops.execution_fence(:epoch, :pid)"),
+                        {"epoch": claims.epoch, "pid": claims.owner_pid},
+                    )
+            except DBAPIError as exc:
+                _log.warning("action_rejected_stale_owner", action_id=str(action_id), epoch=claims.epoch)
+                raise ToolError("approval: the execution owner that issued this token is no longer current") from exc
             locked = (
                 await s.execute(select(OpsActionRequest).where(OpsActionRequest.id == action_id).with_for_update())
             ).scalar_one()

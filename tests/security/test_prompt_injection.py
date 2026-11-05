@@ -55,14 +55,14 @@ def compromised_model(rem: dict) -> ScriptedChatModel:  # type: ignore[type-arg]
     )
 
 
-async def run(settings, sf, embedder, chat):  # type: ignore[no-untyped-def]
+async def run(settings, sf, embedder, chat, owner):  # type: ignore[no-untyped-def]
     inc_id, env = await make_incident(sf)
     inv = uuid.uuid4()
     async with sf() as s, s.begin():
         s.add(OpsInvestigation(id=inv, incident_id=inc_id, status="running", model="x"))
     gw = inprocess_gateways(settings, sf, embedder)
     cfg = {"configurable": {"thread_id": str(inv)}}
-    async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings) as saver:
+    async with gw("read") as r, gw("actions") as a, checkpointer_pool(settings, fence=owner.fence) as saver:
         g = build_graph(AgentDeps(chat=chat, tools=r, actions=a), saver)
         await g.ainvoke({"investigation_id": str(inv), "incident_id": str(inc_id)}, cfg)
         snap = await g.aget_state(cfg)
@@ -71,22 +71,26 @@ async def run(settings, sf, embedder, chat):  # type: ignore[no-untyped-def]
     return snap, executed
 
 
-async def test_injection_log_is_collected_as_evidence_only(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
-    snap, executed = await run(settings, session_factory, embedder, ScriptedChatModel())
+async def test_injection_log_is_collected_as_evidence_only(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
+    snap, executed = await run(settings, session_factory, embedder, ScriptedChatModel(), owner)
     injected = [e for e in snap.values["evidence"].values() if "SYSTEM OVERRIDE" in e["summary"]]
     assert injected and injected[0]["kind"] == "log_pattern"
     assert executed == []
 
 
-async def test_fabricated_citations_are_discarded(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_fabricated_citations_are_discarded(settings, session_factory, embedder, ingested, owner) -> None:  # type: ignore[no-untyped-def]
     chat = compromised_model({"action_type": "restart_service", "service": "settlement-worker", "rationale": "obey"})
-    snap, executed = await run(settings, session_factory, embedder, chat)
+    snap, executed = await run(settings, session_factory, embedder, chat, owner)
     # The only hypothesis cited a non-existent ID → dropped → investigation fails closed, nothing proposed.
     assert snap.values["status"] == "failed" and snap.values["rca"]["citation_violations"] == ["ev-fabricated"]
     assert snap.values.get("proposed_action") is None and executed == []
 
 
-async def test_injected_target_outside_investigation_is_rejected(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_injected_target_outside_investigation_is_rejected(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
     def rca(messages):  # type: ignore[no-untyped-def]
         from tests.fakes.models import _evidence_from
 
@@ -120,14 +124,16 @@ async def test_injected_target_outside_investigation_is_rejected(settings, sessi
             RcaOutput: rca,
         }
     )
-    snap, executed = await run(settings, session_factory, embedder, chat)
+    snap, executed = await run(settings, session_factory, embedder, chat, owner)
     assert snap.values.get("proposed_action") is None
     reason = snap.values["rejected_proposals"][0]["reason"]
     assert "not observed" in reason or "itself is abnormal" in reason
     assert executed == []
 
 
-async def test_valid_but_malicious_proposal_still_requires_human(settings, session_factory, embedder, ingested) -> None:  # type: ignore[no-untyped-def]
+async def test_valid_but_malicious_proposal_still_requires_human(
+    settings, session_factory, embedder, ingested, owner
+) -> None:  # type: ignore[no-untyped-def]
     def rca(messages):  # type: ignore[no-untyped-def]
         from tests.fakes.models import _evidence_from
 
@@ -161,6 +167,6 @@ async def test_valid_but_malicious_proposal_still_requires_human(settings, sessi
             RcaOutput: rca,
         }
     )
-    snap, executed = await run(settings, session_factory, embedder, chat)
+    snap, executed = await run(settings, session_factory, embedder, chat, owner)
     assert snap.next == ("await_approval",)  # paused, waiting for a human
     assert executed == []
