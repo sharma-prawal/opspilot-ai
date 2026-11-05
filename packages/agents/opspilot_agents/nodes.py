@@ -54,6 +54,7 @@ from opspilot_shared.domain.actions import REMEDIATION_CATALOG, ActionType
 from opspilot_shared.domain.common import utcnow
 from opspilot_shared.domain.evidence import Citation, Evidence, EvidenceKind, ToolCallStatus
 from opspilot_shared.domain.incidents import ImpactState, IncidentCategory
+from opspilot_shared.domain.knowledge import lifecycle_tier
 from opspilot_shared.errors import ApprovalError, LLMError
 from opspilot_shared.ids import short_hash, stable_uuid
 from opspilot_shared.llm.ports import ChatModel
@@ -883,6 +884,7 @@ class InvestigationNodes:
         evidence: dict[str, dict[str, Any]] = {}
         retrieved_at = utcnow()
         coverage: dict[str, list[str]] = {}
+        withheld: list[str] = []
         for res, kind in ((rrun, EvidenceKind.KNOWLEDGE), (rinc, EvidenceKind.HISTORICAL_INCIDENT)):
             if not res or not res.ok or not res.data:
                 continue
@@ -894,6 +896,12 @@ class InvestigationNodes:
             for rank, hit in hits:
                 meta = hit.get("metadata") or {}
                 status = meta.get("status")
+                # C0-G3 (defence in depth; the MCP read server already excludes them): superseded/withdrawn guidance
+                # never enters a normal investigation's context, and expanded sections must be explicitly validated
+                # as the current version.
+                if lifecycle_tier(status) == 2 or (meta.get("expanded_from") and lifecycle_tier(status) != 0):
+                    withheld.append(f"{hit.get('title')} ({status})")
+                    continue
                 marker = f"[{status.upper()}] " if status and status != "current" else ""
                 anchor = meta.get("expanded_from")
                 if anchor:
@@ -951,6 +959,7 @@ class InvestigationNodes:
                 "warnings": warnings,
                 "degraded_to": sorted({str(d) for d in degraded}),
                 "section_coverage": coverage,
+                "withheld_obsolete": withheld,
             },
         }
         return {

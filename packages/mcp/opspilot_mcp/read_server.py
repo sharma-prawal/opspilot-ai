@@ -216,8 +216,15 @@ def build_read_server(backend: OpsBackend) -> MCPServer:
     async def _search(
         query: str, top_k: int, filters: RetrievalFilters, caller: str, expand_sections: int = 0
     ) -> KnowledgeHits:
+        # C0-G3: agent-facing search is normal incident investigation, never historical analysis: superseded or
+        # withdrawn documents are not candidates, and the response is lifecycle-validated before it is returned.
         resp = await backend.retriever.search(
-            query, top_k=top_k, filters=filters, caller=caller, expand_sections=expand_sections
+            query,
+            top_k=top_k,
+            filters=filters,
+            caller=caller,
+            expand_sections=expand_sections,
+            exclude_obsolete=True,
         )
         return KnowledgeHits(
             query_id=resp.query_id,

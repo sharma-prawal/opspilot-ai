@@ -112,13 +112,18 @@ async def test_rollback_guidance_in_another_section_reaches_the_rca_prompt() -> 
     assert "remediation_plan" not in out and "proposed_action" not in out  # retrieval proposes nothing
 
 
-async def test_obsolete_document_stays_marked_and_demoted_and_is_never_expanded() -> None:
-    out = await run_knowledge(knowledge_gateway(sections()))
-    legacy = next(e for e in out["evidence"].values() if "Legacy" in e["summary"])
-    assert legacy["summary"].startswith("[SUPERSEDED]") and legacy["citation"]["lifecycle_status"] == "superseded"
-    current = [e for e in out["evidence"].values() if "Legacy" not in e["summary"]]
-    assert all(legacy["relevance"] < e["relevance"] for e in current)
-    assert not any(e["data"].get("expanded_from") == legacy["citation"]["chunk_id"] for e in out["evidence"].values())
+async def test_obsolete_document_never_enters_investigation_context_and_is_never_expanded() -> None:
+    """C0-G3 (was: kept, marked and demoted). Normal investigation context never contains superseded/withdrawn
+    guidance; the MCP server already excludes it, and the node withholds any that still arrives."""
+    legacy_section = chunk(
+        "eeee5555", "Legacy Pool Tuning", "Mitigation", OBSOLETE, status="superseded",
+        expanded_from="bbbb2222-0000-0000-0000-000000000000", section_role="remediation",
+    )  # fmt: skip
+    out = await run_knowledge(knowledge_gateway([*sections(), legacy_section]))
+    assert not any("Legacy" in e["summary"] or OBSOLETE in e["summary"] for e in out["evidence"].values())
+    assert all(e["citation"]["lifecycle_status"] == "current" for e in out["evidence"].values())
+    withheld = out["observations"][0]["retrieval"]["withheld_obsolete"]
+    assert withheld == ["Legacy Pool Tuning (superseded)", "Legacy Pool Tuning (superseded)"]
 
 
 async def test_expansion_can_be_disabled_and_is_bounded() -> None:

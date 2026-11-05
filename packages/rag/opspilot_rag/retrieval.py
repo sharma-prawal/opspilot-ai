@@ -16,11 +16,13 @@ from opspilot_rag.reranker import NoopReranker, Reranker
 from opspilot_shared.config import Settings
 from opspilot_shared.db.models import KbChunk, KbDocument, KbRetrievalQuery
 from opspilot_shared.domain.knowledge import (
+    OBSOLETE_STATUSES,
     DocType,
     RetrievalFilters,
     RetrievalMode,
     RetrievedChunk,
     SearchResponse,
+    lifecycle_tier,
 )
 from opspilot_shared.errors import EmbeddingError
 from opspilot_shared.ids import sha256_hex
@@ -34,16 +36,10 @@ _TERM = re.compile(r"[A-Za-z0-9_]{2,}")
 SNIPPET_CHARS = 700
 # Lifecycle policy, applied to the fused candidate list BEFORE truncation (audit finding 7): current guidance
 # always outranks unreviewed or unknown-status material, which outranks superseded / withdrawn guidance.
-# Within a tier the retrieval order is preserved. Obsolete documents stay retrievable (for history) but can
-# no longer displace current ones.
-OBSOLETE_STATUSES = frozenset({"superseded", "deprecated", "retired", "withdrawn", "obsolete", "archived"})
-
-
-def lifecycle_tier(status: object) -> int:
-    s = str(status or "current").lower()
-    if s == "current":
-        return 0
-    return 2 if s in OBSOLETE_STATUSES else 1
+# Within a tier the retrieval order is preserved. Obsolete documents stay retrievable for explicitly authorised
+# historical search but can no longer displace current ones; with ``exclude_obsolete`` (every agent-facing MCP search,
+# C0-G3) they are not candidates at all. ``OBSOLETE_STATUSES``/``lifecycle_tier`` live in the shared domain.
+__all__ = ["OBSOLETE_STATUSES", "HybridRetriever", "lifecycle_tier", "section_role"]
 
 
 OVERFETCH = 4
@@ -121,8 +117,14 @@ class HybridRetriever:
         self._reranker = reranker or NoopReranker()
 
     @staticmethod
-    def _filtered(stmt: Select[Any], filters: RetrievalFilters | None) -> Select[Any]:
+    def _filtered(stmt: Select[Any], filters: RetrievalFilters | None, exclude_obsolete: bool = False) -> Select[Any]:
         stmt = stmt.where(KbDocument.status == "active")
+        if exclude_obsolete:  # evaluated in the same statement (snapshot) as the candidate chunks
+            stmt = stmt.where(
+                func.lower(func.coalesce(KbDocument.metadata_["status"].astext, "current")).notin_(
+                    sorted(OBSOLETE_STATUSES)
+                )
+            )
         if filters is None:
             return stmt
         if filters.doc_types:
@@ -133,14 +135,18 @@ class HybridRetriever:
             stmt = stmt.where(KbDocument.tags.has_any(array(filters.tags, type_=Text)))
         return stmt
 
-    async def _vector(self, session: AsyncSession, query: str, n: int, filters: RetrievalFilters | None) -> list[_Hit]:
+    async def _vector(
+        self, session: AsyncSession, query: str, n: int, filters: RetrievalFilters | None, exclude_obsolete: bool
+    ) -> list[_Hit]:
         qvec = await self._embedder.embed_query(query)
         await session.execute(text("SET LOCAL hnsw.ef_search = 100"))
         await session.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
         distance = KbChunk.embedding.cosine_distance(qvec).label("distance")
         stmt = (
             self._filtered(
-                select(KbChunk, KbDocument, distance).join(KbDocument, KbChunk.document_id == KbDocument.id), filters
+                select(KbChunk, KbDocument, distance).join(KbDocument, KbChunk.document_id == KbDocument.id),
+                filters,
+                exclude_obsolete,
             )
             .order_by(distance)
             .limit(n)
@@ -148,7 +154,9 @@ class HybridRetriever:
         rows = (await session.execute(stmt)).all()
         return [_Hit(c, d, i, 1.0 - float(dist)) for i, (c, d, dist) in enumerate(rows, start=1)]
 
-    async def _keyword(self, session: AsyncSession, query: str, n: int, filters: RetrievalFilters | None) -> list[_Hit]:
+    async def _keyword(
+        self, session: AsyncSession, query: str, n: int, filters: RetrievalFilters | None, exclude_obsolete: bool
+    ) -> list[_Hit]:
         source = keyword_query(query)
         if source is None:
             return []
@@ -160,6 +168,7 @@ class HybridRetriever:
                 .join(KbDocument, KbChunk.document_id == KbDocument.id)
                 .where(KbChunk.tsv.op("@@")(tsq)),
                 filters,
+                exclude_obsolete,
             )
             .order_by(rank.desc(), KbChunk.id)
             .limit(n)
@@ -204,7 +213,10 @@ class HybridRetriever:
         caller: str | None = None,
         record: bool = True,
         expand_sections: int = 0,
+        exclude_obsolete: bool = False,
     ) -> SearchResponse:
+        """``exclude_obsolete``: normal incident investigation (agent-facing tools) never receives superseded or
+        withdrawn guidance; ``False`` is explicitly authorised historical search (operator API, evaluation)."""
         top_k = top_k or self._s.retrieval_top_k
         expand_sections = max(0, min(expand_sections, MAX_EXPAND_SECTIONS))
         n = top_k * OVERFETCH
@@ -217,7 +229,7 @@ class HybridRetriever:
                 vhits: list[_Hit] = []
                 if mode != RetrievalMode.KEYWORD:
                     try:
-                        vhits = await self._vector(session, query, n, filters)
+                        vhits = await self._vector(session, query, n, filters, exclude_obsolete)
                     except EmbeddingError as exc:
                         if mode == RetrievalMode.VECTOR:
                             raise
@@ -225,7 +237,11 @@ class HybridRetriever:
                         warnings.append(f"vector retrieval unavailable, keyword-only results: {exc}")
                         span.set_attribute("rag.degraded", True)
                         _log.warning("retrieval_degraded", reason=str(exc))
-                khits = await self._keyword(session, query, n, filters) if mode != RetrievalMode.VECTOR else []
+                khits = (
+                    await self._keyword(session, query, n, filters, exclude_obsolete)
+                    if mode != RetrievalMode.VECTOR
+                    else []
+                )
 
             by_id = {h.chunk.id: h for h in [*khits, *vhits]}
             vrank = {h.chunk.id: h.rank for h in vhits}
@@ -246,7 +262,10 @@ class HybridRetriever:
             ]
             results = [self._to_result(by_id[cid], s, vrank.get(cid), krank.get(cid)) for cid, s in ordered[:top_k]]
             results = await self._reranker.rerank(query, results)
-            context = await self._expand(results, expand_sections) if expand_sections else []
+            context = await self._expand(results, expand_sections, warnings) if expand_sections else []
+            # C0-G3: candidates, expansion and this check run in separate snapshots; the lifecycle is validated
+            # once more, against committed state, immediately before the response is assembled.
+            results, context = await self._revalidate(results, context, warnings, exclude_obsolete)
             latency = round((time.perf_counter() - t0) * 1000, 2)
             span.set_attribute("rag.results", len(results))
 
@@ -295,8 +314,14 @@ class HybridRetriever:
             context=context,
         )
 
-    async def _expand(self, results: list[RetrievedChunk], limit: int) -> list[RetrievedChunk]:
-        """Other sections of the top-ranked current operational document, by role priority, in document order."""
+    async def _expand(
+        self, results: list[RetrievedChunk], limit: int, warnings: list[str] | None = None
+    ) -> list[RetrievedChunk]:
+        """Other sections of the top-ranked current operational document, by role priority, in document order.
+
+        C0-G3: the anchor's tier comes from an earlier snapshot, so the document's lifecycle and version are checked
+        again on the very rows being expanded (one statement, one snapshot). If the document is no longer the
+        current, active version the anchor was taken from, nothing is expanded (fail closed)."""
         anchor = next(
             (
                 r
@@ -316,11 +341,19 @@ class HybridRetriever:
                     .where(
                         KbChunk.document_id == anchor.document_id,
                         KbChunk.document_version == anchor.document_version,
+                        KbDocument.version == anchor.document_version,
                         KbDocument.status == "active",
                     )
                     .order_by(KbChunk.ordinal)
                 )
             ).all()
+        # ``rows`` always includes the anchor chunk itself, so an empty result means the version is gone.
+        if not rows or any(lifecycle_tier((d.metadata_ or {}).get("status")) != 0 for _, d in rows):
+            (warnings if warnings is not None else []).append(
+                f"section expansion withheld: '{anchor.title}' v{anchor.document_version} is no longer the "
+                "current active version (lifecycle changed after ranking)"
+            )
+            return []
         candidates = [
             (section_role(c.heading_path, c.content), c, d) for c, d in rows if c.id not in have and c.content.strip()
         ]
@@ -331,3 +364,63 @@ class HybridRetriever:
             item.metadata.update({"expanded_from": str(anchor.chunk_id), "section_role": role})
             out.append(item)
         return out
+
+    async def _revalidate(
+        self,
+        results: list[RetrievedChunk],
+        context: list[RetrievedChunk],
+        warnings: list[str],
+        exclude_obsolete: bool,
+    ) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
+        """Final lifecycle validation against committed document rows (C0-G3).
+
+        - A passage whose document is no longer active at that version (replaced or retired since ranking) is
+          dropped: its version no longer exists, so it can never be presented as current.
+        - Every surviving passage carries the document's *committed* status/tier (a metadata-only supersession is
+          reflected, never silently treated as current) and ``lifecycle_validated``.
+        - With ``exclude_obsolete`` a passage that became obsolete is dropped.
+        - Context (section expansion) survives only if its document is still current at that version; otherwise
+          all of it is withdrawn.
+        Results are re-ordered by tier (stable) so a newly superseded document cannot keep a current rank."""
+        ids = {r.document_id for r in [*results, *context]}
+        if not ids:
+            return results, context
+        async with self._sf() as session:
+            docs = {
+                row.id: row
+                for row in (
+                    await session.execute(
+                        select(KbDocument.id, KbDocument.version, KbDocument.status, KbDocument.metadata_).where(
+                            KbDocument.id.in_(ids)
+                        )
+                    )
+                ).all()
+            }
+
+        def committed(r: RetrievedChunk) -> tuple[bool, str, int]:
+            d = docs.get(r.document_id)
+            if d is None or d.status != "active" or d.version != r.document_version:
+                return False, "replaced", 2
+            status = str((d.metadata_ or {}).get("status", "current"))
+            return True, status, lifecycle_tier(status)
+
+        kept: list[RetrievedChunk] = []
+        changed = 0
+        for r in results:
+            live, status, tier = committed(r)
+            if status != r.metadata.get("status") or tier != r.metadata.get("lifecycle_tier"):
+                changed += 1
+            if not live or (exclude_obsolete and tier == 2):
+                continue
+            r.metadata.update({"status": status, "lifecycle_tier": tier, "lifecycle_validated": True})
+            kept.append(r)
+        kept = [r for _, r in sorted(enumerate(kept), key=lambda t: (t[1].metadata["lifecycle_tier"], t[0]))]
+        valid_context = all(committed(c)[0] and committed(c)[2] == 0 for c in context)
+        if context and not valid_context:
+            warnings.append("section expansion withdrawn: the expanded document's lifecycle changed")
+            context = []
+        for c in context:
+            c.metadata.update({"lifecycle_validated": True})
+        if changed:
+            warnings.append(f"{changed} passage(s) changed lifecycle after ranking; labels reflect committed state")
+        return kept, context
