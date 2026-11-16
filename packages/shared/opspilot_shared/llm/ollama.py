@@ -29,6 +29,17 @@ QUERY_INSTRUCTION = (
 )
 
 
+def _not_retryable(resp: httpx.Response) -> bool:
+    return resp.status_code == 501 or (400 <= resp.status_code < 500 and resp.status_code not in (408, 429))
+
+
+def _error_body(resp: httpx.Response) -> str:
+    try:
+        return str(resp.json().get("error", ""))[:200]
+    except ValueError:
+        return resp.text[:200]
+
+
 class OllamaChatModel:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
         self._s = settings
@@ -80,6 +91,11 @@ class OllamaChatModel:
                 except (httpx.TransportError, httpx.HTTPStatusError) as exc:
                     last_error = f"{type(exc).__name__}: {exc}"
                     _log.warning("llm_call_failed", purpose=purpose, attempt=attempt, error=last_error)
+                    if isinstance(exc, httpx.HTTPStatusError) and _not_retryable(exc.response):
+                        # e.g. 404 model not pulled, 501 structured output unavailable for this model build:
+                        # retrying cannot succeed, so fail fast with the server's own message.
+                        last_error += f" ({_error_body(exc.response)})"
+                        break
                     await asyncio.sleep(min(2**attempt, 8))
                     continue
                 body = resp.json()

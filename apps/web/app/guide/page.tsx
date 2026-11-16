@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ModelName } from "@/lib/models";
 import { Badge, Button, Card, CodeBlock, PageHeader } from "@/components/ui";
 
 interface GuideStep {
@@ -31,7 +32,7 @@ export default function GuidePage() {
           </p>
           <ul className="list-disc pl-4 space-y-1">
             <li>
-              <strong className="text-text">Local-First Architecture:</strong> All inference runs locally on your machine using Ollama (Qwen3 8B and Qwen3-Embedding). Zero telemetry or source code leaves your local environment.
+              <strong className="text-text">Local-First Architecture:</strong> All inference runs locally on your machine using Ollama: the investigation model <ModelName /> and the embedding model <ModelName kind="embedding" /> (both set in <code className="font-mono">.env</code>). Zero telemetry or source code leaves your local environment.
             </li>
             <li>
               <strong className="text-text">Deterministic Safety Gates:</strong> Hard Python rules evaluate every AI remediation proposal against impact, correlation, ambiguity, and capacity constraints before any action can be presented to an operator.
@@ -60,7 +61,7 @@ export default function GuidePage() {
             <div className="rounded-lg border border-border bg-panel-2/50 p-3">
               <span className="font-bold text-text">Runtime Dependencies:</span>
               <ul className="list-disc pl-4 mt-1 space-y-0.5">
-                <li><strong className="text-text">Ollama:</strong> 0.40+ serving <code className="text-accent font-mono">qwen3:8b</code> and <code className="text-accent font-mono">qwen3-embedding:0.6b</code>.</li>
+                <li><strong className="text-text">Ollama:</strong> 0.40+ serving the configured <code className="font-mono">LLM_MODEL</code> (active: <ModelName />) and <code className="font-mono">EMBEDDING_MODEL</code> (active: <ModelName kind="embedding" />).</li>
                 <li><strong className="text-text">Colima or Docker Engine:</strong> for PostgreSQL container runtime.</li>
                 <li><strong className="text-text">PostgreSQL 17 + pgvector:</strong> port 5433 (avoids local port 5432 conflict).</li>
               </ul>
@@ -100,7 +101,7 @@ make doctor`}
           </p>
           <ul className="list-disc pl-4 space-y-0.5">
             <li>PostgreSQL 17 container is healthy on port 5433 and pgvector extension is enabled.</li>
-            <li>Ollama service responds on 127.0.0.1:11434 with models <code className="font-mono">qwen3:8b</code> and <code className="font-mono">qwen3-embedding:0.6b</code>.</li>
+            <li>Ollama service responds on 127.0.0.1:11434 with the configured models (active: <ModelName /> and <ModelName kind="embedding" />). <code className="font-mono">uv run opspilot models --probe</code> checks a model&apos;s capabilities and structured output before you switch.</li>
             <li>Database migrations are up to date and all 3 schemas (<code className="font-mono">ops</code>, <code className="font-mono">kb</code>, <code className="font-mono">sim</code>) exist.</li>
             <li>Operational runbooks and postmortems are ingested with 1024-dimensional embeddings.</li>
           </ul>
