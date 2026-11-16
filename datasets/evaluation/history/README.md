@@ -8,3 +8,6 @@ They are never rewritten; `datasets/evaluation/results/` holds only the latest r
 - `phase-c0f-62a9e21/` — Phase C0-F official evaluation plus INC-002 ×10 and negative ×3 supplementary runs (see its README).
 - `phase-c0g-2d18d46/` — Phase C0-G official evaluation after the G1–G4 safety fixes (see its README).
 - `phase-c0h-2116ef1/` — Phase C0-H official evaluation after revision consistency and owner fencing (see its README).
+- `v0.4-model-comparison/` — v0.4 supplementary agent runs (`opspilot-eval agent --out`, six public scenarios, one
+  trial): qwen3:8b and qwen3.5:9b-q4_K_M before/after the v0.4 RCA changes, plus a qwen3.5 repeat. Tabulate with
+  `uv run python scripts/model_comparison.py LABEL=DIR ...`; report in `docs/evaluation/MODEL_COMPARISON_V0.4.md`.

@@ -105,6 +105,33 @@ make doctor`}
             <li>Database migrations are up to date and all 3 schemas (<code className="font-mono">ops</code>, <code className="font-mono">kb</code>, <code className="font-mono">sim</code>) exist.</li>
             <li>Operational runbooks and postmortems are ingested with 1024-dimensional embeddings.</li>
           </ul>
+          <div className="rounded-lg border border-border bg-panel-2/50 p-3 space-y-2">
+            <span className="font-bold text-text">Choosing the investigation model</span>
+            <p>
+              The investigation model is configuration, not code: set <code className="font-mono">LLM_MODEL</code> in{" "}
+              <code className="font-mono">.env</code> to any local Ollama chat model and restart the API. The active model
+              is currently <ModelName />. The embedding model (<ModelName kind="embedding" />) is separate; changing it
+              requires re-indexing the knowledge base.
+            </p>
+            <CodeBlock
+              language="bash"
+              code={`# 1. Pull a candidate. On Apple Silicon prefer an explicit GGUF quant tag:
+#    some default tags resolve to MLX builds without structured-output support.
+ollama pull <model>:<tag>
+
+# 2. Check capabilities and one schema-constrained call through the real adapter
+uv run opspilot models --model <model>:<tag> --probe
+
+# 3. Compare on the six public scenarios without touching the official baseline
+LLM_MODEL=<model>:<tag> uv run opspilot-eval agent --trials 1 --out /tmp/<run-name>`}
+            />
+            <p>
+              The agent needs JSON-schema structured output (Ollama <code className="font-mono">format</code>); MCP tools
+              are called by code, not by model tool-calling. Measured results and the recommended default are in{" "}
+              <code className="font-mono">docs/evaluation/MODEL_COMPARISON_V0.4.md</code>. The safety gates and human
+              approval apply unchanged whatever model is selected.
+            </p>
+          </div>
         </div>
       ),
     },

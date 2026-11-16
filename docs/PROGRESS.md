@@ -284,6 +284,27 @@ the dev DB (additive); test DB: audit-reproducer and test rows left terminal, te
 **Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
 Phase C1 is not started.
 
+## Status — 2026-11-16, v0.4.0 reasoning and model flexibility (`feature/ai-reasoning-v04`, not pushed)
+
+- **Diagnosis** of the published qwen3:8b traces and a fresh re-run (identical raw plans): system outcomes 13/13 correct
+  only because of the gates; raw model plan acceptable 4/13; the decisive evidence was present but ignored. Write-up:
+  `docs/evaluation/MODEL_COMPARISON_V0.4.md` §1.
+- **Model selection** (D97): `opspilot models [--model] [--probe]`; health/overview expose the active model; UI renders
+  configured names; fail-fast on 501/4xx. `qwen3.5:9b` default tag = MLX build without structured output on Ollama
+  0.40.14; `qwen3.5:9b-q4_K_M` (GGUF) works.
+- **Agent changes** (D98): evidence digest (`synthesis.py`), explicit `decision`, observed-value enums for citations and
+  plan identifiers. No gate, uncertainty or approval rule changed.
+- **Comparison** (six public scenarios, 1 trial, supplementary `--out` runs in
+  `datasets/evaluation/history/v0.4-model-comparison/`; BASELINE.md untouched): qwen3.5:9b-q4_K_M after — system 6/6,
+  raw plan 6/6, 0 gate rejections, 3/3 negatives self-handled, repeat identical; qwen3:8b after — system 6/6, raw plan
+  1/6, 8 rejections. Recommendation D99 (default left at qwen3:8b pending owner).
+- **Verified**: `make lint` clean; `uv run pytest` 317 passed / 3 skipped; web 38 passed; live-model tests 3/3 with both
+  models.
+- **Open for the owner**: switch the default model? Two pre-existing gate gaps (resume of a running consumer;
+  containment admitted when its resolution is rejected) — report §5. `make evaluate` (official baseline) not re-run.
+- Models on disk added this session: `qwen3.5:9b-q4_K_M` (6.6 GB) and the unusable MLX `qwen3.5:9b` (7.6 GB, can be
+  removed with `ollama rm qwen3.5:9b`).
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:
