@@ -8,8 +8,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.2.1, experimental, local-first.** Remediation acts only on a deterministic simulator. Run one API
-> worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.3.0-rc (feature/product-experience), experimental, local-first.** Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
@@ -94,11 +93,11 @@ safety gates were designed after observing failures on these scenarios.
 
 ## Screenshots (real running app, synthetic data)
 
-| INC-003: step 1 of a 4-step plan awaiting approval | INC-003: all steps executed, recovery verified |
+| Overview Command Center & Scenarios | Incident Command Center & Human Approval |
 |---|---|
-| ![INC-003 approval](docs/images/inc003-approval.png) | ![INC-003 mitigated](docs/images/inc003-mitigated.png) |
-| **NEG-002: wrong top hypothesis, rollback blocked, escalated** | **Overview** |
-| ![NEG-002 escalated](docs/images/neg002-escalated.png) | ![Overview](docs/images/overview.png) |
+| ![Overview Dashboard](docs/images/after/overview-desktop.png) | ![Incident Command Center](docs/images/after/incident-workspace-approval-desktop.png) |
+| **Interactive Architecture Explorer** | **Data Sources & Extensibility Catalog** |
+| ![Architecture Explorer](docs/images/after/architecture-system-desktop.png) | ![Integrations Catalog](docs/images/after/integrations-demo-desktop.png) |
 
 ## Quick start
 
@@ -111,8 +110,13 @@ make doctor                     # verify everything (models, embedding dim, pgve
 make dev                        # API on :8000, web on :3000
 ```
 
-Open <http://127.0.0.1:3000> and sign in with the operator passphrase (`OPSPILOT_WEB_OPERATOR_PASSPHRASE` in `.env`) → **Incidents** → pick a scenario → **Simulate** → **Start investigation** → review
-the hypotheses, evidence and plan → approve or reject each step → watch verification, the outcome and the RCA report.
+Open <http://127.0.0.1:3000> and sign in with the operator passphrase (`OPSPILOT_WEB_OPERATOR_PASSPHRASE` in `.env`):
+- **Command Center (`/`)**: System overview, synthetic scenario launches, and active incident metrics.
+- **Incident Workspace (`/investigations/[id]`)**: Step-by-step progress, root-cause hypotheses, safety gate decisions, approval actions, and recovery verification.
+- **Architecture Explorer (`/architecture`)**: Interactive ReactFlow diagrams for System Topology, Agent Workflow, Hybrid RAG, and Evidence Extensibility.
+- **Integrations Catalog (`/integrations`)**: Evidence source guide across Demo, Offline/File, and Connected Observability modes.
+- **Developer Guide (`/guide`)**: Interactive local setup, operational verification steps, and architectural concepts.
+- **Safety Center (`/safety`)**: In-depth specification of the Seven Invariant Safety Gates and human-in-the-loop policies.
 
 Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. Walkthroughs for every scenario:
 [docs/DEMO.md](docs/DEMO.md).
@@ -159,7 +163,7 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 - Decisions: [ADRs](docs/adr/) · [decision log](docs/DECISIONS.md)
 - Setup: [environment audit](docs/setup/ENVIRONMENT_AUDIT.md) · [development guide](docs/development/DEVELOPMENT.md)
 - Status: [progress](docs/PROGRESS.md) · [evaluation baseline](docs/evaluation/BASELINE.md)
-- Release: [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
+- Release: [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
 - Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · remediation records
   [C0](docs/audits/PHASE_C0_REMEDIATION.md) · [C0-F](docs/audits/PHASE_C0_F_REMEDIATION.md) ·
   [C0-G](docs/audits/PHASE_C0_G_REMEDIATION.md) · [C0-H](docs/audits/PHASE_C0_H_REMEDIATION.md) ·
