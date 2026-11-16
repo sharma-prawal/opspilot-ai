@@ -95,7 +95,16 @@ def test_pool_change_without_capacity_evidence_is_refused() -> None:
 def test_queue_actions_require_queue_evidence() -> None:
     e = evidence(QUEUE)
     assert validate_step({"action_type": "pause_consumer", "service": "settlement-worker"}, e, "settlement-worker").ok
-    assert validate_step({"action_type": "resume_consumer", "service": "settlement-worker"}, e, "settlement-worker").ok
+    # v0.4 Fix A: the fixture's consumer is running, so a bare resume is refused; after a pause in the plan it is fine
+    assert not validate_step(
+        {"action_type": "resume_consumer", "service": "settlement-worker"}, e, "settlement-worker"
+    ).ok
+    assert validate_step(
+        {"action_type": "resume_consumer", "service": "settlement-worker"},
+        e,
+        "settlement-worker",
+        paused_in_plan=frozenset({"settlement-worker"}),
+    ).ok
     q = validate_step(
         {"action_type": "quarantine_messages", "queue": "settlement-events", "error_code": "SETTLEMENT_SCHEMA_INVALID"},
         e,
