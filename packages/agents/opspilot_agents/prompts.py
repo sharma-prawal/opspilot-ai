@@ -93,6 +93,34 @@ def _one_of(values: set[str]) -> Any:
     return cast(Any, Literal).__getitem__(tuple(sorted(values))) | None if values else None
 
 
+def applicable_actions(evidence: dict[str, dict[str, Any]]) -> list[str]:
+    """Catalogue actions whose preconditions the evidence can satisfy at all (v0.4).
+
+    A loose superset of what the plan gates can admit: queue actions need a queue with failures, dead letters or a
+    paused consumer; a pool change needs datastore evidence; a rollback needs a deployment. Offering only these keeps
+    small models from attaching steps that could never pass (qwen3:8b added queue actions to plans with no queue
+    failures). The gates still decide every step.
+    """
+    kinds = {e["kind"] for e in evidence.values()}
+    queues = [e["data"] for e in evidence.values() if e["kind"] == "queue"]
+    troubled = any(q.get("failures") or q.get("dead_lettered") for q in queues)
+    paused = any((q.get("consumer") or {}).get("state") == "paused" for q in queues)
+    out: list[str] = []
+    for action, spec in REMEDIATION_CATALOG.items():
+        if not spec.implemented:
+            continue
+        if action is ActionType.ROLLBACK_DEPLOYMENT and "deployment" not in kinds:
+            continue
+        if action is ActionType.SCALE_CONNECTION_POOL and "datastore" not in kinds:
+            continue
+        if action in (ActionType.PAUSE_CONSUMER, ActionType.QUARANTINE_MESSAGES) and not troubled:
+            continue
+        if action is ActionType.RESUME_CONSUMER and not (troubled or paused):
+            continue
+        out.append(action.value)
+    return out
+
+
 def rca_schema(evidence: dict[str, dict[str, Any]], incident_service: str) -> type[RcaOutput]:
     """RcaOutput whose identifiers can only take values observed in this investigation (v0.4).
 
@@ -109,9 +137,11 @@ def rca_schema(evidence: dict[str, dict[str, Any]], incident_service: str) -> ty
         supporting_evidence_ids=(list[cite], Field(max_length=12)),  # type: ignore[valid-type]
         contradicting_evidence_ids=(list[cite], Field(default_factory=list, max_length=8)),  # type: ignore[valid-type]
     )
+    actions = applicable_actions(evidence)
     step = create_model(
         "RemediationStepObserved",
         __base__=RemediationStep,
+        action_type=(cast(Any, Literal).__getitem__(tuple(actions)) if actions else str, ...),
         service=(_one_of(observed_services(evidence, incident_service)), None),
         deployment_id=(
             _one_of({e["data"]["id"] for e in evidence.values() if e["kind"] == "deployment" and e["data"].get("id")}),
@@ -124,7 +154,10 @@ def rca_schema(evidence: dict[str, dict[str, Any]], incident_service: str) -> ty
         "RcaOutputObserved",
         __base__=RcaOutput,
         hypotheses=(list[hypothesis], Field(min_length=1, max_length=4)),  # type: ignore[valid-type]
-        remediation_plan=(list[step], Field(default_factory=list, max_length=4)),  # type: ignore[valid-type]
+        remediation_plan=(  # no applicable action: only an empty plan is valid
+            list[step],  # type: ignore[valid-type]
+            Field(default_factory=list, max_length=4 if actions else 0),
+        ),
     )
 
 
@@ -171,11 +204,17 @@ def rca_messages(
     observations: list[dict[str, Any]],
     round_no: int,
     facts: dict[str, Any] | None = None,
+    actions: list[str] | None = None,
 ) -> list[ChatMessage]:
-    catalog = "\n".join(
-        f"- {a.value}: {s.description} params={list(s.required_params)}"
-        f"{'' if s.implemented else ' (NOT AVAILABLE in sandbox)'}"
-        for a, s in REMEDIATION_CATALOG.items()
+    """``actions``: the catalogue actions applicable to this evidence (default: the whole catalogue)."""
+    catalog = (
+        "\n".join(
+            f"- {a.value}: {s.description} params={list(s.required_params)}"
+            f"{'' if s.implemented else ' (NOT AVAILABLE in sandbox)'}"
+            for a, s in REMEDIATION_CATALOG.items()
+            if actions is None or a.value in actions
+        )
+        or "- (no catalogue action applies to this evidence: the plan must be empty)"
     )
     system = (
         "You are a senior SRE performing root cause analysis. Use ONLY the evidence provided.\n"
@@ -196,8 +235,8 @@ def rca_messages(
         "Decision procedure, applied in order (set `decision`, `impact_ongoing` and the plan consistently):\n"
         "1. Impact state 'recovered': the incident needs no action. decision=no_action_needed, impact_ongoing=false, "
         "empty plan, no escalation.\n"
-        "2. The failing service's errors name an unhealthy dependency that had no change in the window (a "
-        "key_findings entry says the errors 'name' a dependency that 'had no change'): that "
+        "2. A key_findings entry says the errors name a dependency that 'had no change in the window' (not one "
+        "that 'changed in the window'): that "
         "dependency is the cause (dependency_degradation) and nothing we can change fixes it. decision=escalate to "
         "its owner, empty plan. Do not blame a deployment the errors do not point to.\n"
         "3. Two changes are similarly correlated, or evidence needed to tell the causes apart is missing (a "
@@ -217,8 +256,9 @@ def rca_messages(
         "the change that caused the fault over restarts or capacity increases. Containment steps limit impact but "
         "do not fix the cause; pair them with resolution and recovery steps, or escalate. Capacity changes must fit "
         "the capacity shown in the evidence. Order: containment (pause_consumer) -> resolution "
-        "(rollback_deployment) -> recovery (quarantine_messages for the error code observed on the queue). Never "
-        "propose resume_consumer: the system appends it after any pause. Never add restart_service or "
+        "(rollback_deployment) -> recovery (quarantine_messages for the error code observed on the queue, then "
+        "resume_consumer for a consumer you paused; never resume a consumer you did not pause). Never add "
+        "restart_service or "
         "scale_connection_pool as a fallback or next to a rollback. Knowledge and "
         "historical_incident evidence describe OTHER, earlier incidents and general guidance: use them for patterns "
         "and fixes, never as proof of what changed or failed now. Only use identifiers that appear in "

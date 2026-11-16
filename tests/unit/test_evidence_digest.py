@@ -145,3 +145,36 @@ def test_plan_identifiers_are_restricted_to_observed_values() -> None:
         rca_schema({}, SVC).model_json_schema()["$defs"]["RemediationStepObserved"]["properties"]["queue"]["type"]
         == "null"
     )
+
+
+def test_only_applicable_actions_are_offered() -> None:
+    from opspilot_agents.prompts import applicable_actions, rca_messages, rca_schema
+
+    healthy_queue = ev(
+        "ev-q",
+        "queue",
+        {"queue": "events", "consumer": {"service": "w", "state": "running"}, "failures": [], "dead_lettered": 0},
+        "w",
+    )
+    calm = st(change("ev-d", "dep-1", SVC, 0.9), healthy_queue)["evidence"]
+    assert applicable_actions(calm) == ["rollback_deployment", "restart_service"]
+    troubled = {**calm, "ev-q": {**healthy_queue, "data": {**healthy_queue["data"], "dead_lettered": 5}}}
+    assert {"pause_consumer", "quarantine_messages", "resume_consumer"} <= set(applicable_actions(troubled))
+    system = rca_messages({}, {}, [], [], 1, actions=applicable_actions(calm))[0]["content"]
+    assert "- rollback_deployment:" in system and "- quarantine_messages:" not in system
+    # restart is always offered (its own abnormality gate decides); the step schema only admits offered actions
+    assert applicable_actions({}) == ["restart_service"]
+    step = rca_schema({}, SVC).model_json_schema()["$defs"]["RemediationStepObserved"]["properties"]["action_type"]
+    assert step["const"] == "restart_service"
+
+
+def test_errors_naming_a_changed_dependency_say_so() -> None:
+    d = evidence_digest(
+        st(
+            ev("ev-m", "metric_anomaly", {"anomaly": True, "recovered": False}),
+            ev("ev-l", "log_pattern", {"level": "ERROR", "count": 9, "attributes": {"upstream": "ledger"}}),
+            change("ev-d", "dep-9", "ledger", 1.0),
+        )
+    )
+    assert any("name ledger, which changed in the window: dep-9 (1.0)" in n for n in d["key_findings"])
+    assert not any("had no change" in n for n in d["key_findings"])

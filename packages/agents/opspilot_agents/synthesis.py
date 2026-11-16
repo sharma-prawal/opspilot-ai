@@ -116,6 +116,10 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
                     f"{n}/{totals[svc]} {svc} errors name {up}, which is {dep['status']} and had no change in the "
                     "window" + (f" ({dep['external']})" if dep["external"] else "")
                 )
+            elif share >= ATTRIBUTION_SHARE and up in changed_services:
+                # state the changed case too, so a model cannot mistake it for an unchanged dependency (v0.4)
+                changed = ", ".join(f"{c['change_id']} ({c['correlation']})" for c in correlated if c["service"] == up)
+                notes.append(f"{n}/{totals[svc]} {svc} errors name {up}, which changed in the window: {changed}")
 
     missing = [e["summary"][:200] for e in evidence.values() if e["kind"] == "tool_error"]
     if missing:

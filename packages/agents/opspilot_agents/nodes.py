@@ -32,7 +32,14 @@ from opspilot_agents.analysis import (
 )
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
-from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages, rca_schema
+from opspilot_agents.prompts import (
+    PlanOutput,
+    RcaOutput,
+    applicable_actions,
+    plan_messages,
+    rca_messages,
+    rca_schema,
+)
 from opspilot_agents.remediation import enforce_causal_prerequisites, enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
@@ -999,6 +1006,7 @@ class InvestigationNodes:
                     state.get("observations", []),
                     round_no,
                     facts=evidence_digest(state),
+                    actions=applicable_actions(evidence),
                 ),
                 schema=rca_schema(evidence, state["incident"]["service"]),
                 purpose="rca.analyze",
