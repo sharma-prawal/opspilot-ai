@@ -32,10 +32,11 @@ from opspilot_agents.analysis import (
 )
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
-from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages
+from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages, rca_schema
 from opspilot_agents.remediation import enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
+from opspilot_agents.synthesis import evidence_digest
 from opspilot_agents.uncertainty import uncertainty_reasons
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import (
@@ -992,9 +993,14 @@ class InvestigationNodes:
         try:
             out = await self.d.chat.generate_structured(
                 messages=rca_messages(
-                    state["incident"], state["window"], prompt_ev, state.get("observations", []), round_no
+                    state["incident"],
+                    state["window"],
+                    prompt_ev,
+                    state.get("observations", []),
+                    round_no,
+                    facts=evidence_digest(state),
                 ),
-                schema=RcaOutput,
+                schema=rca_schema(evidence, state["incident"]["service"]),
                 purpose="rca.analyze",
             )
         except LLMError as exc:
@@ -1039,6 +1045,7 @@ class InvestigationNodes:
                 "impact": _impact(state),
                 "impact_ongoing": _impact(state)["state"] == ImpactState.ONGOING.value,
                 "impact_ongoing_model": value.impact_ongoing,
+                "decision": value.decision,
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
