@@ -79,6 +79,9 @@ export default function RootLayout({
                 <Link href="/architecture" className="hover:text-text transition-colors">
                   System Architecture
                 </Link>
+                <Link href="/integrations" className="hover:text-text transition-colors">
+                  Integrations &amp; Sources
+                </Link>
                 <Link href="/safety" className="hover:text-text transition-colors">
                   Safety Gates &amp; HITL
                 </Link>

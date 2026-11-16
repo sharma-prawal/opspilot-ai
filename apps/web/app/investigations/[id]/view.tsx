@@ -637,7 +637,7 @@ export function InvestigationView() {
             {/* Root Cause Analysis Card */}
             <Card
               title="Root Cause Hypotheses"
-              subtitle="Evidence-grounded hypothesis ranking produced by the local Qwen3 model"
+              subtitle="Evidence-grounded hypothesis ranking (model-estimated confidence, not a calibrated statistical probability)"
               actions={
                 v?.result?.classification && (
                   <span className="text-xs text-muted">
@@ -865,7 +865,7 @@ export function InvestigationView() {
             {v?.result?.verification && (
               <Card
                 title="Recovery Verification"
-                subtitle="Independent post-condition and metric check"
+                subtitle="Affirmative post-condition verification (missing or stale telemetry fails closed as unknown)"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">

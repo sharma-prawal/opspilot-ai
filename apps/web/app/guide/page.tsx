@@ -405,6 +405,11 @@ make infra-down`}
         subtitle="Complete step-by-step walkthrough: installation, local runtime, operator authentication, scenario execution, and safety mechanisms."
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/integrations">
+              <Button variant="secondary" size="md">
+                Data Sources &amp; Integrations →
+              </Button>
+            </Link>
             <Link href="/architecture">
               <Button variant="secondary" size="md">
                 Interactive Architecture →

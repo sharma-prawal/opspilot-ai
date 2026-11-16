@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 
-type DiagramKey = "system" | "workflow" | "rag";
+type DiagramKey = "system" | "workflow" | "rag" | "sources";
 
 interface ComponentDetail {
   id: string;
@@ -31,12 +31,21 @@ interface ComponentDetail {
   safetyBoundary: string;
   errorPathways: string;
   technicalSpecs?: string[];
+  implementationStatus?: "implemented" | "requires_adapter" | "planned";
 }
 
 // ---------------------------------------------------------------------------
 // Custom Flow Node Component
 // ---------------------------------------------------------------------------
-export type NodeTone = "neutral" | "info" | "warn" | "danger" | "success" | "purple" | "cyan" | "accent";
+export type NodeTone =
+  | "neutral"
+  | "info"
+  | "warn"
+  | "danger"
+  | "success"
+  | "purple"
+  | "cyan"
+  | "accent";
 
 export interface CustomNodeData extends Record<string, unknown> {
   label: string;
@@ -45,6 +54,7 @@ export interface CustomNodeData extends Record<string, unknown> {
   tone?: NodeTone;
   tech?: string;
   detailId: string;
+  status?: "implemented" | "requires_adapter" | "planned";
 }
 
 export type CustomNodeType = Node<CustomNodeData, "custom">;
@@ -62,6 +72,8 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
       ? "border-danger group-hover:border-danger"
       : tone === "purple"
       ? "border-purple group-hover:border-purple"
+      : tone === "cyan"
+      ? "border-cyan-500 group-hover:border-cyan-400"
       : "border-border group-hover:border-border-strong";
 
   const glowTone = selected
@@ -70,7 +82,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
 
   return (
     <div
-      className={`group relative min-w-[200px] max-w-[260px] rounded-xl border bg-panel p-3 text-left transition-all ${borderTone} ${glowTone}`}
+      className={`group relative min-w-[210px] max-w-[270px] rounded-xl border bg-panel p-3 text-left transition-all ${borderTone} ${glowTone}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-border-strong !size-2" />
       <Handle type="target" position={Position.Left} className="!bg-border-strong !size-2" />
@@ -79,11 +91,27 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
           {data.category}
         </span>
-        {data.badge && (
+        {data.status ? (
+          <span
+            className={`rounded px-1.5 py-0.2 font-mono text-[9px] font-semibold ${
+              data.status === "implemented"
+                ? "bg-success-soft text-success border border-success/30"
+                : data.status === "requires_adapter"
+                ? "bg-info-soft text-info border border-info/30"
+                : "bg-warn-soft text-warn border border-warn/30"
+            }`}
+          >
+            {data.status === "implemented"
+              ? "Implemented"
+              : data.status === "requires_adapter"
+              ? "Adapter Seam"
+              : "Planned"}
+          </span>
+        ) : data.badge ? (
           <span className="rounded bg-panel-2 px-1.5 py-0.2 font-mono text-[9px] text-text-muted">
             {data.badge}
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-1.5">
@@ -119,6 +147,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Runs in local browser. Operator token is never delivered to client code; stored securely in server-side HTTP-only session.",
     errorPathways: "Unauthenticated requests redirected to /login with next parameter. Network faults surface retryable alerts.",
     technicalSpecs: ["Next.js 16 (Turbopack, Partial Prerendering)", "React 19", "@tanstack/react-query 5", "Tailwind CSS 4"],
+    implementationStatus: "implemented",
   },
   "bff-proxy": {
     id: "bff-proxy",
@@ -131,6 +160,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Origin checking prevents CSRF attacks. Redacts sensitive parameters from responses. Eliminates token leakage to browser.",
     errorPathways: "Missing or invalid CSRF returns 403 Forbidden. Expired session returns 401 and prompts re-auth.",
     technicalSpecs: ["Node.js Edge/Server runtime", "Deterministic redaction engine", "Signed session cookies"],
+    implementationStatus: "implemented",
   },
   "fastapi-api": {
     id: "fastapi-api",
@@ -143,6 +173,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Strict semaphore-guarded concurrency (default 1 concurrent investigation). Bounded timeouts on all tool invocations.",
     errorPathways: "Runner crashes trigger startup lease reconciliation. Dead workflows can be resumed cleanly from last checkpoint.",
     technicalSpecs: ["FastAPI async", "Pydantic v2 domain schemas", "SQLAlchemy asyncpg session pool"],
+    implementationStatus: "implemented",
   },
   "langgraph-engine": {
     id: "langgraph-engine",
@@ -155,6 +186,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Strict MsgPack deserialization. Thread state checkpointed at every super-step. Interrupt on await_approval pauses execution with deterministic parameter hash.",
     errorPathways: "Transient tool errors retried up to 2 times via LangGraph RetryPolicy. Model output failures fall back safely to evidence gaps.",
     technicalSpecs: ["LangGraph StateGraph", "Strict typing TypedDict", "PostgreSQL checkpointer"],
+    implementationStatus: "implemented",
   },
   "ollama-llm": {
     id: "ollama-llm",
@@ -167,6 +199,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "100% local localhost-only (127.0.0.1). Zero outbound network traffic. Prompt injection attacks in logs are captured as inert evidence strings and ignored.",
     errorPathways: "Inference timeouts (180s) or invalid schemas trigger bounded retries before failing closed to evidence gaps.",
     technicalSpecs: ["Ollama 0.40+", "qwen3:8b (4-bit quantized)", "qwen3-embedding:0.6b (1024 dims)"],
+    implementationStatus: "implemented",
   },
   "mcp-read-server": {
     id: "mcp-read-server",
@@ -179,6 +212,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Read-only database role (opspilot_mcp_read). Free-form SQL, shell commands, or arbitrary file access strictly rejected.",
     errorPathways: "Transport disconnects handled by SupervisedMcpGateway with exponential backoff and bounded reconnection.",
     technicalSpecs: ["Model Context Protocol stdio", "Read-only DB connection", "Timeout per call: 20s"],
+    implementationStatus: "implemented",
   },
   "mcp-action-server": {
     id: "mcp-action-server",
@@ -191,6 +225,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Independent verification: re-reads approval token and parameters from DB before executing. Atomic claim prevents double-execution. Confined to synthetic sim schema.",
     errorPathways: "Unapproved, modified, or expired tokens immediately rejected with PermissionDenied.",
     technicalSpecs: ["Model Context Protocol stdio", "Database role opspilot_mcp_actions", "Idempotent action IDs"],
+    implementationStatus: "implemented",
   },
   "postgresql-pgvector": {
     id: "postgresql-pgvector",
@@ -203,6 +238,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Role-based separation: opspilot_app (owner), opspilot_mcp_read (SELECT only), opspilot_mcp_actions (scoped sim write).",
     errorPathways: "Database transactions maintain consistency across chunks and document versions. Deferred composite FK prevents revision drift.",
     technicalSpecs: ["PostgreSQL 17", "pgvector 0.8.7", "HNSW cosine indexing", "GIN tsvector indexing"],
+    implementationStatus: "implemented",
   },
   "synthetic-simulator": {
     id: "synthetic-simulator",
@@ -215,6 +251,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Isolated strictly in sim schema. Never connects to or mutates real external clouds or live infrastructure.",
     errorPathways: "Unknown scenario key raises KeyError; deterministic generation guarantees 100% reproducible tests.",
     technicalSpecs: ["Python 3.12", "Seeded pseudo-random generators", "Simulated Redis/Kafka/Postgres state"],
+    implementationStatus: "implemented",
   },
   "safety-boundary": {
     id: "safety-boundary",
@@ -227,6 +264,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     safetyBoundary: "Blocks hallucinated actions, out-of-order execution, and unsafe capacity expansions without operator override.",
     errorPathways: "Uncertain or conflicting evidence withholds proposals and escalates to human operator.",
     technicalSpecs: ["Pure deterministic Python rules", "Tri-state impact logic", "Correlation scoring"],
+    implementationStatus: "implemented",
   },
 
   // Workflow Nodes
@@ -240,6 +278,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Incident snapshot", "Analysis window (start/end/onset)"],
     safetyBoundary: "Read-only access via get_incident.",
     errorPathways: "Missing incident halts graph with IntakeError.",
+    implementationStatus: "implemented",
   },
   "wf-plan": {
     id: "wf-plan",
@@ -251,6 +290,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Classification DTO", "Queued capability tasks"],
     safetyBoundary: "Policy-mandated rules inject telemetry and knowledge if model omits them.",
     errorPathways: "LLM timeout falls back to all-capabilities conservative execution.",
+    implementationStatus: "implemented",
   },
   "wf-dispatch": {
     id: "wf-dispatch",
@@ -262,6 +302,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Next active capability task"],
     safetyBoundary: "De-duplicates tasks by (capability, service) preventing infinite loops.",
     errorPathways: "Exhausted tool or LLM budgets route directly to RCA with available evidence.",
+    implementationStatus: "implemented",
   },
   "wf-rca": {
     id: "wf-rca",
@@ -273,6 +314,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Ranked hypotheses", "Remediation plan", "Follow-up recommendations"],
     safetyBoundary: "Fabricated citations discarded automatically. Confidence threshold (0.6) prevents low-confidence guesses.",
     errorPathways: "Low confidence with evidence gaps triggers followup loop up to 2 rounds.",
+    implementationStatus: "implemented",
   },
   "wf-propose": {
     id: "wf-propose",
@@ -284,6 +326,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Validated remediation plan", "List of rejected proposals with reasons"],
     safetyBoundary: "Hard mathematical and evidence checks; cannot be bypassed by model prompting.",
     errorPathways: "If all steps blocked or confidence is ambiguous, routes directly to Report with outcome escalated.",
+    implementationStatus: "implemented",
   },
   "wf-approval": {
     id: "wf-approval",
@@ -295,6 +338,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Interrupt payload to database runner"],
     safetyBoundary: "Graph execution completely suspended in PostgreSQL checkpointer until resume API call.",
     errorPathways: "Approval requests expire after 60s. Mismatched parameter hash fails closed.",
+    implementationStatus: "implemented",
   },
   "wf-verify": {
     id: "wf-verify",
@@ -306,6 +350,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Verification verdict: VERIFIED, FAILED, or INCOMPLETE"],
     safetyBoundary: "Missing, unknown, or stale telemetry is never treated as healthy. Mitigated requires affirmative proof.",
     errorPathways: "Unverified recovery results in outcome not_recovered and triggers human escalation.",
+    implementationStatus: "implemented",
   },
 
   // RAG Pipeline Nodes
@@ -319,6 +364,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Parsed documents with stable UUID5 IDs"],
     safetyBoundary: "Incremental: unchanged content hashes are skipped without invoking embeddings.",
     errorPathways: "Duplicate documents detected and recorded as duplicate_of.",
+    implementationStatus: "implemented",
   },
   "rag-chunking": {
     id: "rag-chunking",
@@ -330,6 +376,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Chunks with ordinal, heading path, and content"],
     safetyBoundary: "Section coverage expansion links parent runbooks to child sections.",
     errorPathways: "Oversized sections split on paragraph boundaries with 40-word overlap.",
+    implementationStatus: "implemented",
   },
   "rag-hybrid": {
     id: "rag-hybrid",
@@ -341,6 +388,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Ranked candidate chunks with fusion scores"],
     safetyBoundary: "Lifecycle filtering partitions current vs superseded docs before ranking.",
     errorPathways: "If Ollama embedding fails, gracefully degrades to keyword-only search with warning.",
+    implementationStatus: "implemented",
   },
   "rag-lifecycle": {
     id: "rag-lifecycle",
@@ -352,6 +400,48 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     outputs: ["Tier-0 validated operational runbooks"],
     safetyBoundary: "Prevents model from acting on outdated runbooks (e.g. obsolete INC-002 pool size).",
     errorPathways: "Obsolete guidance that reaches agent is flagged as withheld_obsolete.",
+    implementationStatus: "implemented",
+  },
+
+  // Diagram D: Source-Agnostic Evidence Ingestion & Extensibility
+  "src-ext-adapters": {
+    id: "src-ext-adapters",
+    name: "Pluggable Observability Adapters",
+    category: "Adapter Seam",
+    role: "Extensible protocol translation layer connecting third-party metrics (Prometheus, Datadog, CloudWatch), logs (Loki, Elasticsearch), and traces (Tempo, Jaeger) into the standard ToolGateway interface.",
+    sourcePath: "packages/mcp/opspilot_mcp/adapters/",
+    inputs: ["PromQL queries", "LogQL streams", "KQL exceptions", "OTLP trace spans"],
+    outputs: ["Standardized MetricSeries", "Error signature clusters", "Call graph edges"],
+    safetyBoundary: "Read-only access enforced at adapter network boundaries. No remote state-changing tools permitted.",
+    errorPathways: "Network timeouts fall back to recorded evidence gaps without crashing investigation.",
+    technicalSpecs: ["ToolGateway protocol", "Asynchronous HTTP/gRPC clients", "Bounded rate limits"],
+    implementationStatus: "requires_adapter",
+  },
+  "norm-evidence": {
+    id: "norm-evidence",
+    name: "Standardized Evidence Repository",
+    category: "Evidence Core",
+    role: "Immutable PostgreSQL persistence layer (ops.evidence) storing normalized telemetry, change correlations, dependency states, and knowledge citations with relevance scores.",
+    sourcePath: "packages/shared/opspilot_shared/domain/evidence.py",
+    inputs: ["Evidence DTOs from tool invocations"],
+    outputs: ["Persisted evidence indexed by investigation ID and kind"],
+    safetyBoundary: "Immutable audit log. Citations validated against physical chunk IDs; fabricated IDs discarded.",
+    errorPathways: "Database transaction isolation prevents partial evidence writes.",
+    technicalSpecs: ["SQLAlchemy AsyncPG", "JSONB payload storage", "UUID primary keys"],
+    implementationStatus: "implemented",
+  },
+  "norm-analytics": {
+    id: "norm-analytics",
+    name: "Deterministic Analytics Engine",
+    category: "Evidence Core",
+    role: "Non-LLM deterministic analysis: computes bidirectional shift detection, unit-aware baseline comparisons, log error clustering, and temporal deployment correlation scores.",
+    sourcePath: "packages/agents/opspilot_agents/analysis.py",
+    inputs: ["Pre/post-onset metric series", "Git commit history", "Application logs"],
+    outputs: ["Onset timestamp", "Correlation scores (0.00..1.00)", "Identified anomaly directions"],
+    safetyBoundary: "Pure Python mathematical algorithms; avoids LLM hallucinations in numeric analysis.",
+    errorPathways: "Insufficient baseline data marks metric signal as 'unknown' rather than healthy.",
+    technicalSpecs: ["NumPy statistical functions", "Drain log clustering algorithm", "UTC temporal math"],
+    implementationStatus: "implemented",
   },
 };
 
@@ -779,6 +869,223 @@ const RAG_EDGES: Edge[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Diagram D: Source-Agnostic Evidence Ingestion & Extensibility Architecture
+// ---------------------------------------------------------------------------
+const SOURCES_NODES: CustomNodeType[] = [
+  // Column 1: Ingestion Sources
+  {
+    id: "src-sim",
+    type: "custom",
+    position: { x: 40, y: 50 },
+    data: {
+      label: "Synthetic Simulator",
+      category: "Source (Demo)",
+      tone: "success",
+      status: "implemented",
+      tech: "Seed 1001 · 6 Scenarios",
+      detailId: "synthetic-simulator",
+    },
+  },
+  {
+    id: "src-runbooks",
+    type: "custom",
+    position: { x: 40, y: 170 },
+    data: {
+      label: "Runbooks & Postmortems",
+      category: "Source (Files)",
+      tone: "success",
+      status: "implemented",
+      tech: "Markdown & JSON with frontmatter",
+      detailId: "rag-ingest",
+    },
+  },
+  {
+    id: "src-file-dumps",
+    type: "custom",
+    position: { x: 40, y: 290 },
+    data: {
+      label: "Offline Telemetry Dumps",
+      category: "Source (Files)",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "Prometheus Matrix / CSV / JSONL",
+      detailId: "src-ext-adapters",
+    },
+  },
+  {
+    id: "src-prom-loki",
+    type: "custom",
+    position: { x: 40, y: 410 },
+    data: {
+      label: "Prometheus & Loki",
+      category: "Source (Connected)",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "PromQL Range & LogQL Streams",
+      detailId: "src-ext-adapters",
+    },
+  },
+  {
+    id: "src-datadog-cloud",
+    type: "custom",
+    position: { x: 40, y: 530 },
+    data: {
+      label: "Datadog / CloudWatch / Azure",
+      category: "Source (Connected)",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "Cloud Metrics & Log Insights",
+      detailId: "src-ext-adapters",
+    },
+  },
+  {
+    id: "src-tracing",
+    type: "custom",
+    position: { x: 40, y: 650 },
+    data: {
+      label: "Tempo / Jaeger / OTel",
+      category: "Source (Connected)",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "Distributed Trace Span Waterfalls",
+      detailId: "src-ext-adapters",
+    },
+  },
+  {
+    id: "src-ci-cd",
+    type: "custom",
+    position: { x: 40, y: 770 },
+    data: {
+      label: "GitHub Actions / Argo CD",
+      category: "Source (Connected)",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "Deployments API & Git Changelog",
+      detailId: "src-ext-adapters",
+    },
+  },
+  {
+    id: "src-webhooks",
+    type: "custom",
+    position: { x: 40, y: 890 },
+    data: {
+      label: "PagerDuty / Alertmanager",
+      category: "Source (Alerting)",
+      tone: "warn",
+      status: "planned",
+      tech: "Inbound HMAC Webhook Receiver",
+      detailId: "src-ext-adapters",
+    },
+  },
+
+  // Column 2: Extensibility Seams
+  {
+    id: "seam-mcp-gateway",
+    type: "custom",
+    position: { x: 400, y: 220 },
+    data: {
+      label: "MCP Read Server Protocol",
+      category: "Protocol Seam",
+      tone: "purple",
+      status: "implemented",
+      tech: "ToolGateway Port · stdio MCP",
+      detailId: "mcp-read-server",
+    },
+  },
+  {
+    id: "seam-ext-adapters",
+    type: "custom",
+    position: { x: 400, y: 530 },
+    data: {
+      label: "Pluggable Tool Adapters",
+      category: "Extensibility Seam",
+      tone: "cyan",
+      status: "requires_adapter",
+      tech: "Prometheus, Loki, Datadog Clients",
+      detailId: "src-ext-adapters",
+    },
+  },
+
+  // Column 3: Normalization & Core Evidence
+  {
+    id: "norm-evidence",
+    type: "custom",
+    position: { x: 740, y: 350 },
+    data: {
+      label: "Standardized Evidence Core",
+      category: "Normalization",
+      tone: "success",
+      status: "implemented",
+      tech: "ops.evidence (Kind, Tool, Relevance)",
+      detailId: "norm-evidence",
+    },
+  },
+  {
+    id: "norm-analytics",
+    type: "custom",
+    position: { x: 740, y: 530 },
+    data: {
+      label: "Deterministic Analytics",
+      category: "Analysis Engine",
+      tone: "success",
+      status: "implemented",
+      tech: "Shift Detection · Change Correlation",
+      detailId: "norm-analytics",
+    },
+  },
+
+  // Column 4: Agent Reasoning & Safety Gates
+  {
+    id: "agent-reasoning",
+    type: "custom",
+    position: { x: 1080, y: 350 },
+    data: {
+      label: "Investigation Agents",
+      category: "Agent StateGraph",
+      tone: "purple",
+      status: "implemented",
+      tech: "Telemetry, Changes, Deps, RAG, RCA",
+      detailId: "langgraph-engine",
+    },
+  },
+  {
+    id: "agent-safety",
+    type: "custom",
+    position: { x: 1080, y: 530 },
+    data: {
+      label: "Deterministic Safety Gates",
+      category: "HITL Gate",
+      tone: "warn",
+      status: "implemented",
+      tech: "7 Invariant Gates · Operator Approval",
+      detailId: "safety-boundary",
+    },
+  },
+];
+
+const SOURCES_EDGES: Edge[] = [
+  // Implemented solid green edges
+  { id: "se-1", source: "src-sim", target: "seam-mcp-gateway", label: "Direct SQL/stdio", animated: true },
+  { id: "se-2", source: "src-runbooks", target: "seam-mcp-gateway", label: "Heading Chunks", animated: true },
+  { id: "se-3", source: "seam-mcp-gateway", target: "norm-evidence", label: "Typed Tool Results", animated: true },
+  { id: "se-4", source: "norm-evidence", target: "norm-analytics", label: "Pre/Post Windows", animated: true },
+  { id: "se-5", source: "norm-evidence", target: "agent-reasoning", label: "Grounded Observations", animated: true },
+  { id: "se-6", source: "norm-analytics", target: "agent-reasoning", label: "Shift & Correlation Scores", animated: true },
+  { id: "se-7", source: "agent-reasoning", target: "agent-safety", label: "Proposed Action Plan", animated: true },
+
+  // Extensibility dashed cyan edges
+  { id: "se-8", source: "src-file-dumps", target: "seam-ext-adapters", label: "JSON/CSV Parser", style: { strokeDasharray: "5,5" } },
+  { id: "se-9", source: "src-prom-loki", target: "seam-ext-adapters", label: "PromQL/LogQL", style: { strokeDasharray: "5,5" } },
+  { id: "se-10", source: "src-datadog-cloud", target: "seam-ext-adapters", label: "REST / SDK", style: { strokeDasharray: "5,5" } },
+  { id: "se-11", source: "src-tracing", target: "seam-ext-adapters", label: "OTLP Trace Spans", style: { strokeDasharray: "5,5" } },
+  { id: "se-12", source: "src-ci-cd", target: "seam-ext-adapters", label: "GitHub Releases API", style: { strokeDasharray: "5,5" } },
+  { id: "se-13", source: "seam-ext-adapters", target: "norm-evidence", label: "Mapped Evidence", style: { strokeDasharray: "5,5" } },
+
+  // Planned dotted amber edges
+  { id: "se-14", source: "src-webhooks", target: "seam-ext-adapters", label: "Inbound HMAC Webhooks", style: { strokeDasharray: "2,2" } },
+];
+
+// ---------------------------------------------------------------------------
 // Main Interactive Architecture Explorer Page
 // ---------------------------------------------------------------------------
 export default function ArchitectureExplorerPage() {
@@ -792,7 +1099,8 @@ export default function ArchitectureExplorerPage() {
   const initialNodes = useMemo(() => {
     if (activeDiagram === "system") return SYSTEM_NODES;
     if (activeDiagram === "workflow") return WORKFLOW_NODES;
-    return RAG_NODES;
+    if (activeDiagram === "rag") return RAG_NODES;
+    return SOURCES_NODES;
   }, [activeDiagram]);
 
   const initialEdges = useMemo(() => {
@@ -801,11 +1109,17 @@ export default function ArchitectureExplorerPage() {
         ? SYSTEM_EDGES
         : activeDiagram === "workflow"
         ? WORKFLOW_EDGES
-        : RAG_EDGES;
+        : activeDiagram === "rag"
+        ? RAG_EDGES
+        : SOURCES_EDGES;
     return raw.map((e) => ({
       ...e,
       animated: animatedFlow ? (e.animated ?? true) : false,
-      style: { stroke: "var(--border-strong)", strokeWidth: 2 },
+      style: {
+        stroke: "var(--border-strong)",
+        strokeWidth: 2,
+        ...e.style,
+      },
     }));
   }, [activeDiagram, animatedFlow]);
 
@@ -817,16 +1131,32 @@ export default function ArchitectureExplorerPage() {
     (key: DiagramKey) => {
       setActiveDiagram(key);
       const nextNodes =
-        key === "system" ? SYSTEM_NODES : key === "workflow" ? WORKFLOW_NODES : RAG_NODES;
+        key === "system"
+          ? SYSTEM_NODES
+          : key === "workflow"
+          ? WORKFLOW_NODES
+          : key === "rag"
+          ? RAG_NODES
+          : SOURCES_NODES;
       const nextEdges =
-        key === "system" ? SYSTEM_EDGES : key === "workflow" ? WORKFLOW_EDGES : RAG_EDGES;
+        key === "system"
+          ? SYSTEM_EDGES
+          : key === "workflow"
+          ? WORKFLOW_EDGES
+          : key === "rag"
+          ? RAG_EDGES
+          : SOURCES_EDGES;
 
       setNodes(nextNodes);
       setEdges(
         nextEdges.map((e) => ({
           ...e,
           animated: animatedFlow ? (e.animated ?? true) : false,
-          style: { stroke: "var(--border-strong)", strokeWidth: 2 },
+          style: {
+            stroke: "var(--border-strong)",
+            strokeWidth: 2,
+            ...e.style,
+          },
         }))
       );
 
@@ -834,6 +1164,7 @@ export default function ArchitectureExplorerPage() {
       if (key === "system") setSelectedDetail(COMPONENT_DETAILS["fastapi-api"]);
       if (key === "workflow") setSelectedDetail(COMPONENT_DETAILS["wf-rca"]);
       if (key === "rag") setSelectedDetail(COMPONENT_DETAILS["rag-hybrid"]);
+      if (key === "sources") setSelectedDetail(COMPONENT_DETAILS["src-ext-adapters"]);
     },
     [animatedFlow, setNodes, setEdges]
   );
@@ -852,10 +1183,15 @@ export default function ArchitectureExplorerPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
-        title="Interactive Architecture & Workflow Explorer"
-        subtitle="Explore the real components, execution stategraph, and RAG retrieval pipeline powering OpsPilot AI."
+        title="Interactive Architecture &amp; Workflow Explorer"
+        subtitle="Explore the real components, execution stategraph, RAG retrieval pipeline, and source-agnostic evidence ingestion architecture."
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/integrations">
+              <Button variant="secondary" size="md">
+                Data Sources &amp; Integrations →
+              </Button>
+            </Link>
             <button
               onClick={() => setAccessibleMode(!accessibleMode)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
@@ -867,11 +1203,6 @@ export default function ArchitectureExplorerPage() {
             >
               {accessibleMode ? "Visual Canvas View" : "Accessible Text Tree"}
             </button>
-            <Link href="/guide">
-              <Button variant="primary" size="md">
-                Developer Guide →
-              </Button>
-            </Link>
           </div>
         }
       />
@@ -919,6 +1250,18 @@ export default function ArchitectureExplorerPage() {
           >
             Diagram C: RAG Pipeline
           </button>
+          <button
+            role="tab"
+            aria-selected={activeDiagram === "sources"}
+            onClick={() => handleDiagramSwitch("sources")}
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              activeDiagram === "sources"
+                ? "bg-accent text-white shadow-xs"
+                : "bg-panel-2 text-muted hover:text-text"
+            }`}
+          >
+            Diagram D: Evidence Ingestion &amp; Extensibility
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -938,7 +1281,7 @@ export default function ArchitectureExplorerPage() {
       {!accessibleMode ? (
         <div className="grid gap-6 lg:grid-cols-12">
           {/* React Flow Canvas (8 columns) */}
-          <div className="relative h-[650px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner lg:col-span-8">
+          <div className="relative h-[680px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner lg:col-span-8">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -948,7 +1291,7 @@ export default function ArchitectureExplorerPage() {
               nodeTypes={nodeTypes}
               fitView
               fitViewOptions={{ padding: 0.15 }}
-              minZoom={0.4}
+              minZoom={0.35}
               maxZoom={1.8}
             >
               <Background color="var(--border)" gap={24} size={1} />
@@ -960,6 +1303,7 @@ export default function ArchitectureExplorerPage() {
                   if (data?.tone === "danger") return "var(--danger)";
                   if (data?.tone === "warn") return "var(--warn)";
                   if (data?.tone === "success") return "var(--success)";
+                  if (data?.tone === "cyan") return "#06b6d4";
                   return "var(--panel-2)";
                 }}
                 maskColor="rgba(9, 13, 22, 0.7)"
@@ -981,7 +1325,27 @@ export default function ArchitectureExplorerPage() {
               <Card
                 title={selectedDetail.name}
                 subtitle={selectedDetail.category}
-                actions={<Badge tone="cyan">Inspecting</Badge>}
+                actions={
+                  selectedDetail.implementationStatus ? (
+                    <Badge
+                      tone={
+                        selectedDetail.implementationStatus === "implemented"
+                          ? "success"
+                          : selectedDetail.implementationStatus === "requires_adapter"
+                          ? "cyan"
+                          : "warn"
+                      }
+                    >
+                      {selectedDetail.implementationStatus === "implemented"
+                        ? "Implemented"
+                        : selectedDetail.implementationStatus === "requires_adapter"
+                        ? "Requires Adapter"
+                        : "Planned"}
+                    </Badge>
+                  ) : (
+                    <Badge tone="cyan">Inspecting</Badge>
+                  )
+                }
                 className="sticky top-20"
               >
                 <div className="space-y-4 text-xs">
@@ -1003,7 +1367,7 @@ export default function ArchitectureExplorerPage() {
 
                   <div>
                     <h4 className="font-semibold uppercase tracking-wider text-muted text-[10px]">
-                      Inputs &amp; Triggers
+                      Inputs &amp; Invariants
                     </h4>
                     <ul className="mt-1 list-disc pl-4 space-y-0.5 text-text-muted">
                       {selectedDetail.inputs.map((inp, i) => (
@@ -1081,7 +1445,22 @@ export default function ArchitectureExplorerPage() {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
                   <h3 className="font-bold text-text">{c.name}</h3>
-                  <Badge tone="cyan">{c.category}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="cyan">{c.category}</Badge>
+                    {c.implementationStatus && (
+                      <Badge
+                        tone={
+                          c.implementationStatus === "implemented"
+                            ? "success"
+                            : c.implementationStatus === "requires_adapter"
+                            ? "cyan"
+                            : "warn"
+                        }
+                      >
+                        {c.implementationStatus}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-text-muted">{c.role}</p>
                 {c.sourcePath && (
@@ -1116,39 +1495,23 @@ export default function ArchitectureExplorerPage() {
       )}
 
       {/* Component Legend */}
-      <Card title="Architecture Component Legend">
+      <Card title="Architecture Status &amp; Protocol Legend">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
           <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-cyan-400" />
-            <span className="text-text">Operator UI / Gateway</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-purple-400" />
-            <span className="text-text">FastAPI &amp; LangGraph</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-blue-500" />
-            <span className="text-text">Ollama Local LLM</span>
-          </div>
-          <div className="flex items-center gap-2">
             <span className="size-3 rounded-full bg-emerald-500" />
-            <span className="text-text">PostgreSQL 17 / pgvector</span>
+            <span className="text-text font-medium">Implemented in Repository</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="size-3 rounded-full bg-cyan-400" />
+            <span className="text-text font-medium">Adapter Seam Available</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full bg-amber-400" />
-            <span className="text-text">Deterministic Safety Gate</span>
+            <span className="text-text font-medium">Planned Roadmap Seam</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-rose-500" />
-            <span className="text-text">MCP Action Execution</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-sky-400" />
-            <span className="text-text">MCP Read Telemetry</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="size-3 rounded-full bg-slate-500" />
-            <span className="text-text">Synthetic Simulator</span>
+            <span className="size-3 rounded-full bg-purple-400" />
+            <span className="text-text font-medium">Agent Graph / MCP Protocol</span>
           </div>
         </div>
       </Card>

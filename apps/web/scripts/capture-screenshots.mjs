@@ -500,12 +500,44 @@ async function main() {
     await page.screenshot({ path: `${OUT_DIR}/architecture-rag-desktop.png`, fullPage: true });
     console.log("✓ Captured architecture-rag-desktop.png");
 
+    // 5b. Architecture Explorer (Desktop: Diagram D - Evidence Ingestion & Extensibility)
+    await page.getByRole("tab", { name: /Diagram D/ }).click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT_DIR}/architecture-extensibility-desktop.png`, fullPage: true });
+    console.log("✓ Captured architecture-extensibility-desktop.png");
+
     // 6. Architecture Explorer (Mobile)
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${BASE_URL}/architecture`);
     await page.waitForSelector("text=Interactive Architecture");
     await page.screenshot({ path: `${OUT_DIR}/architecture-mobile.png`, fullPage: true });
     console.log("✓ Captured architecture-mobile.png");
+
+    // 6b. Integrations & Data Sources (Desktop - Demo Mode)
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${BASE_URL}/integrations`);
+    await page.waitForSelector("text=Data Sources & Integrations");
+    await page.screenshot({ path: `${OUT_DIR}/integrations-demo-desktop.png`, fullPage: true });
+    console.log("✓ Captured integrations-demo-desktop.png");
+
+    // 6c. Integrations & Data Sources (Desktop - Offline / File Mode)
+    await page.getByRole("tab", { name: /Offline \/ File Mode/ }).click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT_DIR}/integrations-offline-desktop.png`, fullPage: true });
+    console.log("✓ Captured integrations-offline-desktop.png");
+
+    // 6d. Integrations & Data Sources (Desktop - Connected Observability Mode)
+    await page.getByRole("tab", { name: /Connected Mode/ }).click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT_DIR}/integrations-connected-desktop.png`, fullPage: true });
+    console.log("✓ Captured integrations-connected-desktop.png");
+
+    // 6e. Integrations & Data Sources (Mobile)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE_URL}/integrations`);
+    await page.waitForSelector("text=Data Sources & Integrations");
+    await page.screenshot({ path: `${OUT_DIR}/integrations-mobile.png`, fullPage: true });
+    console.log("✓ Captured integrations-mobile.png");
 
     // 7. Developer Guide (Desktop)
     await page.setViewportSize({ width: 1440, height: 900 });
