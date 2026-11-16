@@ -31,7 +31,7 @@ export default function GuidePage() {
           </p>
           <ul className="list-disc pl-4 space-y-1">
             <li>
-              <strong className="text-text">Local &amp; Air-Gapped:</strong> All inference runs locally on your laptop using Ollama (Qwen3 8B and Qwen3-Embedding). Zero telemetry or source code leaves your machine.
+              <strong className="text-text">Local-First Architecture:</strong> All inference runs locally on your machine using Ollama (Qwen3 8B and Qwen3-Embedding). Zero telemetry or source code leaves your local environment.
             </li>
             <li>
               <strong className="text-text">Deterministic Safety Gates:</strong> Hard Python rules evaluate every AI remediation proposal against impact, correlation, ambiguity, and capacity constraints before any action can be presented to an operator.

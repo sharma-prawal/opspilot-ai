@@ -51,10 +51,10 @@ export default function RootLayout({
                   </div>
                 </Link>
                 <div className="hidden items-center gap-1.5 rounded-full border border-border bg-panel-2 px-2.5 py-0.5 text-[11px] text-muted md:flex">
-                  <span aria-hidden className="size-1.5 rounded-full bg-success" />
-                  <span>Sandbox Active</span>
+                  <span aria-hidden className="size-1.5 rounded-full bg-accent" />
+                  <span>Local Simulator</span>
                   <span className="text-border-strong">·</span>
-                  <span className="text-text-muted">Air-Gapped</span>
+                  <span className="text-text-muted">Isolated Demo Mode</span>
                 </div>
               </div>
 

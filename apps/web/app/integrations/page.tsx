@@ -425,13 +425,16 @@ GET /repos/sharma-prawal/opspilot-ai/commits/23c7ef2`,
 export default function IntegrationsPage() {
   const [selectedMode, setSelectedMode] = useState<UsageMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
-  const [activeItem, setActiveItem] = useState<IntegrationItem>(INTEGRATIONS[0]);
+  const [selectedItemId, setSelectedItemId] = useState<string>(INTEGRATIONS[0].id);
 
   const filtered = INTEGRATIONS.filter((item) => {
     if (selectedMode !== "all" && item.mode !== selectedMode) return false;
     if (selectedCategory !== "all" && item.category !== selectedCategory) return false;
     return true;
   });
+
+  // Always derive activeItem from filtered list; never show an item excluded by the active filter
+  const activeItem = filtered.find((i) => i.id === selectedItemId) ?? filtered[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -549,57 +552,65 @@ export default function IntegrationsPage() {
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Left: Integration Cards (5 cols) */}
         <div className="space-y-3 lg:col-span-5">
-          {filtered.map((item) => {
-            const isSelected = activeItem.id === item.id;
-            const isImplemented = item.status === "implemented";
-            const isAdapter = item.status === "requires_adapter";
-
-            return (
-              <div
-                key={item.id}
-                onClick={() => setActiveItem(item)}
-                className={`flex flex-col justify-between rounded-xl border p-4 transition-all cursor-pointer ${
-                  isSelected
-                    ? "border-accent bg-accent-soft/20 shadow-sm ring-1 ring-accent"
-                    : "border-border bg-panel hover:border-border-strong hover:bg-panel-2"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm text-text">{item.name}</span>
-                    <Badge
-                      tone={
-                        isImplemented
-                          ? "success"
-                          : isAdapter
-                          ? "cyan"
-                          : "warn"
-                      }
-                    >
-                      {isImplemented
-                        ? "Implemented"
-                        : isAdapter
-                        ? "Requires Adapter"
-                        : "Planned"}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-2">
-                    {item.tagline}
-                  </p>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2 text-[11px] text-muted">
-                  <span className="capitalize">{item.category}</span>
-                  <span className="font-mono text-accent">Inspect Details →</span>
-                </div>
+          {filtered.length === 0 ? (
+            <Card>
+              <div className="py-8 text-center text-xs text-muted">
+                No integrations match the selected filter combination (Mode: {selectedMode}, Category: {selectedCategory}).
               </div>
-            );
-          })}
+            </Card>
+          ) : (
+            filtered.map((item) => {
+              const isSelected = activeItem?.id === item.id;
+              const isImplemented = item.status === "implemented";
+              const isAdapter = item.status === "requires_adapter";
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItemId(item.id)}
+                  className={`flex flex-col justify-between rounded-xl border p-4 transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-accent bg-accent-soft/20 shadow-sm ring-1 ring-accent"
+                      : "border-border bg-panel hover:border-border-strong hover:bg-panel-2"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm text-text">{item.name}</span>
+                      <Badge
+                        tone={
+                          isImplemented
+                            ? "success"
+                            : isAdapter
+                            ? "cyan"
+                            : "warn"
+                        }
+                      >
+                        {isImplemented
+                          ? "Implemented"
+                          : isAdapter
+                          ? "Requires Adapter"
+                          : "Planned"}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-2">
+                      {item.tagline}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2 text-[11px] text-muted">
+                    <span className="capitalize">{item.category}</span>
+                    <span className="font-mono text-accent">Inspect Details →</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Right: Selected Integration Detail (7 cols) */}
         <div className="space-y-6 lg:col-span-7">
-          {activeItem && (
+          {activeItem ? (
             <Card
               title={activeItem.name}
               subtitle={activeItem.tagline}
@@ -690,6 +701,12 @@ export default function IntegrationsPage() {
                     ))}
                   </ul>
                 </div>
+              </div>
+            </Card>
+          ) : (
+            <Card title="No Integration Selected">
+              <div className="py-12 text-center text-xs text-muted">
+                No integration blueprint matches the active mode and category filters. Choose another filter combination to view architecture and configuration specifications.
               </div>
             </Card>
           )}

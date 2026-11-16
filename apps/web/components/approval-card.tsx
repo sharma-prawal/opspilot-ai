@@ -58,7 +58,7 @@ export function ApprovalCard({
           <StatusBadge status={action.status} />
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="cyan">sandbox isolated</Badge>
+          <Badge tone="cyan">simulated sandbox</Badge>
           <span className="text-[11px] font-mono text-muted">
             ID: {action.id.slice(0, 8)}
           </span>

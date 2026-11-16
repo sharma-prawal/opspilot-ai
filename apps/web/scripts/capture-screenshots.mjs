@@ -1,3 +1,9 @@
+/**
+ * OpsPilot AI — Production UI Screenshot Capture Tool
+ * Captures clean, high-resolution desktop and mobile documentation screenshots.
+ * Uses deterministic route interception for hermetic UI state representation.
+ */
+
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -147,7 +153,7 @@ async function main() {
             severity: "critical",
             status: "awaiting_approval",
             service: "transaction-api",
-            environment_id: "production-eu-west-1",
+            environment_id: "sim-env-001",
             detected_at: new Date(Date.now() - 60000).toISOString(),
             created_at: new Date(Date.now() - 60000).toISOString(),
           }),
@@ -167,7 +173,7 @@ async function main() {
               severity: "critical",
               status: "awaiting_approval",
               service: "transaction-api",
-              environment_id: "production-eu-west-1",
+              environment_id: "sim-env-001",
               detected_at: new Date(Date.now() - 60000).toISOString(),
               created_at: new Date(Date.now() - 60000).toISOString(),
             },
@@ -179,7 +185,7 @@ async function main() {
               severity: "high",
               status: "mitigated",
               service: "ledger-db",
-              environment_id: "production-eu-west-1",
+              environment_id: "sim-env-001",
               detected_at: new Date(Date.now() - 3600000).toISOString(),
               created_at: new Date(Date.now() - 3600000).toISOString(),
             },
@@ -191,7 +197,7 @@ async function main() {
               severity: "high",
               status: "mitigated",
               service: "settlement-worker",
-              environment_id: "production-eu-west-1",
+              environment_id: "sim-env-001",
               detected_at: new Date(Date.now() - 7200000).toISOString(),
               created_at: new Date(Date.now() - 7200000).toISOString(),
             },
@@ -203,7 +209,7 @@ async function main() {
               severity: "medium",
               status: "resolved",
               service: "forex-gateway",
-              environment_id: "production-eu-west-1",
+              environment_id: "sim-env-001",
               detected_at: new Date(Date.now() - 14400000).toISOString(),
               created_at: new Date(Date.now() - 14400000).toISOString(),
             },

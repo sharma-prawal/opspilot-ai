@@ -129,7 +129,7 @@ export default function OverviewPage() {
       {/* Required e2e heading */}
       <PageHeader
         title="System overview"
-        subtitle="Local inference, sandboxed environment, human-approved remediation."
+        subtitle="Local Ollama inference, simulated fault environment, human-approved remediation."
         actions={
           <div className="flex items-center gap-2">
             <label htmlFor="scenario-select" className="sr-only">
@@ -357,7 +357,7 @@ export default function OverviewPage() {
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <span>svc: <span className="font-mono text-text-muted">{i.service}</span></span>
                       <span>·</span>
-                      <span>env: <span className="font-mono text-text-muted">{i.environment_id}</span></span>
+                      <span>simulated env: <span className="font-mono text-text-muted">{i.environment_id.length > 16 ? `${i.environment_id.slice(0, 8)}…` : i.environment_id}</span></span>
                       <span>·</span>
                       <span>detected {utcTime(i.detected_at)}</span>
                     </div>
@@ -397,7 +397,9 @@ export default function OverviewPage() {
           title="Runtime Seams & Health"
           subtitle="Verification of local inference and MCP tools"
         >
-          {deps.data ? (
+          {deps.isLoading ? (
+            <div className="py-6 text-center text-xs text-muted">Checking runtime seams…</div>
+          ) : deps.data ? (
             <div className="space-y-3">
               <ul className="space-y-2 text-xs">
                 {Object.entries(deps.data.checks).map(([name, c]) => (
@@ -414,7 +416,9 @@ export default function OverviewPage() {
               </ul>
             </div>
           ) : (
-            <ErrorNote error={deps.error} />
+            <div className="rounded-lg border border-border bg-panel-2/40 p-4 text-xs text-muted">
+              {deps.error ? <ErrorNote error={deps.error} /> : "Runtime dependency status unverified."}
+            </div>
           )}
 
           {o && (

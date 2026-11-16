@@ -8,7 +8,6 @@ import {
   MiniMap,
   Node,
   NodeProps,
-  Panel,
   Position,
   ReactFlow,
   useEdgesState,
@@ -452,7 +451,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
   {
     id: "browser-ui",
     type: "custom",
-    position: { x: 50, y: 150 },
+    position: { x: 40, y: 40 },
     data: {
       label: "Next.js Operator Console",
       category: "Operator UI",
@@ -465,7 +464,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
   {
     id: "bff-proxy",
     type: "custom",
-    position: { x: 340, y: 150 },
+    position: { x: 360, y: 40 },
     data: {
       label: "Same-Origin BFF Proxy",
       category: "Security Gateway",
@@ -478,7 +477,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
   {
     id: "fastapi-api",
     type: "custom",
-    position: { x: 640, y: 150 },
+    position: { x: 680, y: 40 },
     data: {
       label: "FastAPI REST Runner",
       category: "Application Service",
@@ -489,9 +488,22 @@ const SYSTEM_NODES: CustomNodeType[] = [
     },
   },
   {
+    id: "safety-boundary",
+    type: "custom",
+    position: { x: 40, y: 220 },
+    data: {
+      label: "Deterministic Safety Gates",
+      category: "Safety Boundary",
+      badge: "HITL Policy",
+      tone: "warn",
+      tech: "7 Invariant Gates · 60s Expiring Token",
+      detailId: "safety-boundary",
+    },
+  },
+  {
     id: "langgraph-engine",
     type: "custom",
-    position: { x: 940, y: 150 },
+    position: { x: 360, y: 220 },
     data: {
       label: "LangGraph Orchestrator",
       category: "Agent Graph",
@@ -504,7 +516,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
   {
     id: "ollama-llm",
     type: "custom",
-    position: { x: 1240, y: 80 },
+    position: { x: 680, y: 220 },
     data: {
       label: "Ollama Local Inference",
       category: "Model Engine",
@@ -515,35 +527,9 @@ const SYSTEM_NODES: CustomNodeType[] = [
     },
   },
   {
-    id: "mcp-read-server",
-    type: "custom",
-    position: { x: 940, y: 340 },
-    data: {
-      label: "MCP Read Server",
-      category: "Telemetry & Tools",
-      badge: "stdio child",
-      tone: "info",
-      tech: "Metrics · Logs · Queue · Runbooks",
-      detailId: "mcp-read-server",
-    },
-  },
-  {
-    id: "safety-boundary",
-    type: "custom",
-    position: { x: 940, y: 490 },
-    data: {
-      label: "Deterministic Safety Gates",
-      category: "Safety Boundary",
-      badge: "HITL Policy",
-      tone: "warn",
-      tech: "7 Invariant Gates · 60s Expiring Token",
-      detailId: "safety-boundary",
-    },
-  },
-  {
     id: "mcp-action-server",
     type: "custom",
-    position: { x: 640, y: 490 },
+    position: { x: 40, y: 400 },
     data: {
       label: "MCP Actions Server",
       category: "Sandbox Remediation",
@@ -554,9 +540,22 @@ const SYSTEM_NODES: CustomNodeType[] = [
     },
   },
   {
+    id: "mcp-read-server",
+    type: "custom",
+    position: { x: 360, y: 400 },
+    data: {
+      label: "MCP Read Server",
+      category: "Telemetry & Tools",
+      badge: "stdio child",
+      tone: "info",
+      tech: "Metrics · Logs · Queue · Runbooks",
+      detailId: "mcp-read-server",
+    },
+  },
+  {
     id: "postgresql-pgvector",
     type: "custom",
-    position: { x: 640, y: 340 },
+    position: { x: 680, y: 400 },
     data: {
       label: "PostgreSQL 17 + pgvector",
       category: "Persistence",
@@ -569,7 +568,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
   {
     id: "synthetic-simulator",
     type: "custom",
-    position: { x: 340, y: 340 },
+    position: { x: 680, y: 560 },
     data: {
       label: "Synthetic Fault Simulator",
       category: "Simulation",
@@ -603,7 +602,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-intake",
     type: "custom",
-    position: { x: 50, y: 150 },
+    position: { x: 40, y: 40 },
     data: {
       label: "1. Intake & Window",
       category: "Initialization",
@@ -616,7 +615,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-plan",
     type: "custom",
-    position: { x: 300, y: 150 },
+    position: { x: 360, y: 40 },
     data: {
       label: "2. Supervisor Plan",
       category: "LLM Planner",
@@ -629,7 +628,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-dispatch",
     type: "custom",
-    position: { x: 550, y: 150 },
+    position: { x: 680, y: 40 },
     data: {
       label: "3. Dynamic Dispatcher",
       category: "Task Router",
@@ -642,7 +641,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-tools",
     type: "custom",
-    position: { x: 550, y: 320 },
+    position: { x: 680, y: 220 },
     data: {
       label: "4. Investigation Tools",
       category: "Evidence Loop",
@@ -655,7 +654,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-rca",
     type: "custom",
-    position: { x: 800, y: 150 },
+    position: { x: 360, y: 220 },
     data: {
       label: "5. Root Cause Analysis",
       category: "Hypothesis LLM",
@@ -668,7 +667,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-propose",
     type: "custom",
-    position: { x: 1050, y: 150 },
+    position: { x: 40, y: 220 },
     data: {
       label: "6. Propose & Safety Gates",
       category: "Deterministic Gate",
@@ -681,7 +680,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-approval",
     type: "custom",
-    position: { x: 1050, y: 320 },
+    position: { x: 40, y: 400 },
     data: {
       label: "7. Operator Approval",
       category: "Human Interrupt",
@@ -694,7 +693,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-execute",
     type: "custom",
-    position: { x: 800, y: 320 },
+    position: { x: 360, y: 400 },
     data: {
       label: "8. Sandbox Execution",
       category: "Action Server",
@@ -707,7 +706,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-verify",
     type: "custom",
-    position: { x: 800, y: 470 },
+    position: { x: 680, y: 400 },
     data: {
       label: "9. Recovery Verification",
       category: "Post-Conditions",
@@ -720,7 +719,7 @@ const WORKFLOW_NODES: CustomNodeType[] = [
   {
     id: "wf-report",
     type: "custom",
-    position: { x: 1050, y: 470 },
+    position: { x: 360, y: 560 },
     data: {
       label: "10. RCA Report & Escalation",
       category: "Outcome",
@@ -755,7 +754,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-ingest",
     type: "custom",
-    position: { x: 50, y: 150 },
+    position: { x: 40, y: 40 },
     data: {
       label: "1. Corpus Ingestion",
       category: "Ingestion",
@@ -768,7 +767,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-chunking",
     type: "custom",
-    position: { x: 320, y: 150 },
+    position: { x: 360, y: 40 },
     data: {
       label: "2. Heading Chunking",
       category: "Chunking",
@@ -781,7 +780,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-embed",
     type: "custom",
-    position: { x: 590, y: 150 },
+    position: { x: 680, y: 40 },
     data: {
       label: "3. Vector Embedding",
       category: "Ollama Embedding",
@@ -794,7 +793,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-store",
     type: "custom",
-    position: { x: 860, y: 150 },
+    position: { x: 680, y: 220 },
     data: {
       label: "4. PostgreSQL Storage",
       category: "Vector Index",
@@ -807,7 +806,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-query",
     type: "custom",
-    position: { x: 320, y: 340 },
+    position: { x: 40, y: 220 },
     data: {
       label: "5. Investigation Query",
       category: "Agent Search",
@@ -820,7 +819,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-hybrid",
     type: "custom",
-    position: { x: 590, y: 340 },
+    position: { x: 360, y: 220 },
     data: {
       label: "6. Hybrid RRF Fusion",
       category: "Retrieval",
@@ -833,7 +832,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-lifecycle",
     type: "custom",
-    position: { x: 860, y: 340 },
+    position: { x: 360, y: 400 },
     data: {
       label: "7. Lifecycle Partitioning",
       category: "Safety Filter",
@@ -846,7 +845,7 @@ const RAG_NODES: CustomNodeType[] = [
   {
     id: "rag-citation",
     type: "custom",
-    position: { x: 1120, y: 340 },
+    position: { x: 680, y: 400 },
     data: {
       label: "8. Citation Snapshots",
       category: "Evidence Integrity",
@@ -872,11 +871,11 @@ const RAG_EDGES: Edge[] = [
 // Diagram D: Source-Agnostic Evidence Ingestion & Extensibility Architecture
 // ---------------------------------------------------------------------------
 const SOURCES_NODES: CustomNodeType[] = [
-  // Column 1: Ingestion Sources
+  // Column 1A: Local Demo & Offline File Sources
   {
     id: "src-sim",
     type: "custom",
-    position: { x: 40, y: 50 },
+    position: { x: 40, y: 40 },
     data: {
       label: "Synthetic Simulator",
       category: "Source (Demo)",
@@ -902,7 +901,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "src-file-dumps",
     type: "custom",
-    position: { x: 40, y: 290 },
+    position: { x: 40, y: 300 },
     data: {
       label: "Offline Telemetry Dumps",
       category: "Source (Files)",
@@ -913,9 +912,24 @@ const SOURCES_NODES: CustomNodeType[] = [
     },
   },
   {
+    id: "src-webhooks",
+    type: "custom",
+    position: { x: 40, y: 430 },
+    data: {
+      label: "PagerDuty / Alertmanager",
+      category: "Source (Alerting)",
+      tone: "warn",
+      status: "planned",
+      tech: "Inbound HMAC Webhook Receiver",
+      detailId: "src-ext-adapters",
+    },
+  },
+
+  // Column 1B: Live Connected Telemetry APIs
+  {
     id: "src-prom-loki",
     type: "custom",
-    position: { x: 40, y: 410 },
+    position: { x: 320, y: 40 },
     data: {
       label: "Prometheus & Loki",
       category: "Source (Connected)",
@@ -928,7 +942,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "src-datadog-cloud",
     type: "custom",
-    position: { x: 40, y: 530 },
+    position: { x: 320, y: 170 },
     data: {
       label: "Datadog / CloudWatch / Azure",
       category: "Source (Connected)",
@@ -941,7 +955,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "src-tracing",
     type: "custom",
-    position: { x: 40, y: 650 },
+    position: { x: 320, y: 300 },
     data: {
       label: "Tempo / Jaeger / OTel",
       category: "Source (Connected)",
@@ -954,7 +968,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "src-ci-cd",
     type: "custom",
-    position: { x: 40, y: 770 },
+    position: { x: 320, y: 430 },
     data: {
       label: "GitHub Actions / Argo CD",
       category: "Source (Connected)",
@@ -964,25 +978,12 @@ const SOURCES_NODES: CustomNodeType[] = [
       detailId: "src-ext-adapters",
     },
   },
-  {
-    id: "src-webhooks",
-    type: "custom",
-    position: { x: 40, y: 890 },
-    data: {
-      label: "PagerDuty / Alertmanager",
-      category: "Source (Alerting)",
-      tone: "warn",
-      status: "planned",
-      tech: "Inbound HMAC Webhook Receiver",
-      detailId: "src-ext-adapters",
-    },
-  },
 
-  // Column 2: Extensibility Seams
+  // Column 2: Protocol & Adapter Seams
   {
     id: "seam-mcp-gateway",
     type: "custom",
-    position: { x: 400, y: 220 },
+    position: { x: 600, y: 100 },
     data: {
       label: "MCP Read Server Protocol",
       category: "Protocol Seam",
@@ -995,7 +996,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "seam-ext-adapters",
     type: "custom",
-    position: { x: 400, y: 530 },
+    position: { x: 600, y: 300 },
     data: {
       label: "Pluggable Tool Adapters",
       category: "Extensibility Seam",
@@ -1010,7 +1011,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "norm-evidence",
     type: "custom",
-    position: { x: 740, y: 350 },
+    position: { x: 880, y: 100 },
     data: {
       label: "Standardized Evidence Core",
       category: "Normalization",
@@ -1023,7 +1024,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "norm-analytics",
     type: "custom",
-    position: { x: 740, y: 530 },
+    position: { x: 880, y: 300 },
     data: {
       label: "Deterministic Analytics",
       category: "Analysis Engine",
@@ -1038,7 +1039,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "agent-reasoning",
     type: "custom",
-    position: { x: 1080, y: 350 },
+    position: { x: 1160, y: 100 },
     data: {
       label: "Investigation Agents",
       category: "Agent StateGraph",
@@ -1051,7 +1052,7 @@ const SOURCES_NODES: CustomNodeType[] = [
   {
     id: "agent-safety",
     type: "custom",
-    position: { x: 1080, y: 530 },
+    position: { x: 1160, y: 300 },
     data: {
       label: "Deterministic Safety Gates",
       category: "HITL Gate",
@@ -1281,42 +1282,56 @@ export default function ArchitectureExplorerPage() {
       {!accessibleMode ? (
         <div className="grid gap-6 lg:grid-cols-12">
           {/* React Flow Canvas (8 columns) */}
-          <div className="relative h-[680px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner lg:col-span-8">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={onNodeClick}
-              nodeTypes={nodeTypes}
-              fitView
-              fitViewOptions={{ padding: 0.15 }}
-              minZoom={0.35}
-              maxZoom={1.8}
-            >
-              <Background color="var(--border)" gap={24} size={1} />
-              <Controls showInteractive={false} />
-              <MiniMap
-                nodeColor={(node) => {
-                  const data = node.data as unknown as CustomNodeData;
-                  if (data?.tone === "accent") return "var(--accent)";
-                  if (data?.tone === "danger") return "var(--danger)";
-                  if (data?.tone === "warn") return "var(--warn)";
-                  if (data?.tone === "success") return "var(--success)";
-                  if (data?.tone === "cyan") return "#06b6d4";
-                  return "var(--panel-2)";
-                }}
-                maskColor="rgba(9, 13, 22, 0.7)"
-              />
-              <Panel position="bottom-left" className="m-3">
-                <div className="rounded-lg border border-border/80 bg-panel/90 p-2.5 backdrop-blur-md text-[11px] text-muted space-y-1">
-                  <div className="font-semibold text-text">Canvas Controls:</div>
-                  <div>• Pan: Drag canvas or scroll wheel</div>
-                  <div>• Zoom: Pinch or +/- buttons</div>
-                  <div>• Inspect: Click any component node</div>
-                </div>
-              </Panel>
-            </ReactFlow>
+          <div className="space-y-2 lg:col-span-8">
+            <div className="relative h-[720px] lg:h-[760px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner">
+              <ReactFlow
+                key={activeDiagram}
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick}
+                nodeTypes={nodeTypes}
+                fitView
+                fitViewOptions={{ padding: 0.14, maxZoom: 1.15 }}
+                minZoom={0.4}
+                maxZoom={2.0}
+              >
+                <Background color="var(--border)" gap={24} size={1} />
+                <Controls
+                  position="bottom-left"
+                  showInteractive={false}
+                  className="!bg-panel !border-border !fill-text m-3 shadow-md"
+                />
+                <MiniMap
+                  position="top-right"
+                  style={{ width: 140, height: 90 }}
+                  nodeStrokeWidth={3}
+                  zoomable
+                  pannable
+                  className="!bg-panel !border-border !rounded-lg overflow-hidden m-3 shadow-md"
+                  nodeColor={(node) => {
+                    const data = node.data as unknown as CustomNodeData;
+                    if (data?.tone === "accent") return "var(--accent)";
+                    if (data?.tone === "danger") return "var(--danger)";
+                    if (data?.tone === "warn") return "var(--warn)";
+                    if (data?.tone === "success") return "var(--success)";
+                    if (data?.tone === "cyan") return "#06b6d4";
+                    if (data?.tone === "purple") return "var(--purple)";
+                    return "var(--panel-2)";
+                  }}
+                  maskColor="rgba(9, 13, 22, 0.75)"
+                />
+              </ReactFlow>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted">
+              <div className="flex items-center gap-3">
+                <span>• <strong>Pan:</strong> Drag canvas</span>
+                <span>• <strong>Zoom:</strong> Scroll wheel or +/-</span>
+                <span>• <strong>Inspect:</strong> Click any node</span>
+              </div>
+              <span className="text-[10px] text-text-muted">Auto-centered on diagram switch</span>
+            </div>
           </div>
 
           {/* Component Inspector Panel (4 columns) */}
