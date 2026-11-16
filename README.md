@@ -163,7 +163,7 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 - Decisions: [ADRs](docs/adr/) · [decision log](docs/DECISIONS.md)
 - Setup: [environment audit](docs/setup/ENVIRONMENT_AUDIT.md) · [development guide](docs/development/DEVELOPMENT.md)
 - Status: [progress](docs/PROGRESS.md) · [evaluation baseline](docs/evaluation/BASELINE.md)
-- Release: [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
+- Release: [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
 - Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · remediation records
   [C0](docs/audits/PHASE_C0_REMEDIATION.md) · [C0-F](docs/audits/PHASE_C0_F_REMEDIATION.md) ·
   [C0-G](docs/audits/PHASE_C0_G_REMEDIATION.md) · [C0-H](docs/audits/PHASE_C0_H_REMEDIATION.md) ·
