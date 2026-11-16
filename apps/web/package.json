@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.3",
+    "@xyflow/react": "^12.12.1",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
