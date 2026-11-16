@@ -90,8 +90,12 @@ export default function GuidePage() {
           </p>
           <CodeBlock
             language="bash"
-            code={`# Step 1: Install tools, start containers, pull models, and run migrations
+            code={`# Step 1: Install tools and write .env (stops and explains if models are missing)
 make bootstrap ARGS=--install
+
+# Step 1b: Explicit opt-in model download (~7.3 GB), then finish bootstrap
+make models
+make bootstrap
 
 # Step 2: Verify all dependencies, Ollama models, and database schemas
 make doctor`}
@@ -115,8 +119,9 @@ make doctor`}
             </p>
             <CodeBlock
               language="bash"
-              code={`# 1. Pull a candidate. On Apple Silicon prefer an explicit GGUF quant tag:
-#    some default tags resolve to MLX builds without structured-output support.
+              code={`# Preferred: qwen3.5:9b-q4_K_M   Fallback: qwen3:8b
+# 1. Pull a candidate. On Apple Silicon use the explicit GGUF tag (-q4_K_M):
+#    plain qwen3.5:9b resolves to an MLX build that returns HTTP 501 for structured output.
 ollama pull <model>:<tag>
 
 # 2. Check capabilities and one schema-constrained call through the real adapter

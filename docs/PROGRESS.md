@@ -305,6 +305,19 @@ Phase C1 is not started.
 - Models on disk added this session: `qwen3.5:9b-q4_K_M` (6.6 GB) and the unusable MLX `qwen3.5:9b` (7.6 GB, can be
   removed with `ollama rm qwen3.5:9b`).
 
+## Status — 2026-11-16, v0.4.0 safety-gate corrections (`feature/ai-reasoning-v04`, not pushed)
+
+- **Fix A (D100)** resume only for paused consumers; **Fix B (D101)** no step bypasses a rejected resolution or
+  unresolved change ambiguity. 9 regression cases in `tests/unit/test_v04_gate_corrections.py`; recorded NEG-002 /
+  NEG-003 failure traces replayed through the fixed `propose`: nothing proposed.
+- **Prompt/schema (D102)**: evidence-applicable actions only, pause→resume guidance restored, changed-dependency fact.
+  Six scenarios: qwen3:8b raw plan 3/6 (was 1/6), qwen3.5:9b-q4_K_M 6/6; both 6/6 system outcomes; NEG-003 executed
+  nothing; INC-003 recovered with both. Report §7.
+- **Defaults**: `.env.example` → `qwen3.5:9b-q4_K_M` (fallback `qwen3:8b`); models download only via `make models`
+  or `bootstrap --pull-models`. This machine's `.env` still says `qwen3:8b` (not edited).
+- **Verified**: `make lint` clean; `uv run pytest` 328 passed / 3 skipped; web 38 passed; live-model tests 3/3 with
+  qwen3.5:9b-q4_K_M. Not re-run: official `make evaluate`, Playwright e2e.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     # Ollama / models
     ollama_base_url: str = "http://127.0.0.1:11434"
-    llm_model: str = "qwen3:8b"
+    llm_model: str = "qwen3.5:9b-q4_K_M"  # preferred tested model (v0.4); qwen3:8b is the supported fallback
     llm_think: bool = False
     llm_num_ctx: int = Field(default=8192, ge=1024, le=131072)
     llm_num_predict: int = Field(default=1536, ge=16, le=8192)

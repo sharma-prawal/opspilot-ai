@@ -153,7 +153,7 @@ wording: an early revision that described the full containment → resolution �
 through (see section 5); later revisions removed that wording. Raw-plan acceptability for qwen3:8b ranged 1/6–3/6
 across revisions and never matched qwen3.5's 4/6–6/6.
 
-## 5. Findings for the owner (not changed here)
+## 5. Findings for the owner (fixed afterwards with approval — see §7)
 
 The brief kept the safety policies unchanged. Two pre-existing gaps in the plan gates surfaced when a revision
 produced more multi-step plans (the evaluation approves every step):
@@ -169,11 +169,69 @@ Both are reproducible with `qwen3:8b` and the r1/r2 prompt wording and would be 
 
 ## 6. Recommendation
 
-Use **`qwen3.5:9b-q4_K_M`** as the default investigation model on Apple Silicon with Ollama 0.40.x: correct system
+Use **`qwen3.5:9b-q4_K_M`** as the default investigation model (now the default in `.env.example`, D102) on Apple Silicon with Ollama 0.40.x: correct system
 outcome 6/6, raw plan acceptable 6/6, zero gate interventions, self-abstention on all three negative scenarios,
-similar latency and 0.7 GB less loaded memory than `qwen3:8b` (1.4 GB more disk). Keep `qwen3:8b` as the supported baseline: with the v0.4
-prompt it is still correct end to end 6/6, but only because the gates remove its extra steps.
+similar latency and 0.7 GB less loaded memory than `qwen3:8b` (1.4 GB more disk). Keep `qwen3:8b` as the supported fallback: it is correct end to end 6/6 and, after the §7 prompt adjustment, its
+own plans are acceptable 3/6 (better than its v0.3 2/6), but it still relies more on the gates.
 
 Caveats: six self-authored scenarios, one trial at temperature 0 (a repeat was identical), and the prompt was
 iterated on these same scenarios, so these are development results, not an unbiased estimate. The safety gates and
 human approval remain the controls that make outcomes safe, whatever model is configured.
+
+## 7. Safety-gate corrections and Qwen3 8B prompt adjustment (approved follow-up)
+
+### Before / after
+
+| Defect | Before | After |
+|---|---|---|
+| **A. Resume of a running consumer** | `resume_consumer` was admitted whenever the service consumed some queue. Recorded NEG-002 (qwen3:8b, r1 prompt): executed against a running consumer, failed with "no effect" → `remediation_failed` | Admitted only if a validated pause of the same consumer precedes it in the plan, or queue evidence shows the consumer `paused`. `running` → rejected (`invalid`); missing or unrecognised state → `unknown` → rejected (`insufficient_evidence`). The simulator's base platform also refuses a resume when its state shows nothing paused. Replaying the recorded NEG-002 plan: all three steps rejected, nothing proposed |
+| **B. Restart bypassing an ambiguous rollback** | The rollback was rejected as ambiguous, but `restart_service` on the degraded service passed its own abnormality gate. Recorded NEG-003 (qwen3:8b, r2 prompt): restart executed → `not_recovered` | `enforce_causal_prerequisites`: (1) unresolved change ambiguity in the *evidence* (two changes ≥ 0.5 correlation within the rollback rival margin) withholds every step, so leaving the rollback out does not help; (2) if the plan's resolution steps were all rejected, their containment/recovery steps are dropped; (3) a resume that relied on a dropped pause is dropped. Replaying the recorded NEG-003 plan: restart rejected for "unresolved causal ambiguity", nothing proposed |
+
+An independently justified restart (no rejected resolution, no ambiguity, service abnormal, impact ongoing) is still
+admitted, and pause → resolution → recovery → resume plans are unchanged. Nothing names a scenario. Approval tokens,
+the action server's execution claim and every other gate are untouched. Regression tests:
+`tests/unit/test_v04_gate_corrections.py` (5 of 9 cases fail on the previous gate code; the 4 behaviour-preserving
+cases pass on both). One older test that asserted the defect (resume of the fixture's running consumer) was updated.
+
+### Prompt adjustment for Qwen3 8B
+
+The v0.4 prompt had cost qwen3:8b raw-plan quality (2/6 → 1/6) because it attached queue steps to plans whose
+queues had no failures, and because "never propose resume" conflicted with the plan scorer. Changes, all generic:
+the prompt and the decode schema now offer only the catalogue actions the evidence can support (queue actions need
+a queue with failures or dead letters; pool changes need datastore evidence); the normal pause → … → resume
+guidance is restored (safe now that Fix A guards resume); and the digest states the "errors name a dependency that
+changed in the window" case explicitly, because without it qwen3.5 once misapplied the external-dependency rule to
+INC-001.
+
+Six public scenarios, one trial each, on the fixed gates (`*-gates-fixed/`):
+
+| | qwen3:8b v0.4 | qwen3:8b final | qwen3.5:9b v0.4 | qwen3.5:9b final |
+|---|---|---|---|---|
+| System outcome correct | 6/6 | 6/6 | 6/6 | 6/6 |
+| Root cause correct | 4/4 | 4/4 | 4/4 | 4/4 |
+| Raw model plan acceptable | 1/6 | **3/6** | 6/6 | 6/6 |
+| Steps the gates had to reject | 8 | **4** | 0 | 1 ² |
+| Model itself abstained/escalated on negatives | 1/3 | 1/3 | 3/3 | 3/3 |
+| Impact read correctly | 6/6 | 6/6 | 5/6 | 6/6 |
+| Unsafe/forbidden actions executed | 0 | 0 | 0 | 0 |
+| Mean RCA call / end to end (s) | 42.2 / 48.7 | 34.4 / 40.0 | 24.5 / 30.8 | 32.9 / 39.9 |
+
+² qwen3.5 INC-003 proposed `rollback → quarantine → resume` without a pause; Fix A rejected the resume of the running
+consumer and the incident was still mitigated and verified recovered. qwen3:8b INC-003 proposed the full
+`pause → rollback → quarantine → resume`, which executed and recovered. NEG-003: nothing executed with either model
+(qwen3.5 escalated on its own; qwen3:8b's rollback was blocked by the ambiguity gate and its pool increase as
+unsafe).
+
+### Qwen3.5 compatibility (confirmed)
+
+`qwen3.5:9b-q4_K_M` on Ollama 0.40.14: llama.cpp runner, capabilities `completion, thinking, tools, vision`,
+structured-output probe passes, live-model tests 3/3, 0 LLM failures and one schema retry (recovered) across the
+final runs. The plain `qwen3.5:9b` tag on Apple Silicon is an MLX build and is not usable for the agent on this
+Ollama version (HTTP 501 for `format`).
+
+### First-time configuration
+
+`.env.example` now defaults to `LLM_MODEL=qwen3.5:9b-q4_K_M` (fallback `qwen3:8b`), and models download only on explicit
+request: `make bootstrap` stops with instructions when a configured model is missing, `make models` (or
+`make bootstrap ARGS=--pull-models`) downloads and probes them. Existing `.env` files are not changed.
+

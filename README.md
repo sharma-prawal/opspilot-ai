@@ -23,7 +23,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 
 | Area | State |
 |---|---|
-| Native Ollama; investigation model selected by `LLM_MODEL` (default `qwen3:8b`, recommended `qwen3.5:9b-q4_K_M`), embeddings `qwen3-embedding:0.6b` (dim verified = 1024); `opspilot models --probe` checks a model before use | ✅ (v0.4) |
+| Native Ollama; investigation model selected by `LLM_MODEL` (preferred `qwen3.5:9b-q4_K_M`, fallback `qwen3:8b`), embeddings `qwen3-embedding:0.6b` (dim verified = 1024); `opspilot models --probe` checks a model before use; models are downloaded only on explicit opt-in (`make models`) | ✅ (v0.4) |
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0008), LangGraph Postgres checkpoints | ✅ |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
@@ -69,26 +69,42 @@ every held-out question (MRR 0.603).
 proposed for a recovered blip and for an external-provider outage, over-confidence under ambiguity, invented queue
 actions) and compares models on the six public scenarios, one trial each. The v0.4 RCA prompt opens with a
 deterministic evidence digest, asks for an explicit decision before the plan, and restricts cited evidence IDs and
-plan identifiers to observed values at decode time. No safety gate changed.
+plan identifiers to observed values at decode time, and offers only the catalogue actions the evidence makes
+applicable. Two safety-gate gaps found on the way were then fixed (resume of a running consumer; a restart
+bypassing a rejected ambiguous rollback) — see §7 of the report.
 
-| 6 scenarios | qwen3:8b v0.3 | qwen3:8b v0.4 | qwen3.5:9b-q4_K_M v0.4 |
+| 6 scenarios, one trial each | qwen3:8b v0.3 | qwen3:8b v0.4 | qwen3.5:9b-q4_K_M v0.4 |
 |---|---|---|---|
 | System outcome correct | 6/6 | 6/6 | 6/6 |
 | Root cause correct | 3/4 | 4/4 | 4/4 |
-| Raw model plan acceptable (before gates) | 2/6 | 1/6 | 6/6 |
-| Steps the gates had to reject | 5 | 8 | 0 |
+| Raw model plan acceptable (before gates) | 2/6 | 3/6 | 6/6 |
+| Steps the gates had to reject | 5 | 4 | 1 |
 | Model itself abstained/escalated on the 3 negative scenarios | 0/3 | 1/3 | 3/3 |
 
 ### Choosing the investigation model
 
-Set `LLM_MODEL` in `.env` and restart the API; the UI shows the active model. On Apple Silicon use an explicit GGUF
-tag: the default `qwen3.5:9b` tag resolves to an MLX build that returns HTTP 501 for structured output on
-Ollama 0.40.14.
+| | Model | Download | Loaded (ctx 8192) | Notes |
+|---|---|---|---|---|
+| **Preferred** (default in `.env.example`) | `qwen3.5:9b-q4_K_M` | 6.6 GB | 4.9 GB | best raw reasoning in v0.4 tests |
+| Fallback | `qwen3:8b` | 5.2 GB | 5.6 GB | v0.1–v0.3 baseline; correct end to end, relies more on the gates |
+| Embeddings (both) | `qwen3-embedding:0.6b` | 0.6 GB | 1.0 GB | changing it requires `make ingest ARGS=--reindex` |
+
+Use the explicit `-q4_K_M` tag. On Apple Silicon the plain `qwen3.5:9b` tag resolves to an MLX (nvfp4) build, and
+Ollama 0.40.14 answers its structured-output requests with HTTP 501 `structured output is unavailable`; plain chat
+works, but the agent needs JSON-schema output. `opspilot models --probe` detects this.
+
+Models are never downloaded silently. Download them explicitly:
 
 ```bash
-ollama pull qwen3.5:9b-q4_K_M
-uv run opspilot models --model qwen3.5:9b-q4_K_M --probe
-LLM_MODEL=qwen3.5:9b-q4_K_M uv run opspilot-eval agent --trials 1 --out /tmp/qwen35-check
+make models                      # pulls LLM_MODEL and EMBEDDING_MODEL from .env (~7.3 GB) and probes them
+```
+
+To switch, set `LLM_MODEL` in `.env`, run `make models` (or `ollama pull <tag>`) and restart the API; the UI shows the
+active model. To try a model without editing `.env`:
+
+```bash
+uv run opspilot models --model qwen3:8b --probe
+LLM_MODEL=qwen3:8b uv run opspilot-eval agent --trials 1 --out /tmp/qwen3-8b-check
 ```
 
 **Planned** (see [ROADMAP](docs/ROADMAP.md)): an independently sealed unseen scenario set to test the gates out of
@@ -132,8 +148,9 @@ safety gates were designed after observing failures on these scenarios.
 Prerequisites: macOS on Apple Silicon (tested: M5 Pro, 24 GB), Homebrew, `uv`, Node 24 + pnpm.
 
 ```bash
-make bootstrap ARGS=--install   # installs missing tools (brew), pulls models, .env with random secrets,
-                                # starts Postgres, migrates, creates MCP DB roles, ingests the knowledge base, seeds INC-001
+make bootstrap ARGS=--install   # installs missing tools (brew), writes .env with random secrets; stops if models are missing
+make models                     # explicit opt-in: downloads LLM_MODEL + EMBEDDING_MODEL (~7.3 GB) and probes them
+make bootstrap                  # starts Postgres, migrates, creates MCP DB roles, ingests the knowledge base, seeds INC-001
 make doctor                     # verify everything (models, embedding dim, pgvector, migrations, ports)
 make dev                        # API on :8000, web on :3000
 ```
@@ -153,7 +170,8 @@ Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. W
 
 | Command | Purpose |
 |---|---|
-| `make bootstrap` / `make doctor` | provision / diagnose (idempotent, read-only respectively) |
+| `make bootstrap` / `make doctor` | provision / diagnose (idempotent, read-only respectively); bootstrap never downloads models unless `ARGS=--pull-models` |
+| `make models` | explicit opt-in download of `LLM_MODEL` and `EMBEDDING_MODEL`, then a compatibility probe |
 | `make infra-up` / `make infra-down` | start / stop containers (volumes are never deleted) |
 | `make migrate` / `make ingest` | schema + checkpointer setup / incremental knowledge ingestion |
 | `make dev` / `make stop` | start / stop API + web |

@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # Idempotent bootstrap. Detects existing installs and reuses them.
 # Installing missing system tools requires consent: pass --install or set OPSPILOT_ALLOW_INSTALL=1.
+# Downloading models (several GB each) requires separate consent: pass --pull-models, set
+# OPSPILOT_ALLOW_MODEL_PULL=1, or run `make models` first.
 source "$(dirname "$0")/lib.sh"
 cd "$ROOT_DIR"
 ALLOW_INSTALL=${OPSPILOT_ALLOW_INSTALL:-0}
-[[ "${1:-}" == "--install" ]] && ALLOW_INSTALL=1
+ALLOW_PULL=${OPSPILOT_ALLOW_MODEL_PULL:-0}
+for arg in "$@"; do
+  case "$arg" in
+    --install) ALLOW_INSTALL=1 ;;
+    --pull-models) ALLOW_PULL=1 ;;
+  esac
+done
 
 need_brew_pkg() { # binary formula
   if have "$1"; then ok "$1 present ($(command -v "$1"))"; return; fi
@@ -54,10 +62,20 @@ if ! curl -fsS "$OLLAMA_BASE_URL/api/version" >/dev/null 2>&1; then
   wait_for_http "$OLLAMA_BASE_URL/api/version" 30 || { fail "Ollama API not reachable"; exit 1; }
 fi
 ok "Ollama $(curl -s "$OLLAMA_BASE_URL/api/version" | jq -r .version) at $OLLAMA_BASE_URL"
+missing=()
 for m in "$LLM_MODEL" "$EMBEDDING_MODEL"; do
-  if ollama list | awk 'NR>1{print $1}' | grep -qx "$m"; then ok "model $m present"; else
-    info "pulling $m"; ollama pull "$m"; fi
+  if ollama list | awk 'NR>1{print $1}' | grep -qx "$m"; then ok "model $m present"; else missing+=("$m"); fi
 done
+if [[ ${#missing[@]} -gt 0 ]]; then
+  if [[ $ALLOW_PULL == 1 ]]; then
+    for m in "${missing[@]}"; do info "pulling $m (explicitly requested)"; ollama pull "$m"; done
+  else
+    fail "model(s) not installed: ${missing[*]} (several GB each; nothing was downloaded)"
+    echo "   Download explicitly, then rerun bootstrap:  make models"
+    echo "   or:  ollama pull <model>   (LLM_MODEL / EMBEDDING_MODEL in .env choose which; see README)"
+    exit 1
+  fi
+fi
 
 echo "== Project dependencies"
 uv sync --frozen 2>/dev/null || uv sync
