@@ -8,7 +8,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.4.0-dev (feature/ai-reasoning-v04), experimental, local-first.** v0.4 adds configurable local models and reasoning improvements ([comparison](docs/evaluation/MODEL_COMPARISON_V0.4.md)). v0.3.0: Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.4.0-dev (feature/ai-reasoning-v04), experimental, local-first.** v0.4 adds configurable local models, agent reasoning improvements and two safety-gate fixes ([release notes](docs/releases/V0.4.0_NOTES.md)). v0.3.0: Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
@@ -73,11 +73,15 @@ plan identifiers to observed values at decode time, and offers only the catalogu
 applicable. Two safety-gate gaps found on the way were then fixed (resume of a running consumer; a restart
 bypassing a rejected ambiguous rollback) — see §7 of the report.
 
-| 6 scenarios, one trial each | qwen3:8b v0.3 | qwen3:8b v0.4 | qwen3.5:9b-q4_K_M v0.4 |
+Development testing on the same six scenarios the changes were tuned on (one trial each), not a generalization
+benchmark:
+
+| 6 public scenarios, one trial each | qwen3:8b v0.3 | qwen3:8b v0.4 | qwen3.5:9b-q4_K_M v0.4 |
 |---|---|---|---|
 | System outcome correct | 6/6 | 6/6 | 6/6 |
 | Root cause correct | 3/4 | 4/4 | 4/4 |
-| Raw model plan acceptable (before gates) | 2/6 | 3/6 | 6/6 |
+| Model's own plan acceptable to the scenario answer key | 2/6 | 3/6 | 6/6 |
+| …and admitted unchanged by the safety gates | 2/6 | 3/6 | 5/6 |
 | Steps the gates had to reject | 5 | 4 | 1 |
 | Model itself abstained/escalated on the 3 negative scenarios | 0/3 | 1/3 | 3/3 |
 
@@ -210,7 +214,7 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 - Setup: [environment audit](docs/setup/ENVIRONMENT_AUDIT.md) · [development guide](docs/development/DEVELOPMENT.md)
 - Status: [progress](docs/PROGRESS.md) · [evaluation baseline](docs/evaluation/BASELINE.md) ·
   [v0.4 model comparison](docs/evaluation/MODEL_COMPARISON_V0.4.md)
-- Release: [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
+- Release: [v0.4.0 release notes](docs/releases/V0.4.0_NOTES.md) · [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
 - Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · remediation records
   [C0](docs/audits/PHASE_C0_REMEDIATION.md) · [C0-F](docs/audits/PHASE_C0_F_REMEDIATION.md) ·
   [C0-G](docs/audits/PHASE_C0_G_REMEDIATION.md) · [C0-H](docs/audits/PHASE_C0_H_REMEDIATION.md) ·

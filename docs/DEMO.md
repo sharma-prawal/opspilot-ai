@@ -1,6 +1,6 @@
 # Reproducible demos
 
-All scenarios are deterministic (seed `1001`, anchor `2026-11-03T14:00Z`). Prerequisites: `make bootstrap`
+All scenarios are deterministic (seed `1001`, anchor `2026-11-03T14:00Z`). Prerequisites: `make bootstrap` (plus `make models` once, to download the configured models explicitly)
 and `make doctor` pass. Each demo works headless (CLI) or in the UI (`make dev`, then <http://127.0.0.1:3000>
 → **Incidents** → pick the scenario → **Simulate** → **Start investigation**).
 

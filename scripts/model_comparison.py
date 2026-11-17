@@ -75,7 +75,10 @@ def summarise(label: str, path: Path) -> dict[str, Any]:
             "completed": sum(r["completed"] for r in rows),
             "system_outcome_correct": sum(r["system_ok"] for r in rows),
             "root_cause_correct": f"{sum(rc)}/{len(rc)}",
+            # answer-key conformance (existing scorer): required steps, permitted extras, nothing forbidden
             "raw_plan_acceptable": f"{sum(r['raw_plan_ok'] for r in rows)}/{len(rows)}",
+            # stricter: acceptable AND every step admitted by the evidence/state gates unchanged
+            "raw_plan_admitted_unchanged": f"{sum(r['raw_plan_ok'] and not r['blocked'] for r in rows)}/{len(rows)}",
             "steps_blocked_by_gates": sum(r["blocked"] for r in rows),
             "raw_abstain_or_escalate_on_negatives": f"{sum(neg)}/{len(neg)}",
             "impact_agrees_with_evidence": f"{sum(r['impact_agrees'] for r in rows)}/{len(rows)}",

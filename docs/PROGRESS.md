@@ -318,6 +318,20 @@ Phase C1 is not started.
 - **Verified**: `make lint` clean; `uv run pytest` 328 passed / 3 skipped; web 38 passed; live-model tests 3/3 with
   qwen3.5:9b-q4_K_M. Not re-run: official `make evaluate`, Playwright e2e.
 
+## Status — 2026-11-17, v0.4.0 release-readiness pass (`feature/ai-reasoning-v04`, not pushed)
+
+- Onboarding aligned: `.env.example` (qwen3.5:9b-q4_K_M, fallback qwen3:8b), bootstrap (no silent download),
+  `make models`, `make doctor` (now checks structured output, catches the MLX 501), `opspilot models --probe`,
+  README, guide, DEPLOYMENT.md, ADR-001 note, DEMO/CONTRIBUTING.
+- UI smoke test on an isolated stack (API :8200 with `LLM_MODEL=qwen3.5:9b-q4_K_M` in the process environment, web
+  :3200, throwaway passphrase; `.env` untouched): INC-001 → evidence → RCA (dep-ls-0042, 98%) → UI approval →
+  sandbox rollback → recovered 5/5 → mitigated; model shown correctly on overview, runtime panel and investigation.
+- Report: "plan acceptable" (answer key) vs "admitted unchanged by gates" now reported separately (qwen3.5 6/6 vs
+  5/6); labelled development testing on reused scenarios.
+- Checks: lint clean; pytest 328 passed / 3 skipped; web 38 passed; `make build-web` OK.
+- Branch: based on published v0.3.0 (`1305d1e` = origin/main), 7 commits ahead, 0 behind, merges cleanly.
+  `docs/releases/V0.4.0_NOTES.md` prepared. Not pushed, merged or tagged. `phase-c1` branch untouched.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

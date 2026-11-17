@@ -1,6 +1,6 @@
 # Contributing
 
-1. `make bootstrap` (once) and `make doctor`.
+1. `make bootstrap` (once; it asks you to run `make models` if the configured models are not installed) and `make doctor`.
 2. Create a branch; keep changes focused.
 3. Before pushing: `make lint && make test`. If you changed agent behaviour, prompts, retrieval or the
    simulator, also run `make evaluate` and include the BASELINE diff in your PR.

@@ -15,6 +15,9 @@ Containers on macOS cannot access the Metal GPU.
 5. Hosted APIs — violates the cost constraint.
 
 ## Decision
+> **Update (v0.4, D97/D102):** the generation model is now configuration (`LLM_MODEL`); the default is
+> `qwen3.5:9b-q4_K_M` with `qwen3:8b` as fallback. The decision below is otherwise unchanged.
+
 Run Ollama natively (Homebrew service, bound to 127.0.0.1). Use `qwen3:8b` for generation
 (`think: false`, JSON-schema `format`) and `qwen3-embedding:0.6b` for embeddings. Access it only through
 the `ChatModel` and `Embedder` ports in `opspilot_shared.llm`.

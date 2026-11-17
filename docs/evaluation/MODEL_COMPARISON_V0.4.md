@@ -1,5 +1,9 @@
 # v0.4 reasoning review and local model comparison
 
+> **Development testing on reused scenarios, not a generalization benchmark.** The prompt and two safety rules were
+> iterated on these same six self-authored scenarios, with one trial each. The numbers show behaviour on these cases
+> only and do not estimate performance on unseen incidents.
+
 Lightweight developer report for OpsPilot AI v0.4.0 (`feature/ai-reasoning-v04`). It is not a benchmark: six
 public synthetic scenarios (INC-001…003, NEG-001…003), one trial each at temperature 0, plus the INC-001 rejection
 path. The C1 held-out cases and their labels were not used. Numbers come from `opspilot-eval agent --out DIR`
@@ -11,7 +15,19 @@ Two views are kept apart throughout:
 - **Raw model** — the RCA the model returned: hypotheses, confidence, evidence gaps, escalation and its proposed plan,
   before any deterministic gate.
 - **System** — what the gated workflow did (`mitigated`, `no_action_required`, `escalated`, `proposal_blocked`).
-  The safety gates were not changed in v0.4, so a system outcome can be correct while the raw model was wrong.
+  The safety gates were not changed during the comparison (§1–§6); two gaps were fixed afterwards with approval (§7).
+  A system outcome can be correct while the raw model was wrong.
+
+Two plan measures are reported, because they answer different questions:
+
+- **Raw plan acceptable (answer key)** — the existing scorer (`opspilot_eval.agent_eval.score_run`,
+  `model_plan_acceptable`) compares the model's plan with the scenario's ground truth: required steps in order, extras
+  only from the scenario's permitted list, nothing forbidden or unsafe, every paused consumer resumed. It does not
+  look at runtime preconditions such as the consumer's current state.
+- **Raw plan admitted unchanged** — acceptable by the answer key *and* no step rejected by the evidence/state gates.
+  Example: qwen3.5 INC-003 (§7) proposed `rollback → quarantine → resume`. The answer key permits a resume of that
+  consumer, so the plan is "acceptable", but the consumer was running and never paused, so the gate rejected the
+  resume (Fix A). That plan counts in the first measure and not in the second.
 
 ## 1. Diagnosis: qwen3:8b weaknesses in the published traces
 
@@ -84,7 +100,8 @@ identical outcomes, plans and scores (`qwen3.5-9b-after-repeat/`).
 |---|---|---|---|---|
 | **System** outcome correct (gated workflow) | 6/6 | 6/6 | 2/6 | **6/6** |
 | Root cause correct (determinable cases) | 3/4 | 4/4 | 4/4 | 4/4 |
-| **Raw** model plan acceptable | 2/6 | 1/6 | 2/6 | **6/6** |
+| **Raw** model plan acceptable (answer key) | 2/6 | 1/6 | 2/6 | **6/6** |
+| Raw plan admitted unchanged by the gates | 2/6 | 1/6 | 0/6 | **6/6** |
 | Raw steps the gates had to reject | 5 | 8 | 6 | **0** |
 | Model itself abstained / escalated on NEG-001…003 | 0/3 | 1/3 | 0/3 | **3/3** |
 | Model's `impact_ongoing` agrees with evidence | 1/6 | 6/6 | 5/6 | 5/6 |
@@ -209,7 +226,8 @@ Six public scenarios, one trial each, on the fixed gates (`*-gates-fixed/`):
 |---|---|---|---|---|
 | System outcome correct | 6/6 | 6/6 | 6/6 | 6/6 |
 | Root cause correct | 4/4 | 4/4 | 4/4 | 4/4 |
-| Raw model plan acceptable | 1/6 | **3/6** | 6/6 | 6/6 |
+| Raw model plan acceptable (answer key) | 1/6 | **3/6** | 6/6 | 6/6 |
+| Raw plan admitted unchanged by the gates | 1/6 | **3/6** | 6/6 | 5/6 ² |
 | Steps the gates had to reject | 8 | **4** | 0 | 1 ² |
 | Model itself abstained/escalated on negatives | 1/3 | 1/3 | 3/3 | 3/3 |
 | Impact read correctly | 6/6 | 6/6 | 5/6 | 6/6 |
