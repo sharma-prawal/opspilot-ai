@@ -352,6 +352,21 @@ Phase C1 is not started.
   suggested rollback; the model's two extra restarts were dropped by the gates; nothing executed.
 - Not done: Playwright e2e for the upload flow; official `make evaluate` not re-run (simulator path unchanged).
 
+## Status — 2026-11-18, v0.5.0 correctness and release-readiness pass (same branch, not pushed)
+
+- Incident references: durable per-day counter (`ops.incident_reference_counters`, migration `0010`, D108), atomic
+  upsert in the incident transaction; tests for concurrent allocation and no reuse after deleting the highest number.
+- Privacy: 422 responses no longer echo the request body; parse issues are scrubbed; tests that previews, oversized
+  uploads and failed creates do not return a credential from the file; deletion test now also checks evidence, tool
+  calls, events, dataset and checkpoints are gone and that an unrelated upload and a simulator incident remain.
+  Sanitization instructions added to the upload page, guide, README and release notes.
+- Real browser upload: `apps/web/e2e/upload.spec.ts` (Playwright `setInputFiles` from disk, invalid file rejected,
+  preview counts and sources, investigation, cited report, Markdown download, deletion with files removed from disk)
+  passed on the isolated e2e stack with `E2E_LLM_MODEL=qwen3.5:9b-q4_K_M` (process-level; `.env` untouched): RCA
+  24 s, `analysis_complete`, top hypothesis deploy-7731 (100%), unrelated search-api deploy ranked 10%, suggested
+  rollback, nothing executed.
+- `docs/releases/V0.5.0_NOTES.md` prepared.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:
