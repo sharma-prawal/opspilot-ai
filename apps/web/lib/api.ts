@@ -2,7 +2,7 @@
 // attached server-side by the route handler and never reaches the browser.
 import type {
   ActionRequest, DependencyHealth, Evidence, Incident, Investigation, KbDocument, Overview, SearchResponse,
-  ToolCall, WorkflowEvent,
+  ToolCall, UploadedDataset, UploadIncidentRequest, UploadPreview, UploadRequest, WorkflowEvent,
 } from "./types";
 
 export class ApiError extends Error {
@@ -60,6 +60,11 @@ export const api = {
   incident: (id: string) => request<Incident>(`api/v1/incidents/${id}`),
   scenarios: () => request<{ key: string; title: string }[]>("api/v1/incidents/scenarios"),
   simulate: (scenario: string) => post<Incident>("api/v1/incidents/simulate", { scenario }),
+  // v0.5 uploaded evidence: files are read as text in the browser and sent as JSON through the BFF.
+  uploadPreview: (body: UploadRequest) => post<UploadPreview>("api/v1/incidents/upload/preview", body),
+  uploadIncident: (body: UploadIncidentRequest) => post<Incident>("api/v1/incidents/upload", body),
+  dataset: (id: string) => request<UploadedDataset>(`api/v1/incidents/${id}/dataset`),
+  discardUpload: (id: string) => post<{ incident_id: string; files_removed: boolean }>(`api/v1/incidents/${id}/discard`),
   incidentInvestigations: (id: string) => request<Investigation[]>(`api/v1/incidents/${id}/investigations`),
   startInvestigation: (id: string) =>
     post<{ investigation_id: string; status: string }>(`api/v1/incidents/${id}/investigations`),

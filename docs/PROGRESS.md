@@ -332,6 +332,46 @@ Phase C1 is not started.
 - Branch: based on published v0.3.0 (`1305d1e` = origin/main), 7 commits ahead, 0 behind, merges cleanly.
   `docs/releases/V0.4.0_NOTES.md` prepared. Not pushed, merged or tagged. `phase-c1` branch untouched.
 
+## Status — 2026-11-18, v0.5.0 bring-your-own incident data (`feature/incident-file-analysis-v05`, not pushed)
+
+- Base: published v0.4.0 (`origin/main` = `e8d5363`). Migration `0009` (incident `evidence_source`, nullable
+  `environment_id`, `ops.uploaded_datasets`), applied to the app and test DBs.
+- Parsing/normalization: `opspilot_shared/uploads` (.log/.txt text and JSON lines, JSON arrays/objects, OTLP/JSON
+  traces, CSV long/wide metrics and events); provenance per record; credential redaction; limits (D104, D106).
+- File-backed provider + `EvidenceRouter` (`opspilot_mcp/file_evidence.py`, D103); read-only path through
+  propose/approval/execute/API and new outcomes (D105); upload-only agent tweaks (D107); report sections
+  "Suggested remediation (not executed)" and "Recommended next investigation steps" with file citations.
+- API: upload preview/create, dataset, discard; `opspilot uploads list|purge`, `make uploads-purge`.
+- Web: Analyze files page (form, drag-and-drop, validation, preview, samples, examples), Demo vs Uploaded labels,
+  dataset card + delete, read-only investigation view, Markdown download, file source on evidence; guide,
+  integrations and architecture pages updated. Example files: `apps/web/public/examples/uploads/`
+  (`scripts/generate_upload_examples.py`).
+- Live browser-to-backend run (API :8010 with the configured `qwen3:8b`, web :3010, throwaway passphrase; `.env`
+  untouched): example upload → preview (129 log, 456 metric, 24 span, 3 event records; 1 credential redacted) →
+  investigation completed in 32 s → `analysis_complete`, top hypothesis deploy-7731 (payment-service 2.14.0, 90%),
+  suggested rollback; the model's two extra restarts were dropped by the gates; nothing executed.
+- Not done: Playwright e2e for the upload flow; official `make evaluate` not re-run (simulator path unchanged).
+
+## Status — 2026-11-18, v0.5.0 correctness and release-readiness pass (same branch, not pushed)
+
+- Incident references: durable per-day counter (`ops.incident_reference_counters`, migration `0010`, D108), atomic
+  upsert in the incident transaction; tests for concurrent allocation and no reuse after deleting the highest number.
+- Privacy: 422 responses no longer echo the request body; parse issues are scrubbed; tests that previews, oversized
+  uploads and failed creates do not return a credential from the file; deletion test now also checks evidence, tool
+  calls, events, dataset and checkpoints are gone and that an unrelated upload and a simulator incident remain.
+  Sanitization instructions added to the upload page, guide, README and release notes.
+- Real browser upload: `apps/web/e2e/upload.spec.ts` (Playwright `setInputFiles` from disk, invalid file rejected,
+  preview counts and sources, investigation, cited report, Markdown download, deletion with files removed from disk)
+  passed on the isolated e2e stack with `E2E_LLM_MODEL=qwen3.5:9b-q4_K_M` (process-level; `.env` untouched): RCA
+  24 s, `analysis_complete`, top hypothesis deploy-7731 (model-estimated 100%, uncalibrated), unrelated search-api deploy ranked 10%, suggested
+  rollback, nothing executed.
+- `docs/releases/V0.5.0_NOTES.md` prepared.
+- Release maintenance: simulator Playwright spec updated to the current UI (heading "RCA Postmortem Report", exact
+  "mcp read" status, visible scenario select, header "Start investigation" button; assertions unchanged); both
+  `investigation.spec.ts` and `upload.spec.ts` pass on the isolated e2e stack with the configured `qwen3:8b`.
+  Report and UI label hypothesis confidence as model-estimated and uncalibrated. Migration 0010 verified on a clean
+  database and on a v0.4.0-schema database with existing incidents (throwaway databases, dropped afterwards).
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

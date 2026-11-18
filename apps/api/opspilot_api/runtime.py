@@ -17,6 +17,8 @@ from opspilot_api.services.approvals import ApprovalService
 from opspilot_api.services.commands import CommandDispatcher
 from opspilot_api.services.incidents import IncidentService
 from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
+from opspilot_api.services.uploads import UploadService
+from opspilot_mcp.file_evidence import EvidenceRouter, UploadedEvidenceProvider
 from opspilot_mcp.gateway import Profile, connect_gateway
 from opspilot_shared.config import Settings
 from opspilot_shared.errors import OwnershipError
@@ -48,6 +50,7 @@ class AppRuntime:
     approvals: ApprovalService
     dispatcher: CommandDispatcher
     ownership: ExecutionOwnership
+    uploads: UploadService
 
     @classmethod
     @asynccontextmanager
@@ -91,8 +94,12 @@ class AppRuntime:
                 if fence is None:  # lost while the gateways were starting (independent audit N1)
                     raise OwnershipError(f"execution ownership lost during start-up: {ownership.lost_reason}")
                 saver = await stack.enter_async_context(checkpointer_pool(settings, fence=fence))
+                # v0.5: calls about uploaded incidents are answered from their stored files; the rest (simulator
+                # incidents, knowledge retrieval) go to the MCP read server unchanged.
+                provider = UploadedEvidenceProvider(infra.session_factory)
+                tools = EvidenceRouter(read_gw, provider)
                 deps = AgentDeps(
-                    chat=chat or infra.chat_model, tools=read_gw, actions=act_gw, policy=policy_from(settings)
+                    chat=chat or infra.chat_model, tools=tools, actions=act_gw, policy=policy_from(settings)
                 )
                 graph = build_graph(deps, saver, node_timeout_seconds=settings.llm_timeout_seconds * 2)
                 runner = InvestigationRunner(
@@ -120,6 +127,7 @@ class AppRuntime:
                     ApprovalService(infra.session_factory, runner, graph, settings, dispatcher),
                     dispatcher,
                     ownership,
+                    UploadService(infra.session_factory, settings, checkpointer=saver, provider=provider),
                 )
                 await _require_fencing(infra)
                 # The runner is registered and gated; ownership is now re-proven against the database before READY.

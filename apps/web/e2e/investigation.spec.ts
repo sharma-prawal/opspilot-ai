@@ -15,16 +15,16 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   assertIsolated(await (await page.request.get("/api/ops/api/v1/system/identity")).json(), "browser session");
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "System overview" })).toBeVisible();
-  await expect(page.getByText("mcp read")).toBeVisible();
+  await expect(page.getByText("mcp read", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Incidents", exact: true }).click(nav);
   await page.waitForURL("**/incidents");
-  await page.getByLabel("Scenario").selectOption("INC-001");
+  await page.getByLabel("Scenario").filter({ visible: true }).selectOption("INC-001"); // Next 16 keeps visited pages mounted (hidden)
   await page.getByRole("button", { name: "Simulate", exact: true }).click(nav);
   await page.waitForURL(/\/incidents\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: /Elevated HTTP 5xx ratio on transaction-api/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Start investigation" }).click(nav);
+  await page.getByRole("button", { name: "Start investigation" }).first().click(nav); // header button (the empty state repeats it)
   await page.waitForURL(/\/investigations\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("list", { name: "Workflow progress" })).toBeVisible();
 
@@ -41,7 +41,7 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   await page.getByLabel("Comment (optional)").fill("approved by Playwright");
   await approve.click();
 
-  await expect(page.getByRole("heading", { name: "RCA report" })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("heading", { name: "RCA Postmortem Report" })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/^Recovered —/).first()).toBeVisible();
   await expect(page.locator(".prose-report")).toContainText("Ranked hypotheses");
   await expect(page.locator(".prose-report")).toContainText(/migration/i);

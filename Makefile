@@ -40,6 +40,9 @@ simulate: ## Create a simulated INC-001 incident
 investigate: ## End-to-end CLI run: simulate, investigate, approve, print RCA report
 	uv run opspilot investigate --scenario INC-001 --decision approve
 
+uploads-purge: ## Delete uploaded incidents older than UPLOAD_RETENTION_DAYS (files, records, checkpoints; stop the API first)
+	uv run opspilot uploads purge $(ARGS)
+
 dev: ## Start API + web in the background (skips anything already running)
 	./scripts/start.sh
 
@@ -73,4 +76,4 @@ evaluate: ## Retrieval benchmark + agent evaluation (TRIALS=3); renders docs/eva
 build-web: ## Production build of the web app
 	cd apps/web && pnpm build
 
-.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web
+.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web uploads-purge

@@ -219,6 +219,24 @@ generation also fails closed.
   action, a healthy-looking snapshot cannot confirm recovery (`unknown`). Both make verification INCOMPLETE.
 - Each check links to its anomaly/health evidence and its tool call; missing telemetry is `unknown`, never passed.
 
+## Uploaded-evidence investigations (v0.5)
+
+The same graph runs for incidents created from uploaded files. `get_incident` returns `evidence_source: "upload"`,
+the declared `affected_services` and the dataset ID as `environment_id`; `EvidenceRouter` answers operational
+tools from the stored records (server `opspilot-uploaded-evidence`) and sends knowledge tools to the MCP read
+server. Differences, all gated on `evidence_source` (D103–D107):
+
+- `plan` adds telemetry tasks for declared affected services; `telemetry` also examines metric names outside the
+  built-in priority list; evidence keeps `source_ref` / `sources` (file and line/row).
+- Health, configuration, datastore and queue tools report "not available"; impact is therefore `ongoing` only when
+  an uploaded metric shows an unrecovered anomaly, otherwise `unknown`.
+- The RCA prompt adds a note that live state is unavailable and any plan is advisory.
+- `propose` validates the model's plan with the usual gates and stores it as `suggested_remediation`;
+  `proposed_action` stays empty, so the graph goes straight to `report`. `await_approval` and `execute` refuse.
+- Outcomes: `analysis_complete` (top hypothesis at or above the confidence threshold, nothing withheld) or
+  `analysis_inconclusive`. The report adds "Suggested remediation (not executed)" and "Recommended next
+  investigation steps" (model evidence gaps plus deterministic gaps: missing metrics, logs, change history, traces).
+
 ## Outcomes
 
 `report` classifies every run deterministically: `mitigated`, `not_recovered`, `verification_incomplete`,

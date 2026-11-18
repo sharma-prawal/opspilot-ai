@@ -4,9 +4,57 @@ export type IncidentStatus = "open" | "investigating" | "awaiting_approval" | "m
 export type InvestigationStatus =
   | "queued" | "running" | "awaiting_approval" | "completed" | "failed" | "cancelled" | "interrupted";
 
+export type EvidenceSource = "simulator" | "upload";
+
 export interface Incident {
   id: string; reference: string; title: string; description: string; severity: string;
-  status: IncidentStatus; service: string; environment_id: string; detected_at: string; created_at: string;
+  status: IncidentStatus; service: string; environment_id: string | null; evidence_source: EvidenceSource;
+  detected_at: string; created_at: string;
+}
+
+// ---- v0.5 uploaded evidence ----------------------------------------------------------------------------------
+export type SignalType = "log" | "metric" | "span" | "event";
+
+export interface UploadFileReport {
+  index: number; name: string; original_name: string; extension: string; bytes: number; sha256: string;
+  format: string; declared_service: string | null; records: Partial<Record<SignalType, number>>; rejected: number;
+  redactions: number; issues: string[]; services: string[]; timezones: string[]; start: string | null; end: string | null;
+}
+
+export interface UploadSummary {
+  records: Record<SignalType, number>; rejected: number; redactions: number; services: string[];
+  metrics_by_service: Record<string, string[]>; event_types: string[]; start: string | null; end: string | null;
+  timezones: string[];
+}
+
+export interface NormalizedRecord {
+  ts: string; ts_original: string; tz: string; service: string; service_source: "record" | "file_default";
+  source: string; level?: string; level_inferred?: boolean; message?: string; metric?: string; value?: number;
+  unit?: string; name?: string; status?: string; duration_ms?: number | null; trace_id?: string | null;
+  event_type?: string; summary?: string; attributes?: Record<string, unknown>;
+}
+
+export interface UploadPreview {
+  usable: boolean; files: UploadFileReport[]; summary: UploadSummary; warnings: string[];
+  samples: Record<SignalType, NormalizedRecord[]>;
+  limits: { max_files: number; max_file_bytes: number; max_total_bytes: number; max_records: number; extensions: string[] };
+}
+
+export interface UploadFileIn { name: string; content: string; service: string | null }
+
+export interface UploadRequest {
+  files: UploadFileIn[]; timezone: string; incident_time: string | null; service: string | null;
+  affected_services: string[];
+}
+
+export interface UploadIncidentRequest extends UploadRequest {
+  title: string; description: string; service: string; severity: string; incident_time: string;
+}
+
+export interface UploadedDataset {
+  dataset_id: string; incident_id: string; timezone: string; affected_services: string[]; files: UploadFileReport[];
+  summary: UploadSummary & { samples: Record<SignalType, NormalizedRecord[]>; warnings: string[] };
+  created_at: string; retention_days: number;
 }
 
 export interface Hypothesis {
@@ -32,9 +80,11 @@ export interface InvestigationResult {
   verification?: { recovered: boolean; notes: string; observed_before?: number; observed_after?: number } | null;
   rejected_proposals?: { proposal: Record<string, unknown>; reason: string; category?: string | null }[];
   remediation_plan?: (ProposedAction & { step: number; role: string; added_by?: string })[];
+  suggested_remediation?: { step: number; action_type: string; parameters: Record<string, string>; rationale: string;
+                            risk: string; role: string }[];
   executions?: { step: number; status: string; message: string; action_type: string }[];
   outcome?: { code: string; summary: string; escalate: boolean; escalate_to?: string | null; reason: string;
-              actions_executed: number; steps_planned: number } | null;
+              actions_executed: number; steps_planned: number; read_only?: boolean; suggested_steps?: number } | null;
   window?: Record<string, string>;
   errors?: { node: string; error_class: string; message: string }[];
 }

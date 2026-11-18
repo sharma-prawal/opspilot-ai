@@ -26,6 +26,7 @@ const STATUS_TONE: Record<string, Tone> = {
   expired: "neutral", no_action_required: "success", escalated: "warn", proposal_blocked: "warn",
   inconclusive: "warn", no_action_proposed: "warn", remediation_rejected: "neutral", approval_expired: "neutral",
   not_recovered: "danger", remediation_failed: "danger",
+  analysis_complete: "info", analysis_inconclusive: "warn",
 };
 
 export function statusTone(status: string | null | undefined): Tone {

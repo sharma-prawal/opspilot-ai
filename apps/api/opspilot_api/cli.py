@@ -99,6 +99,56 @@ def _sanitize_secrets(args: argparse.Namespace) -> None:
     asyncio.run(_with_infra(run))
 
 
+def _uploads(args: argparse.Namespace) -> None:
+    """List or purge uploaded incidents (v0.5). Purging also deletes their investigation checkpoints, which needs the
+    execution-owner lock: stop the API first (or delete single incidents from the web UI while it runs)."""
+    from sqlalchemy import select
+
+    from opspilot_api.checkpointing import checkpointer_pool
+    from opspilot_api.ownership import ExecutionOwnership
+    from opspilot_api.services.uploads import UploadService
+    from opspilot_shared.db.models import OpsIncident, OpsUploadedDataset
+
+    settings = get_settings()
+
+    async def listing(infra: Any) -> None:
+        async with infra.session_factory() as s:
+            rows = (
+                await s.execute(
+                    select(OpsIncident, OpsUploadedDataset)
+                    .join(OpsUploadedDataset, OpsUploadedDataset.incident_id == OpsIncident.id)
+                    .order_by(OpsIncident.created_at)
+                )
+            ).all()
+        items = [
+            {
+                "incident": inc.reference,
+                "id": str(inc.id),
+                "created_at": inc.created_at.isoformat(),
+                "files": [f["name"] for f in ds.files],
+                "records": ds.summary.get("records"),
+            }
+            for inc, ds in rows
+        ]
+        print(json.dumps({"upload_dir": str(settings.upload_dir), "uploads": items}, indent=2))
+
+    async def purge(infra: Any) -> None:
+        ownership = ExecutionOwnership(settings)
+        try:
+            await ownership.acquire()
+        except Exception as exc:
+            print(json.dumps({"error": f"cannot take the execution-owner lock ({exc}); stop the API and retry"}))
+            sys.exit(2)
+        try:
+            async with checkpointer_pool(settings, fence=ownership.fence) as saver:
+                svc = UploadService(infra.session_factory, settings, checkpointer=saver)
+                print(json.dumps(await svc.purge(older_than_days=args.older_than_days), indent=2))
+        finally:
+            await ownership.release()
+
+    asyncio.run(_with_infra(purge if args.action == "purge" else listing))
+
+
 def main(argv: list[str] | None = None) -> None:
     settings = get_settings()
     configure_logging(settings.log_level, "console")
@@ -143,6 +193,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     p.add_argument("--apply", action="store_true", help="redact the values in place (otherwise dry-run)")
     p.set_defaults(fn=_sanitize_secrets)
+
+    p = sub.add_parser("uploads", help="list uploaded incidents, or purge those older than the retention period")
+    p.add_argument("action", choices=["list", "purge"])
+    p.add_argument("--older-than-days", type=int, default=None, help="default: UPLOAD_RETENTION_DAYS")
+    p.set_defaults(fn=_uploads)
 
     args = parser.parse_args(argv)
     args.fn(args)

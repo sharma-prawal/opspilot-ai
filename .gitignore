@@ -41,3 +41,6 @@ graphify-out/
 
 # Evaluation history: only *_latest.json (backing docs/evaluation/BASELINE.md) is committed
 datasets/evaluation/results/*_2*.json
+
+# v0.5 uploaded incident files (local only)
+/var/

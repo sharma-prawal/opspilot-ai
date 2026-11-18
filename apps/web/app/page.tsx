@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { SourceBadge } from "@/components/source-badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -130,7 +131,7 @@ export default function OverviewPage() {
       {/* Required e2e heading */}
       <PageHeader
         title="System overview"
-        subtitle="Local Ollama inference, simulated fault environment, human-approved remediation."
+        subtitle="Local Ollama inference, simulated fault environment, human-approved remediation — or read-only analysis of your own incident files."
         actions={
           <div className="flex items-center gap-2">
             <label htmlFor="scenario-select" className="sr-only">
@@ -157,6 +158,11 @@ export default function OverviewPage() {
             >
               {simulateMutation.isPending ? "Simulating…" : "Simulate"}
             </Button>
+            <Link href="/incidents/new">
+              <Button variant="secondary" size="md">
+                Analyze your files
+              </Button>
+            </Link>
           </div>
         }
       />
@@ -358,7 +364,7 @@ export default function OverviewPage() {
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <span>svc: <span className="font-mono text-text-muted">{i.service}</span></span>
                       <span>·</span>
-                      <span>simulated env: <span className="font-mono text-text-muted">{i.environment_id.length > 16 ? `${i.environment_id.slice(0, 8)}…` : i.environment_id}</span></span>
+                      <SourceBadge source={i.evidence_source} />
                       <span>·</span>
                       <span>detected {utcTime(i.detected_at)}</span>
                     </div>

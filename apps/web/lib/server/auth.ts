@@ -16,7 +16,7 @@ export const CSRF_HEADER = "x-opspilot-csrf";
 const SESSION_TTL_S = 8 * 3600;
 
 export class AuthError extends Error {
-  constructor(public status: 401 | 403 | 415 | 429 | 503, public klass: string, message: string) { super(message); }
+  constructor(public status: 401 | 403 | 413 | 415 | 429 | 503, public klass: string, message: string) { super(message); }
 }
 
 interface AuthConfig { sessionSecret: string; operatorPassphrase: string; viewerPassphrase?: string; expectedOrigin?: string }

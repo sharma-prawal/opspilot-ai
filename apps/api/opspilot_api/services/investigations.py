@@ -562,6 +562,15 @@ class InvestigationRunner:
     ) -> None:
         action = value["action"]
         action_id = uuid.UUID(action["action_id"])
+        async with self._sf() as ro:
+            source = (await ro.get(OpsIncident, incident_id)) if incident_id else None
+        if source is not None and (source.evidence_source != "simulator" or source.environment_id is None):
+            # v0.5 defence in depth (the graph never interrupts for these): an uploaded-evidence incident is
+            # read-only, so no approval request is ever created for it.
+            await repo.add_event(
+                s, investigation_id, "approval_refused_read_only", "await_approval", {"action_id": str(action_id)}
+            )
+            return
         # C0-G2: the status transition is checked (row locked) *before* the request is created. A terminal
         # investigation (e.g. cancelled while a stale checkpoint still shows the interrupt) never gets a new
         # approval request and is never moved back to awaiting_approval.
@@ -693,6 +702,7 @@ class InvestigationRunner:
                                 "rca",
                                 "proposed_action",
                                 "remediation_plan",
+                                "suggested_remediation",
                                 "executions",
                                 "window",
                                 "rejected_proposals",
@@ -715,6 +725,7 @@ class InvestigationRunner:
                     "approval",
                     "remediation",
                     "remediation_plan",
+                    "suggested_remediation",
                     "executions",
                     "verification",
                     "outcome",

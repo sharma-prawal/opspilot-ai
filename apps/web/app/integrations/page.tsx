@@ -55,7 +55,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     prerequisites: [
       "PostgreSQL 17 + pgvector container running on port 5433",
       "Local Ollama running the configured {LLM_MODEL} and {EMBEDDING_MODEL}",
-      "Database migrations applied to head (0008)",
+      "Database migrations applied to head (0009)",
     ],
     configuration: "Built-in: POST /api/v1/incidents/simulate with scenario key (INC-001..003, NEG-001..003) or CLI uv run opspilot simulate.",
     exampleQuery: {
@@ -115,71 +115,70 @@ Confirm 5xx error ratio returns below baseline 0.1%.`,
   },
   {
     id: "offline-telemetry-dumps",
-    name: "Offline Metric & Log Export Files",
+    name: "Uploaded Log, Metric & Event Files",
     category: "metrics",
     mode: "offline",
-    status: "requires_adapter",
-    tagline: "Air-gapped post-mortem analysis from CSV, JSON lines, or syslog exports.",
+    status: "implemented",
+    tagline: "Read-only analysis of your own sanitized .log/.txt, .json and .csv exports (v0.5, Analyze files page).",
     evidenceContributed: [
-      "Historical Prometheus matrix JSON exports and CloudWatch metric CSVs",
-      "Application syslog dumps, logstash JSON lines, and journald text dumps",
+      "Application logs: timestamped text lines, JSON lines or JSON arrays (level, message, key=value attributes)",
+      "Metric samples: CSV (one column per metric, or metric/value rows) and JSON objects with a metric name and value",
+      "Change events: deployments, rollbacks, schema migrations, config changes and alerts (JSON or CSV)",
     ],
     prerequisites: [
-      "File read access to local export archive in sandbox staging directory",
-      "Standard timestamp formatting (ISO-8601 UTC or UNIX epoch milliseconds)",
+      "Up to 5 files per incident, 5 MB each, 8 MB total, 50,000 records",
+      "A timestamp on every record (ISO-8601 with or without offset, epoch, or web-server log format)",
+      "A service per record, or a service declared for the file in the upload form",
     ],
-    configuration: "Implement MetricFileReader / LogFileReader adapters implementing the ToolGateway interface in packages/mcp/opspilot_mcp/adapters/file_reader.py.",
+    configuration: "Web: Analyze files (/incidents/new) → preview → create & analyze. API: POST /api/v1/incidents/upload/preview and /api/v1/incidents/upload (operator). Files are stored under UPLOAD_DIR; make uploads-purge removes old uploads.",
     exampleQuery: {
-      language: "json",
-      code: `// Sample metrics export format (metrics_export.json):
-{
-  "service": "payment-api",
-  "metric": "http_requests_total",
-  "unit": "ratio",
-  "series": [
-    {"timestamp": "2026-11-03T13:50:00Z", "value": 0.001},
-    {"timestamp": "2026-11-03T14:00:00Z", "value": 0.428}
-  ]
-}`,
+      language: "csv",
+      code: `timestamp,service,http_5xx_ratio,p95_latency_ms,http_requests_per_min
+2026-11-12T09:14:00.000Z,checkout-api,0.0035,182,431
+2026-11-12T09:15:00.000Z,checkout-api,0.0491,654,409
+# Each cell becomes a MetricRecord with source "service-metrics.csv:row N"`,
     },
-    normalization: "Mapped into standard MetricSeries domain object. Telemetry node computes pre-incident baseline mean, variance, and onset shift. Clustered error signatures strip UUIDs/IPs.",
+    normalization: "Parsed by opspilot_shared.uploads into LogRecord / MetricRecord / EventRecord with source file:line, original timestamp and timezone, and service provenance. The file-backed evidence provider (server opspilot-uploaded-evidence) answers search_logs, query_metrics, list_recent_deployments and get_config_changes from them; live health, config, datastore and queue tools report 'not available'. Nothing is invented: rows without a timestamp or service are rejected and listed in the preview.",
     troubleshooting: [
-      "Ensure timestamps are parsed in UTC; check for timezone skew across multiple dump files.",
-      "Validate file size limits to prevent memory exhaustion during batch parsing.",
+      "Check the preview: rejected rows and their reasons are listed per file.",
+      "Timestamps without an offset are read in the timezone chosen on the form and shown as 'assumed <zone>'.",
+      "If the analysis finds nothing, the incident time may be outside the data: the window is 3 h before to 30 min after it.",
     ],
-    targetNode: "Telemetry Agent",
+    targetNode: "Telemetry & Changes Agents (file-backed provider)",
   },
   {
     id: "offline-traces",
-    name: "Distributed Trace Export Dumps",
+    name: "Uploaded Trace Exports (OTLP/JSON)",
     category: "traces",
     mode: "offline",
-    status: "requires_adapter",
-    tagline: "Call graph and bottleneck root-cause analysis from OTLP/Jaeger JSON dumps.",
+    status: "implemented",
+    tagline: "Failing spans and observed service-to-service calls from OTLP/JSON or simple span JSON (v0.5).",
     evidenceContributed: [
-      "Distributed span waterfalls, parent-child call links, and RPC latencies",
-      "HTTP/gRPC status codes and error exception event attributes",
+      "Error spans as log-like evidence, naming the downstream service where the failure surfaced",
+      "Observed caller → callee edges between services",
     ],
     prerequisites: [
-      "OpenTelemetry JSON trace dump file (ExportTraceServiceRequest payload)",
+      "OTLP/JSON (resourceSpans) or objects with trace_id, span_id, start time and duration or end time",
     ],
-    configuration: "Implement OpenTelemetryFileAdapter parsing OTLP Protobuf or JSON schema into dependency call graph observations.",
+    configuration: "Upload the trace export with the other files on the Analyze files page; spans are normalized with their trace, span and parent IDs.",
     exampleQuery: {
       language: "json",
-      code: `// Sample OTLP span JSON:
+      code: `// OTLP/JSON span (inside resourceSpans[].scopeSpans[].spans[]):
 {
   "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
   "spanId": "00f067aa0ba902b7",
-  "name": "GET /api/v1/ledger/balance",
-  "kind": "SPAN_KIND_CLIENT",
-  "status": {"code": "STATUS_CODE_ERROR", "message": "UndefinedColumn"}
+  "name": "POST /v1/charges",
+  "kind": 2,
+  "startTimeUnixNano": "1794474900000000000",
+  "endTimeUnixNano": "1794474902040000000",
+  "status": {"code": 2, "message": "connection pool exhausted"}
 }`,
     },
-    normalization: "Span relationships build runtime service dependency trees. Pinpoints whether upstream service failed because downstream dependency threw an unhandled exception.",
+    normalization: "Error spans are served through search_logs with attributes upstream=<failing downstream service>, span_id and source_ref; get_service_dependencies returns edges observed in the traces (kind observed_call).",
     troubleshooting: [
-      "Verify trace sampling rate; ensure parent root spans are captured alongside leaf errors.",
+      "Upload the spans of every service in the trace so parent/child links across services can be resolved.",
     ],
-    targetNode: "Dependencies Agent & Causal Consistency Gate",
+    targetNode: "Telemetry & Dependencies Agents (file-backed provider)",
   },
 
   // Connected Mode

@@ -301,10 +301,38 @@ class OpsIncident(Base):
     severity: Mapped[str] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(32), index=True)
     service: Mapped[str] = mapped_column(String(63))
-    environment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sim.environments.id"))
+    # v0.5: 'simulator' incidents have a sandbox environment; 'upload' incidents are backed by user-uploaded files
+    # (ops.uploaded_datasets) and have none (enforced by ck_ops_incidents_evidence_source_env).
+    evidence_source: Mapped[str] = mapped_column(String(16), server_default=text("'simulator'"), default="simulator")
+    environment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sim.environments.id"), nullable=True)
     detected_at: Mapped[datetime] = mapped_column(TZ)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+
+class OpsIncidentReferenceCounter(Base):
+    """Last incident reference number issued per day (migration 0010); never decremented."""
+
+    __tablename__ = "incident_reference_counters"
+    __table_args__ = {"schema": "ops"}
+    day: Mapped[str] = mapped_column(String(8), primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer)
+
+
+class OpsUploadedDataset(Base):
+    """Normalized evidence uploaded for one incident (v0.5). The raw files are kept under ``storage_dir``."""
+
+    __tablename__ = "uploaded_datasets"
+    __table_args__ = {"schema": "ops"}
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ops.incidents.id", ondelete="CASCADE"), unique=True)
+    affected_services: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    timezone: Mapped[str] = mapped_column(String(64))
+    files: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    summary: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    records: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    storage_dir: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
 
 
 ACTIVE_INVESTIGATION_STATUSES = ("queued", "running", "awaiting_approval", "interrupted")

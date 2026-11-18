@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, status
 
 from opspilot_api.deps import Operator, Runtime
-from opspilot_api.schemas import InvestigationOut, OperationAccepted, SimulateRequest
+from opspilot_api.schemas import (
+    InvestigationOut,
+    OperationAccepted,
+    SimulateRequest,
+    UploadIncidentRequest,
+    UploadPreviewRequest,
+)
 from opspilot_shared.domain.incidents import Incident, IncidentStatus
 
 router = APIRouter(prefix="/api/v1/incidents", tags=["incidents"])
@@ -24,6 +31,29 @@ async def list_incidents(rt: Runtime, status: IncidentStatus | None = None, limi
 @router.post("/simulate", status_code=status.HTTP_201_CREATED, dependencies=[Operator])
 async def simulate(rt: Runtime, body: SimulateRequest) -> Incident:
     return await rt.incidents.simulate(body.scenario)
+
+
+@router.post("/upload/preview", dependencies=[Operator])
+async def upload_preview(rt: Runtime, body: UploadPreviewRequest) -> dict[str, Any]:
+    """Validate and normalize uploaded files without storing anything (v0.5)."""
+    return rt.uploads.preview(body)
+
+
+@router.post("/upload", status_code=status.HTTP_201_CREATED, dependencies=[Operator])
+async def upload_incident(rt: Runtime, body: UploadIncidentRequest) -> Incident:
+    """Create an incident backed by uploaded files; investigate it like any other (read-only analysis)."""
+    return await rt.uploads.create(body)
+
+
+@router.get("/{incident_id}/dataset")
+async def incident_dataset(rt: Runtime, incident_id: uuid.UUID) -> dict[str, Any]:
+    return await rt.uploads.dataset(incident_id)
+
+
+@router.post("/{incident_id}/discard", dependencies=[Operator])
+async def discard_upload(rt: Runtime, incident_id: uuid.UUID) -> dict[str, Any]:
+    """Delete an uploaded incident: its files, normalized records, investigations and checkpoints."""
+    return await rt.uploads.discard(incident_id)
 
 
 @router.get("/{incident_id}")

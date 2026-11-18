@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=6, ge=1, le=50)
     retrieval_rrf_k: int = Field(default=60, ge=1, le=1000)
 
+    # Uploaded incident evidence (v0.5): raw files are kept locally for provenance; `opspilot uploads purge` deletes
+    # uploaded incidents older than the retention period (their files, normalized records and investigations).
+    upload_dir: Path = REPO_ROOT / "var/uploads"
+    upload_retention_days: int = Field(default=14, ge=1, le=3650)
+
     # Agent policy
     agent_max_tool_calls: int = Field(default=60, ge=1, le=500)
     agent_max_llm_calls: int = Field(default=6, ge=1, le=50)
@@ -105,7 +110,7 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://127.0.0.1:4317"
     otel_service_name: str = "opspilot-api"
 
-    @field_validator("knowledge_dir", mode="before")
+    @field_validator("knowledge_dir", "upload_dir", mode="before")
     @classmethod
     def _resolve_knowledge_dir(cls, value: object) -> object:
         if isinstance(value, str) and not Path(value).is_absolute():

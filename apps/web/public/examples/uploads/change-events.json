@@ -1,0 +1,33 @@
+{
+  "events": [
+    {
+      "timestamp": "2026-11-12T07:05:41Z",
+      "type": "deployment",
+      "service": "search-api",
+      "id": "deploy-7702",
+      "version": "5.3.1",
+      "previous_version": "5.3.0",
+      "status": "succeeded",
+      "author": "ci-bot",
+      "summary": "search-api 5.3.1: ranking tweak for related products"
+    },
+    {
+      "timestamp": "2026-11-12T09:12:20.000Z",
+      "type": "deployment",
+      "service": "payment-service",
+      "id": "deploy-7731",
+      "version": "2.14.0",
+      "previous_version": "2.13.4",
+      "status": "succeeded",
+      "author": "ci-bot",
+      "summary": "payment-service 2.14.0: upgrade card-vault client; outbound HTTP pool max size 50 -> 5"
+    },
+    {
+      "timestamp": "2026-11-12T09:16:30Z",
+      "type": "alert",
+      "service": "checkout-api",
+      "summary": "CheckoutErrorRateHigh: 5xx ratio above 5% for 2 minutes",
+      "severity": "critical"
+    }
+  ]
+}
