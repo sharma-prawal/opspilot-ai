@@ -3,7 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { SourceBadge } from "@/components/source-badge";
 import {
+  Badge,
   Button,
   Card,
   Empty,
@@ -15,6 +18,7 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { utcTime } from "@/lib/format";
+import { formatBytes } from "@/lib/uploads";
 
 export function IncidentView() {
   const { id } = useParams<{ id: string }>();
@@ -41,9 +45,23 @@ export function IncidentView() {
   });
 
   const i = incident.data;
+  const uploaded = i?.evidence_source === "upload";
   const active = invs.data?.some((v) =>
     ["queued", "running", "awaiting_approval"].includes(v.status)
   );
+  const dataset = useQuery({
+    queryKey: ["dataset", id],
+    queryFn: () => api.dataset(id),
+    enabled: uploaded,
+  });
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const discard = useMutation({
+    mutationFn: () => api.discardUpload(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["incidents"] });
+      router.push("/incidents");
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -61,6 +79,7 @@ export function IncidentView() {
           i ? (
             <div className="flex items-center gap-2 mt-1 text-xs text-muted">
               <span className="font-mono font-bold text-accent">{i.reference}</span>
+              <SourceBadge source={i.evidence_source} />
               <span>·</span>
               <span>service: <strong className="text-text">{i.service}</strong></span>
               <span>·</span>
@@ -82,13 +101,23 @@ export function IncidentView() {
                 ? "Investigation in progress"
                 : start.isPending
                 ? "Starting investigation…"
+                : uploaded
+                ? "Start read-only analysis"
                 : "Start investigation"}
             </Button>
           </div>
         }
       />
 
-      <ErrorNote error={incident.error ?? start.error} />
+      <ErrorNote error={incident.error ?? start.error ?? discard.error} />
+
+      {uploaded && (
+        <div className="rounded-xl border border-purple/30 bg-purple-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
+          <strong>Uploaded evidence — read-only analysis.</strong> The agent investigates only the files uploaded for this
+          incident (plus the runbook knowledge base). It can suggest remediation but cannot execute it, and it never
+          claims verified recovery.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Incident Details &amp; Telemetry Scope" className="lg:col-span-2">
@@ -107,13 +136,93 @@ export function IncidentView() {
                     ["Service", <code key="c" className="font-mono text-xs">{i.service}</code>],
                     ["Detected At", utcTime(i.detected_at)],
                     ["Created At", utcTime(i.created_at)],
-                    ["Environment", <code key="e" className="font-mono text-xs">{i.environment_id}</code>],
+                    uploaded
+                      ? ["Evidence", <SourceBadge key="e" source="upload" />]
+                      : ["Environment", <code key="e" className="font-mono text-xs">{i.environment_id}</code>],
                   ]}
                 />
               </div>
             </div>
           )}
         </Card>
+
+        {uploaded && (
+          <Card
+            className="lg:col-span-2 lg:order-3"
+            title="Uploaded evidence"
+            subtitle={
+              dataset.data
+                ? `Uploaded ${utcTime(dataset.data.created_at)} · timestamps without an offset read as ${dataset.data.timezone}`
+                : undefined
+            }
+            actions={
+              confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-danger">Delete files, records and analyses?</span>
+                  <Button size="sm" variant="danger" disabled={discard.isPending} onClick={() => discard.mutate()}>
+                    {discard.isPending ? "Deleting…" : "Delete"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" disabled={active} onClick={() => setConfirmDelete(true)}>
+                  Delete uploaded data
+                </Button>
+              )
+            }
+          >
+            {dataset.data ? (
+              <div className="space-y-4 text-xs">
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(dataset.data.summary.records).map(([k, n]) => (
+                    <Badge key={k}>
+                      {n} {k}
+                      {n === 1 ? "" : "s"}
+                    </Badge>
+                  ))}
+                  <Badge tone={dataset.data.summary.rejected ? "warn" : "neutral"}>
+                    {dataset.data.summary.rejected} rejected
+                  </Badge>
+                  {dataset.data.summary.redactions > 0 && (
+                    <Badge tone="info">{dataset.data.summary.redactions} redacted</Badge>
+                  )}
+                </div>
+                <KV
+                  dense
+                  items={[
+                    ["Services", <span key="s" className="font-mono">{dataset.data.summary.services.join(", ")}</span>],
+                    ["Declared affected", <span key="a" className="font-mono">{dataset.data.affected_services.join(", ")}</span>],
+                    ["Data covers", `${utcTime(dataset.data.summary.start)} → ${utcTime(dataset.data.summary.end)}`],
+                    ["Retention", `purged by \`make uploads-purge\` after ${dataset.data.retention_days} days`],
+                  ]}
+                />
+                <ul className="divide-y divide-border rounded-lg border border-border">
+                  {dataset.data.files.map((f) => (
+                    <li key={f.index} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                      <span className="font-mono font-semibold text-text">{f.name}</span>
+                      <span className="text-muted">
+                        {f.format} · {formatBytes(f.bytes)} ·{" "}
+                        {Object.entries(f.records).map(([k, n]) => `${n} ${k}`).join(", ") || "no records"}
+                        {f.rejected ? ` · ${f.rejected} rejected` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {!!dataset.data.summary.warnings?.length && (
+                  <ul className="list-disc space-y-0.5 pl-4 text-warn">
+                    {dataset.data.summary.warnings.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <ErrorNote error={dataset.error} />
+            )}
+          </Card>
+        )}
 
         <Card
           title={`Investigations (${invs.data?.length ?? 0})`}

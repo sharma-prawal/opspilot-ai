@@ -81,7 +81,7 @@ class LogPattern:
         return m.group(1) if m else None
 
 
-_ATTR_KEYS = ("code", "upstream", "sqlstate", "status", "endpoint", "version")
+_ATTR_KEYS = ("code", "upstream", "sqlstate", "status", "endpoint", "version", "source_ref")  # source_ref: v0.5 uploads
 
 
 def cluster_logs(entries: list[dict[str, Any]], *, top_n: int = 6) -> list[LogPattern]:

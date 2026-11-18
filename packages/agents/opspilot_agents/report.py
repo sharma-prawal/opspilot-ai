@@ -7,8 +7,10 @@ that was never collected or claim an action that did not happen.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from opspilot_agents.prompts import is_uploaded
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
 
@@ -26,6 +28,9 @@ OUTCOMES = {
     "impact_unknown": "Impact could not be established from the available evidence; escalated.",
     "verification_incomplete": "Remediation executed but not every recovery condition could be checked; escalated.",
     "failed": "The investigation did not complete.",
+    # v0.5 read-only analysis of uploaded files: findings and suggestions only, never execution or verified recovery
+    "analysis_complete": "Read-only analysis of uploaded evidence: nothing was executed and recovery was not verified.",
+    "analysis_inconclusive": "Read-only analysis of uploaded evidence was inconclusive; more evidence is needed.",
 }
 ESCALATE = {
     "not_recovered",
@@ -39,6 +44,7 @@ ESCALATE = {
     "impact_unknown",
     "verification_incomplete",
     "failed",
+    "analysis_inconclusive",
 }
 
 
@@ -88,8 +94,12 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     impact = impact_state(rca)
     verification = state.get("verification") or {}
     withheld = [r for r in state.get("rejected_proposals") or [] if r.get("category") == "withheld_uncertain"]
+    uploaded = is_uploaded(state.get("incident"))
     if state.get("status") == "failed":
         code = "failed"
+    elif uploaded:  # no environment: never an executed, verified, resolved or "no action required" outcome
+        confident = hyps and top >= confidence_threshold and not withheld
+        code = "analysis_complete" if confident else "analysis_inconclusive"
     elif approval.get("decision") == "expired":
         code = "approval_expired"
     elif approval.get("decision") == "reject":
@@ -122,10 +132,25 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         reason = withheld[0]["reason"]
     if code == "impact_unknown":
         reason = "; ".join((rca.get("impact") or {}).get("reasons") or [OUTCOMES[code]])
+    if code == "analysis_inconclusive" and not withheld and not esc.get("reason"):
+        reason = (
+            f"top hypothesis confidence {top:.0%} is below {confidence_threshold:.0%}"
+            if hyps
+            else "no hypothesis could be supported by the uploaded evidence"
+        )
+    if code == "analysis_complete" and not esc.get("reason"):
+        reason = (
+            f"Most likely cause ({top:.0%}): {hyps[0]['title']}. Verify it in your environment; any remediation is "
+            "for a human to carry out outside OpsPilot."
+        )
+    extra: dict[str, Any] = {}
+    if uploaded:
+        extra = {"read_only": True, "suggested_steps": len(state.get("suggested_remediation") or [])}
     return {
+        **extra,
         "code": code,
         "summary": OUTCOMES[code],
-        "escalate": code in ESCALATE,
+        "escalate": code in ESCALATE or (uploaded and bool(esc.get("required"))),
         "escalate_to": esc.get("to") or None,
         "reason": reason,
         "actions_executed": len(executions),
@@ -140,7 +165,9 @@ def _one_line(text: str, limit: int = 220) -> str:
 
 
 def _ts(value: str | None) -> str:
-    return value.replace("T", " ").replace("+00:00", "Z")[:20] if value else "—"
+    if not value:
+        return "—"
+    return re.sub(r"\.\d+", "", value).replace("T", " ").replace("+00:00", "Z")[:20]
 
 
 def render_report(state: dict[str, Any]) -> str:
@@ -151,6 +178,13 @@ def render_report(state: dict[str, Any]) -> str:
     outcome = state.get("outcome") or determine_outcome(state)
     hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
+    uploaded = is_uploaded(inc)
+    if uploaded:
+        lines += [
+            "> **Uploaded evidence — read-only analysis.** Findings come only from the files the user uploaded. "
+            "No action was executed and recovery was not verified; live state was not observed.",
+            "",
+        ]
     lines += [
         f"- **Outcome:** `{outcome['code']}` — {outcome['summary']}  ",
         f"- **Service:** {inc.get('service')}  ",
@@ -159,6 +193,8 @@ def render_report(state: dict[str, Any]) -> str:
         f"- **Anomaly onset:** {_ts(w.get('onset'))}  ",
         f"- **Investigation status:** {state.get('status')}  ",
     ]
+    if uploaded and inc.get("affected_services"):
+        lines.append(f"- **Affected services (declared):** {', '.join(inc['affected_services'])}  ")
     if hyps:
         lines.append(f"- **Root-cause category (RCA):** {hyps[0]['category']}  ")
     cls = state.get("classification") or {}
@@ -185,11 +221,17 @@ def render_report(state: dict[str, Any]) -> str:
         for h in hyps:
             lines.append(f"### {h['rank']}. {h['title']} — confidence {h['confidence']:.0%}")
             lines += ["", f"*Category:* `{h['category']}`", "", h["description"], "", "Supporting evidence:"]
-            lines += [f"- `{i}` — {_one_line(ev[i]['summary'])}" for i in h["supporting_evidence_ids"] if i in ev]
+            lines += [
+                f"- `{i}` — {_one_line(ev[i]['summary'])}{_cite(ev[i])}"
+                for i in h["supporting_evidence_ids"]
+                if i in ev
+            ]
             if h.get("contradicting_evidence_ids"):
                 lines.append("Contradicting evidence:")
                 lines += [
-                    f"- `{i}` — {_one_line(ev[i]['summary'])}" for i in h["contradicting_evidence_ids"] if i in ev
+                    f"- `{i}` — {_one_line(ev[i]['summary'])}{_cite(ev[i])}"
+                    for i in h["contradicting_evidence_ids"]
+                    if i in ev
                 ]
             lines.append("")
     if rca.get("citation_violations"):
@@ -213,6 +255,10 @@ def render_report(state: dict[str, Any]) -> str:
         lines += ["## Timeline", "", "| Time (UTC) | Event |", "|---|---|"]
         lines += [f"| {_ts(t)} | {_one_line(d, 200)} |" for t, d in sorted(timeline)]
         lines.append("")
+
+    if uploaded:
+        lines += _uploaded_sections(state, rca, ev)
+        return "\n".join(lines + _trailer(state, rca, ev)) + "\n"
 
     lines += ["## Remediation", ""]
     plan = state.get("remediation_plan") or []
@@ -265,7 +311,102 @@ def render_report(state: dict[str, Any]) -> str:
         )
     lines.append("")
 
-    if rca.get("evidence_gaps"):
+    return "\n".join(lines + _trailer(state, rca, ev)) + "\n"
+
+
+def _source(e: dict[str, Any]) -> str | None:
+    """Where uploaded evidence came from (file and line/row), when known."""
+    d = e.get("data") or {}
+    return (
+        (d.get("attributes") or {}).get("source_ref")
+        or d.get("sources")
+        or (d.get("metadata") or {}).get("source_ref")
+        or None
+    )
+
+
+def _cite(e: dict[str, Any]) -> str:
+    src = _source(e)
+    return f" _(source: {_one_line(str(src), 120)})_" if src else ""
+
+
+def next_steps(state: dict[str, Any]) -> list[str]:
+    """Deterministic follow-up investigation steps for an uploaded-evidence analysis: what is missing and why."""
+    inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    steps: list[str] = []
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Export error-rate and latency metrics for {svc} covering at least an hour before and after the incident "
+            "(CSV with timestamp, service and one column per metric); without them impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Upload WARN/ERROR application logs for {svc} from the incident window.")
+    if not kinds & {"deployment", "config_change"}:
+        steps.append(
+            "Upload the deployment and configuration-change history for the window (JSON or CSV events with timestamp, "
+            "service and type); change correlation was not possible without it."
+        )
+    calls = state.get("tool_calls") or []
+    if any(c.get("tool") == "get_service_dependencies" and c.get("status") != "ok" for c in calls) or not any(
+        c.get("tool") == "get_service_dependencies" for c in calls
+    ):
+        steps.append("Upload traces (OTLP/JSON) to show which downstream calls fail; dependencies were not observed.")
+    rca = state.get("rca") or {}
+    hyps = rca.get("hypotheses") or []
+    if hyps:
+        cited = [e for e in ev if e["id"] in set(hyps[0].get("supporting_evidence_ids") or [])]
+        changes = [e for e in cited if e["kind"] in ("deployment", "config_change")]
+        for c in changes[:1]:
+            steps.append(
+                f"Confirm or rule out the change behind the top hypothesis ({_one_line(c['summary'], 140)}): compare "
+                "error rates before and after it, or check whether a rollback is possible in your environment."
+            )
+    steps.append(
+        f"Check the current health of {svc} in your own monitoring: this analysis saw only the uploaded files, "
+        "not live state."
+    )
+    return steps
+
+
+def _uploaded_sections(state: dict[str, Any], rca: dict[str, Any], ev: dict[str, Any]) -> list[str]:
+    lines = ["## Suggested remediation (not executed)", ""]
+    suggested = state.get("suggested_remediation") or []
+    if suggested:
+        lines += [
+            "These steps passed the same evidence checks used for sandbox plans. They are suggestions for a human "
+            "to review and carry out in the real environment; OpsPilot did not and cannot execute them.",
+            "",
+            "| Step | Action | Parameters | Rationale |",
+            "|---|---|---|---|",
+        ]
+        lines += [
+            f"| {p.get('step')} | `{p['action_type']}` | {_one_line(str(p['parameters']), 80)} | "
+            f"{_one_line(str(p.get('rationale') or ''), 140)} |"
+            for p in suggested
+        ]
+        lines.append("")
+    else:
+        lines.append("- No remediation step was supported well enough by the uploaded evidence to suggest.")
+    for r in state.get("rejected_proposals") or []:
+        lines.append(
+            f"- Not suggested: model proposal `{r['proposal'].get('action_type')}` "
+            f"({r.get('category') or 'invalid'}): {r['reason']}"
+        )
+    lines += ["", "## Recommended next investigation steps", ""]
+    lines += [f"- {g}" for g in rca.get("evidence_gaps") or []]
+    lines += [f"- {s}" for s in next_steps(state)]
+    lines.append("")
+    return lines
+
+
+def _trailer(state: dict[str, Any], rca: dict[str, Any], ev: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    if rca.get("evidence_gaps") and not is_uploaded(state.get("incident")):
         lines += ["## Evidence gaps", ""] + [f"- {g}" for g in rca["evidence_gaps"]] + [""]
     tool_errors = [e for e in ev.values() if e["kind"] == "tool_error"]
     if tool_errors:
@@ -303,4 +444,4 @@ def render_report(state: dict[str, Any]) -> str:
     ]
     for err in state.get("errors") or []:
         lines.append(f"- Error [{err['error_class']}] in {err['node']}: {err['message'][:200]}")
-    return "\n".join(lines) + "\n"
+    return lines

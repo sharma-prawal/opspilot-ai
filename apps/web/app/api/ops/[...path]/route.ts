@@ -19,12 +19,19 @@ const MUTATIONS: Rule[] = [
   { pattern: /^api\/v1\/knowledge\/search$/, role: "viewer" },
   { pattern: /^api\/v1\/knowledge\/ingest$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/simulate$/, role: "operator" },
+  // v0.5 uploaded evidence (files travel as JSON text; size bounded below and again by the API)
+  { pattern: /^api\/v1\/incidents\/upload\/preview$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/upload$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/discard$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/investigations$/, role: "operator" },
   { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/resume$/, role: "operator" },
   { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/cancel$/, role: "operator", identity: "actor" },
   { pattern: /^api\/v1\/approvals\/[0-9a-f-]{36}\/decision$/, role: "operator", identity: "decided_by" },
 ];
 const RANK: Record<Role, number> = { viewer: 0, operator: 1 };
+// Largest accepted request body: 8 MB of uploaded file text plus JSON escaping and metadata (the API re-checks
+// every per-file and total limit on the decoded content).
+const MAX_BODY_BYTES = 12 * 1024 * 1024;
 
 function authenticate(req: Request): Session {
   const session = readSession(cookieValue(req));
@@ -74,7 +81,10 @@ async function handle(req: NextRequest, ctx: RouteContext<"/api/ops/[...path]">)
       throw new AuthError(403, "forbidden", `role ${session.role} may not perform this operation`);
     }
     let payload: unknown = {};
+    const declared = Number(req.headers.get("content-length") ?? "0");
+    if (declared > MAX_BODY_BYTES) throw new AuthError(413, "payload_too_large", "request body too large");
     const raw = await req.text();
+    if (raw.length > MAX_BODY_BYTES) throw new AuthError(413, "payload_too_large", "request body too large");
     if (raw) {
       try { payload = JSON.parse(raw); } catch { throw new AuthError(415, "unsupported_media_type", "invalid JSON body"); }
     }

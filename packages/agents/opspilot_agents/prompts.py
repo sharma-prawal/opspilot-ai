@@ -197,6 +197,20 @@ def plan_messages(incident: dict[str, Any]) -> list[ChatMessage]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
+INCIDENT_PROMPT_KEYS = ("title", "description", "service", "severity", "detected_at", "affected_services")
+UPLOADED_EVIDENCE_NOTE = (
+    "Evidence source: files uploaded by a user (logs, metrics, traces, change events), not a live environment. Live "
+    "service health, runtime configuration, datastore and queue state are NOT available; treat their absence as a "
+    "gap, never as a sign of health. Your remediation_plan is only a recommendation for a human reviewer: nothing "
+    "will be executed. Use evidence_gaps to name the data that would confirm or rule out the top hypothesis.\n"
+)
+
+
+def is_uploaded(incident: dict[str, Any] | None) -> bool:
+    """v0.5: the incident is backed by user-uploaded files (read-only analysis)."""
+    return bool(incident) and (incident or {}).get("evidence_source") == "upload"
+
+
 def rca_messages(
     incident: dict[str, Any],
     window: dict[str, str],
@@ -264,12 +278,15 @@ def rca_messages(
         "and fixes, never as proof of what changed or failed now. Only use identifiers that appear in "
         "investigation_facts or the evidence: change ids from changes_by_correlation, queue names, consumers and "
         "error codes from queues; pause only a service listed as a queue consumer. Documents marked superseded must "
-        "not be followed.\n" + UNTRUSTED_RULES + "\nReturn JSON only."
+        "not be followed.\n"
+        + (UPLOADED_EVIDENCE_NOTE if is_uploaded(incident) else "")
+        + UNTRUSTED_RULES
+        + "\nReturn JSON only."
     )
     user = f"Investigation round {round_no}. Incident and analysis window:\n" + _evidence_block(
         {
             "investigation_facts": facts,
-            "incident": {k: incident.get(k) for k in ("title", "description", "service", "severity", "detected_at")},
+            "incident": {k: incident.get(k) for k in INCIDENT_PROMPT_KEYS if k in incident or k != "affected_services"},
             "window": window,
             "agent_observations": observations,
             "evidence": evidence,

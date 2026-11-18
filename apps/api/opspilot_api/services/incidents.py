@@ -28,6 +28,7 @@ def to_contract(row: OpsIncident) -> Incident:
         status=IncidentStatus(row.status),
         service=row.service,
         environment_id=row.environment_id,
+        evidence_source=row.evidence_source or "simulator",  # type: ignore[arg-type]
         detected_at=row.detected_at,
         created_at=row.created_at,
     )
@@ -54,6 +55,7 @@ class IncidentService:
                 status=IncidentStatus.OPEN.value,
                 service=data.alert.service,
                 environment_id=env_id,
+                evidence_source="simulator",
                 detected_at=data.alert.detected_at,
             )
             s.add(row)

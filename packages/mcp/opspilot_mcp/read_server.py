@@ -89,6 +89,8 @@ def build_read_server(backend: OpsBackend) -> MCPServer:
                 row = await s.get(OpsIncident, incident_id)
             if row is None:
                 raise ToolError(f"not_found: incident {incident_id}")
+            if row.environment_id is None:  # v0.5: uploaded-evidence incidents are served by the file-backed provider
+                raise ToolError(f"not_available: incident {incident_id} is backed by uploaded files, not the sandbox")
             return IncidentView(
                 id=row.id,
                 reference=row.reference,

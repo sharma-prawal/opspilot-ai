@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import Integer, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,10 +29,16 @@ _log = get_logger(__name__)
 
 async def next_incident_reference(s: AsyncSession, day: datetime) -> str:
     prefix = f"INC-{day:%Y%m%d}-"
-    count = (
-        await s.execute(select(func.count()).select_from(OpsIncident).where(OpsIncident.reference.like(prefix + "%")))
+    # Highest existing number + 1 (not a count): uploaded incidents can be deleted (v0.5), and a count would then
+    # hand out a reference that is still in use.
+    highest = (
+        await s.execute(
+            select(func.max(func.cast(func.substr(OpsIncident.reference, len(prefix) + 1), Integer))).where(
+                OpsIncident.reference.like(prefix + "%"), OpsIncident.reference.regexp_match(r"^INC-\d{8}-\d+$")
+            )
+        )
     ).scalar_one()
-    return f"{prefix}{count + 1:04d}"
+    return f"{prefix}{(highest or 0) + 1:04d}"
 
 
 async def add_event(

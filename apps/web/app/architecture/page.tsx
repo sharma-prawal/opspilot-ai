@@ -241,6 +241,19 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     technicalSpecs: ["PostgreSQL 17", "pgvector 0.8.7", "HNSW cosine indexing", "GIN tsvector indexing"],
     implementationStatus: "implemented",
   },
+  "uploaded-evidence": {
+    id: "uploaded-evidence",
+    name: "Uploaded Evidence Provider (v0.5)",
+    category: "Evidence Source",
+    role: "Turns user-uploaded .log/.txt, .json (incl. OTLP traces) and .csv files into normalized records, then answers the agents' read tools for that incident (server opspilot-uploaded-evidence) while knowledge retrieval still goes to the MCP read server.",
+    sourcePath: "packages/shared/opspilot_shared/uploads · packages/mcp/opspilot_mcp/file_evidence.py",
+    inputs: ["Uploaded file text (max 5 files, 5 MB each, 8 MB total)", "Declared services, incident time and timezone"],
+    outputs: ["Log, metric, span and change-event records with file:line sources", "search_logs / query_metrics / list_recent_deployments / get_config_changes results"],
+    safetyBoundary: "Read-only: uploaded incidents have no environment, so no approval is requested and nothing executes. File content is untrusted data; credentials are redacted on parse; no tool argument is ever a file path.",
+    errorPathways: "Records without timestamp or service are rejected (never invented). Live health, config, datastore and queue tools return 'not available', recorded as evidence gaps.",
+    technicalSpecs: ["Pydantic record contracts", "ops.uploaded_datasets (JSONB)", "Raw copies under UPLOAD_DIR (0600)"],
+    implementationStatus: "implemented",
+  },
   "synthetic-simulator": {
     id: "synthetic-simulator",
     name: "Synthetic Incident Simulator",
@@ -905,12 +918,12 @@ const SOURCES_NODES: CustomNodeType[] = [
     type: "custom",
     position: { x: 40, y: 300 },
     data: {
-      label: "Offline Telemetry Dumps",
+      label: "Uploaded Incident Files",
       category: "Source (Files)",
-      tone: "cyan",
-      status: "requires_adapter",
-      tech: "Prometheus Matrix / CSV / JSONL",
-      detailId: "src-ext-adapters",
+      tone: "success",
+      status: "implemented",
+      tech: ".log/.txt · JSON/OTLP · CSV (read-only)",
+      detailId: "uploaded-evidence",
     },
   },
   {
@@ -1077,7 +1090,7 @@ const SOURCES_EDGES: Edge[] = [
   { id: "se-7", source: "agent-reasoning", target: "agent-safety", label: "Proposed Action Plan", animated: true },
 
   // Extensibility dashed cyan edges
-  { id: "se-8", source: "src-file-dumps", target: "seam-ext-adapters", label: "JSON/CSV Parser", style: { strokeDasharray: "5,5" } },
+  { id: "se-8", source: "src-file-dumps", target: "norm-evidence", label: "File-backed provider", animated: true },
   { id: "se-9", source: "src-prom-loki", target: "seam-ext-adapters", label: "PromQL/LogQL", style: { strokeDasharray: "5,5" } },
   { id: "se-10", source: "src-datadog-cloud", target: "seam-ext-adapters", label: "REST / SDK", style: { strokeDasharray: "5,5" } },
   { id: "se-11", source: "src-tracing", target: "seam-ext-adapters", label: "OTLP Trace Spans", style: { strokeDasharray: "5,5" } },

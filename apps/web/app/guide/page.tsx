@@ -377,8 +377,58 @@ make dev`}
     },
     {
       number: 11,
+      id: "upload-own-data",
+      title: "11. Analyze Your Own Incident Files",
+      summary: "Upload sanitized logs, metrics, traces or change events for a read-only AI investigation.",
+      content: (
+        <div className="space-y-3 text-xs leading-relaxed text-text-muted">
+          <p>
+            Besides the simulator, OpsPilot can investigate evidence you export from your own systems. Open{" "}
+            <Link href="/incidents/new" className="font-semibold text-accent hover:underline">Analyze files</Link>, describe the
+            incident, drop up to 5 files (5 MB each, 8 MB total) and preview what was extracted before anything is stored.
+            The same LangGraph workflow and your configured model (<ModelName />) run the investigation.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border border-border bg-panel-2/50 p-3">
+              <strong className="text-text">.log / .txt</strong>
+              <p className="mt-1">Lines beginning with a timestamp; levels and <code className="font-mono">key=value</code> pairs (e.g. <code className="font-mono">upstream=</code>, <code className="font-mono">trace_id=</code>) are recognized. Stack-trace lines join the entry above.</p>
+            </div>
+            <div className="rounded-lg border border-border bg-panel-2/50 p-3">
+              <strong className="text-text">.json</strong>
+              <p className="mt-1">Arrays, JSON Lines or OTLP/JSON traces. Objects become logs, metric samples, trace spans or change events (deployment, rollback, migration, config change, alert).</p>
+            </div>
+            <div className="rounded-lg border border-border bg-panel-2/50 p-3">
+              <strong className="text-text">.csv</strong>
+              <p className="mt-1">A timestamp column plus one numeric column per metric, <code className="font-mono">metric,value[,unit]</code> rows, or an event-type column. Units come from headers like <code className="font-mono">latency (ms)</code> or suffixes like <code className="font-mono">_ms</code>.</p>
+            </div>
+          </div>
+          <ul className="list-disc space-y-1 pl-4">
+            <li><strong className="text-text">Nothing is invented.</strong> Records without a timestamp are rejected; timestamps without an offset are read in the timezone you choose and marked as assumed. A record without a service uses the service you declare for its file, or is rejected.</li>
+            <li><strong className="text-text">Citations point at your files.</strong> Every normalized record keeps <code className="font-mono">file:line</code> (or row/item/span) and its original timestamp, and evidence in the RCA shows where it came from.</li>
+            <li><strong className="text-text">Read-only.</strong> Uploaded incidents get hypotheses, uncertainty and evidence gaps, recommended next steps, suggested remediation and a downloadable Markdown report. No approval is requested, nothing is executed, and recovery is never claimed.</li>
+            <li><strong className="text-text">Honest gaps.</strong> Files cannot show live health, runtime configuration, datastore or queue state; those tool calls report &ldquo;not available&rdquo; and the report says what to export next.</li>
+            <li><strong className="text-text">Untrusted and local.</strong> File content is data, never instructions; credential-looking values are redacted on parse; files stay under <code className="font-mono">UPLOAD_DIR</code> (default <code className="font-mono">var/uploads</code>) and in the local database. Nothing is sent to an external AI API.</li>
+          </ul>
+          <p>
+            Try it with the synthetic example set (a checkout outage after a payment-service deploy): use{" "}
+            <strong className="text-text">Load example into the form</strong> on the upload page, or download the files from{" "}
+            <code className="font-mono">/examples/uploads/</code>. Clean up with the delete button on an uploaded incident, or:
+          </p>
+          <CodeBlock
+            language="bash"
+            code={`# list uploaded incidents
+uv run opspilot uploads list
+
+# delete uploads older than UPLOAD_RETENTION_DAYS (default 14); stop the API first
+make uploads-purge`}
+          />
+        </div>
+      ),
+    },
+    {
+      number: 12,
       id: "troubleshooting",
-      title: "11. Troubleshooting & Essential CLI Commands",
+      title: "12. Troubleshooting & Essential CLI Commands",
       summary: "Common commands from Makefile and CLI tools.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
@@ -402,6 +452,9 @@ make evaluate
 # Inspect health and schema status
 make doctor
 
+# Delete uploaded incidents older than the retention period (API stopped)
+make uploads-purge
+
 # Stop background Colima/Docker infrastructure containers
 make infra-down`}
           />
@@ -409,9 +462,9 @@ make infra-down`}
       ),
     },
     {
-      number: 12,
+      number: 13,
       id: "boundaries-limitations",
-      title: "12. Limitations & Security Boundaries",
+      title: "13. Limitations & Security Boundaries",
       summary: "Experimental sandbox simulator notice and threat boundaries.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
@@ -423,6 +476,7 @@ make infra-down`}
           </div>
           <ul className="list-disc pl-4 space-y-1 pt-1">
             <li><strong className="text-text">No Shell or Arbitrary Execution:</strong> Tools do not accept free-form bash commands, arbitrary file paths, or unstructured SQL.</li>
+            <li><strong className="text-text">Uploaded Evidence Is Read-Only:</strong> Incidents created from your files are analyzed, never remediated. The parsers cover common shapes, not every log format; check the preview before analyzing.</li>
             <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1) without egress.</li>
             <li><strong className="text-text">Shared Operator Passphrase:</strong> The current release uses an environment-configured operator passphrase; multi-tenant enterprise SSO (OIDC/SAML) is scheduled for future milestones.</li>
           </ul>

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ApprovalCard } from "@/components/approval-card";
+import { SourceBadge } from "@/components/source-badge";
 import {
   Badge,
   Button,
@@ -28,6 +29,13 @@ import {
   utcTime,
 } from "@/lib/format";
 import type { Evidence, WorkflowEvent } from "@/lib/types";
+import { downloadText } from "@/lib/uploads";
+
+/** Where uploaded evidence came from (file and line/row), when the evidence carries it (v0.5). */
+function sourceRef(e: Evidence): string | null {
+  const d = e.data as { attributes?: { source_ref?: string }; sources?: string; metadata?: { source_ref?: string } };
+  return d?.attributes?.source_ref ?? d?.sources ?? d?.metadata?.source_ref ?? null;
+}
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
@@ -35,10 +43,12 @@ function Stepper({
   events,
   current,
   status,
+  readOnly = false,
 }: {
   events: WorkflowEvent[];
   current: string | null;
   status: string;
+  readOnly?: boolean;
 }) {
   const visited = new Set(
     events.filter((e) => e.node).map((e) => stageIndex(e.node))
@@ -50,6 +60,9 @@ function Stepper({
       {STAGES.map((s, i) => {
         const isActive = i === activeIdx;
         const isDone = visited.has(i);
+        // v0.5: uploaded evidence is analyzed read-only; there is no approval or execution stage
+        const disabled = readOnly && s.key === "remediate";
+        const label = readOnly && s.key === "approval" ? "Suggestions" : disabled ? "Remediate (read-only: off)" : s.label;
 
         let style =
           "border-dashed border-border bg-panel-2/40 text-muted";
@@ -59,6 +72,7 @@ function Stepper({
         } else if (isDone) {
           style = "border-border bg-panel text-text font-medium";
         }
+        if (disabled) style = "border-dashed border-border bg-panel-2/20 text-muted/70 line-through";
 
         return (
           <li
@@ -76,7 +90,7 @@ function Stepper({
                   : "bg-border-strong"
               }`}
             />
-            <span>{s.label}</span>
+            <span>{label}</span>
           </li>
         );
       })}
@@ -311,6 +325,13 @@ function EvidenceList({
                   {e.summary}
                 </p>
 
+                {sourceRef(e) && (
+                  <div className="mt-2 rounded-md border border-purple/30 bg-purple-soft/20 px-2.5 py-1.5 text-[11px] text-muted">
+                    <span className="font-medium text-text-muted">Uploaded file:</span>{" "}
+                    <span className="font-mono text-purple">{sourceRef(e)}</span>
+                  </div>
+                )}
+
                 {e.citation && (
                   <div className="mt-2 rounded-md border border-border/60 bg-panel-2/60 px-2.5 py-1.5 text-[11px] text-muted">
                     <span className="font-medium text-text-muted">Source:</span>{" "}
@@ -415,6 +436,8 @@ export function InvestigationView() {
 
   const outcome = v?.result?.outcome;
   const isAwaitingApproval = v?.status === "awaiting_approval";
+  const readOnly = incident.data?.evidence_source === "upload";
+  const suggested = v?.result?.suggested_remediation ?? [];
 
   return (
     <div className="space-y-6">
@@ -446,6 +469,7 @@ export function InvestigationView() {
           subtitle={
             v && (
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                {incident.data && <SourceBadge source={incident.data.evidence_source} />}
                 <span>
                   Investigation <code className="font-mono text-text">{v.id.slice(0, 8)}</code>
                 </span>
@@ -500,6 +524,14 @@ export function InvestigationView() {
 
       <ErrorNote error={inv.error ?? resume.error ?? cancel.error} />
 
+      {readOnly && (
+        <div className="rounded-xl border border-purple/30 bg-purple-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
+          <strong>Read-only analysis of uploaded evidence.</strong> Logs, metrics, traces and change events come from the
+          files uploaded for this incident (tool server <code className="font-mono">opspilot-uploaded-evidence</code>);
+          runbooks come from the knowledge base. Remediation is suggested, never executed, and recovery is not verified.
+        </div>
+      )}
+
       {/* Investigation Pipeline Stepper */}
       {v && (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-panel p-4 shadow-xs">
@@ -518,6 +550,7 @@ export function InvestigationView() {
             events={events.data ?? []}
             current={v.current_step}
             status={v.status}
+            readOnly={readOnly}
           />
         </div>
       )}
@@ -575,7 +608,9 @@ export function InvestigationView() {
               )}
             </div>
             <div className="text-xs font-mono text-muted">
-              {outcome.actions_executed} of {outcome.steps_planned} planned actions executed
+              {outcome.read_only
+                ? `read-only · ${outcome.suggested_steps ?? 0} suggested step(s) · nothing executed`
+                : `${outcome.actions_executed} of ${outcome.steps_planned} planned actions executed`}
             </div>
           </div>
           <div className="mt-2 text-xs text-text leading-relaxed">
@@ -742,7 +777,58 @@ export function InvestigationView() {
               )}
             </Card>
 
+            {/* v0.5: uploaded evidence -> suggestions only */}
+            {readOnly && (
+              <Card
+                id="remediation-section"
+                title="Suggested Remediation (read-only)"
+                subtitle="Checked against the same evidence gates as sandbox plans, then kept as advice. OpsPilot cannot execute anything for uploaded incidents."
+              >
+                {suggested.length ? (
+                  <ol className="space-y-2" aria-label="Suggested remediation">
+                    {suggested.map((p) => (
+                      <li key={p.step} className="rounded-lg border border-border bg-panel-2/60 p-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono font-bold text-muted">{p.step}.</span>
+                          <span className="font-mono font-semibold text-text">{p.action_type}</span>
+                          <Badge>{p.role}</Badge>
+                          <Badge tone="purple">suggestion · not executed</Badge>
+                        </div>
+                        <div className="mt-1 font-mono text-[11px] text-text-muted">
+                          {Object.entries(p.parameters).map(([k, val]) => `${k}=${val}`).join(" · ")}
+                        </div>
+                        {p.rationale && <p className="mt-1 text-text-muted">{p.rationale}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <Empty>
+                    {v && TERMINAL.has(v.status)
+                      ? "No remediation step was supported well enough by the uploaded evidence to suggest. See the next investigation steps in the report."
+                      : "Suggestions appear after the root-cause analysis."}
+                  </Empty>
+                )}
+                {!!v?.result?.rejected_proposals?.length && (
+                  <div className="mt-4 rounded-lg border border-border bg-panel-2/40 p-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
+                      Model proposals not suggested ({v.result.rejected_proposals.length})
+                    </h4>
+                    <ul className="mt-1.5 space-y-1 text-xs text-text-muted">
+                      {v.result.rejected_proposals.map((r, i) => (
+                        <li key={i}>
+                          <code className="font-mono text-text">{String(r.proposal.action_type)}</code> —{" "}
+                          {r.category ? `${r.category}: ` : ""}
+                          {r.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {/* Remediation & Deterministic Safety Gates Card */}
+            {!readOnly && (
             <Card
               id="remediation-section"
               title="Remediation Plan & Safety Gates"
@@ -832,6 +918,7 @@ export function InvestigationView() {
                 <Empty>No remediation action proposed.</Empty>
               )}
             </Card>
+            )}
 
             {/* Formal RCA Postmortem Report */}
             {report.data && (
@@ -839,13 +926,27 @@ export function InvestigationView() {
                 title="RCA Postmortem Report"
                 subtitle="Structured engineering incident report with evidence citations"
                 actions={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setShowReport((s) => !s)}
-                  >
-                    {showReport ? "Collapse Report" : "Expand Report"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        downloadText(
+                          `RCA-${incident.data?.reference ?? id.slice(0, 8)}.md`,
+                          report.data!.markdown,
+                        )
+                      }
+                    >
+                      Download Markdown
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setShowReport((s) => !s)}
+                    >
+                      {showReport ? "Collapse Report" : "Expand Report"}
+                    </Button>
+                  </div>
                 }
               >
                 {showReport && (

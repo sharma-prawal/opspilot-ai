@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import Field
 
@@ -34,7 +35,8 @@ class Incident(Contract):
     severity: Severity
     status: IncidentStatus
     service: ServiceName
-    environment_id: uuid.UUID
+    environment_id: uuid.UUID | None = Field(default=None, description="Sandbox environment (simulator incidents)")
+    evidence_source: Literal["simulator", "upload"] = "simulator"
     detected_at: UtcDatetime
     created_at: UtcDatetime
 

@@ -8,6 +8,7 @@ import { api, clearSession, getSession } from "@/lib/api";
 const LINKS = [
   { href: "/", label: "Overview" },
   { href: "/incidents", label: "Incidents" },
+  { href: "/incidents/new", label: "Analyze files" },
   { href: "/architecture", label: "Architecture" },
   { href: "/integrations", label: "Integrations" },
   { href: "/guide", label: "Guide" },
@@ -52,8 +53,10 @@ export function Nav() {
         const active =
           l.href === "/"
             ? path === "/"
-            : path.startsWith(l.href) ||
-              (l.href === "/incidents" && path.startsWith("/investigations"));
+            : l.href === "/incidents"
+            ? (path.startsWith("/incidents") && !path.startsWith("/incidents/new")) ||
+              path.startsWith("/investigations")
+            : path.startsWith(l.href);
         return (
           <Link
             key={l.href}

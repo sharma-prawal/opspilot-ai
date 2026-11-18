@@ -1,0 +1,581 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "checkout-api"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "example"
+     },
+     "spans": [
+      {
+       "traceId": "e012498f938f5c4cafca7537a520918d",
+       "spanId": "0a8bad7fade4fbdb",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794472380000000000",
+       "endTimeUnixNano": "1794472380164000000",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "e012498f938f5c4cafca7537a520918d",
+       "spanId": "ed05ec41cf6e7f3f",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794472380005000192",
+       "endTimeUnixNano": "1794472380154000128",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "0a8bad7fade4fbdb"
+      },
+      {
+       "traceId": "1ca0aa30dd21760a98132302c89cf98e",
+       "spanId": "954c1ff47bda0e7e",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794473100000000000",
+       "endTimeUnixNano": "1794473100135000064",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "1ca0aa30dd21760a98132302c89cf98e",
+       "spanId": "72895d7e7a42ba35",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794473100005000192",
+       "endTimeUnixNano": "1794473100124999936",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "954c1ff47bda0e7e"
+      },
+      {
+       "traceId": "0c095695b85cb5f70c20a3e7525a5e10",
+       "spanId": "5fc7e32a5056bc08",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794473820000000000",
+       "endTimeUnixNano": "1794473820164000000",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "0c095695b85cb5f70c20a3e7525a5e10",
+       "spanId": "ab7087c114da68c3",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794473820005000192",
+       "endTimeUnixNano": "1794473820154000128",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "5fc7e32a5056bc08"
+      },
+      {
+       "traceId": "82df1b7d69d53c46d580c484b616da00",
+       "spanId": "1adaaac8b11ab88a",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794474900000000000",
+       "endTimeUnixNano": "1794474902064999936",
+       "status": {
+        "code": 2,
+        "message": "payment authorization failed"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "82df1b7d69d53c46d580c484b616da00",
+       "spanId": "69001472b6f49bc8",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794474900005000192",
+       "endTimeUnixNano": "1794474902055000064",
+       "status": {
+        "code": 2,
+        "message": "504 Gateway Timeout"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "1adaaac8b11ab88a"
+      },
+      {
+       "traceId": "3fcb0dbfa939445ef8303145c30ff945",
+       "spanId": "e6cb24b6d50ba23a",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794475080000000000",
+       "endTimeUnixNano": "1794475082064999936",
+       "status": {
+        "code": 2,
+        "message": "payment authorization failed"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "3fcb0dbfa939445ef8303145c30ff945",
+       "spanId": "17dfe9505600953d",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794475080005000192",
+       "endTimeUnixNano": "1794475082055000064",
+       "status": {
+        "code": 2,
+        "message": "504 Gateway Timeout"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "e6cb24b6d50ba23a"
+      },
+      {
+       "traceId": "aa9010691fe9497338902e27ff88091d",
+       "spanId": "774cade7543ba615",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794475260000000000",
+       "endTimeUnixNano": "1794475262064999936",
+       "status": {
+        "code": 2,
+        "message": "payment authorization failed"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "aa9010691fe9497338902e27ff88091d",
+       "spanId": "f0a02197ee73b699",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794475260005000192",
+       "endTimeUnixNano": "1794475262055000064",
+       "status": {
+        "code": 2,
+        "message": "504 Gateway Timeout"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "774cade7543ba615"
+      },
+      {
+       "traceId": "26b6a712501afdae4a79678ed8067846",
+       "spanId": "b14707a88d7898f9",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794475440000000000",
+       "endTimeUnixNano": "1794475442064999936",
+       "status": {
+        "code": 2,
+        "message": "payment authorization failed"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "26b6a712501afdae4a79678ed8067846",
+       "spanId": "9faeac182ee710eb",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794475440005000192",
+       "endTimeUnixNano": "1794475442055000064",
+       "status": {
+        "code": 2,
+        "message": "504 Gateway Timeout"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "b14707a88d7898f9"
+      },
+      {
+       "traceId": "b5c1313aec7365fb30722744933fabdb",
+       "spanId": "389762e4b1e3e53d",
+       "name": "POST /api/checkout",
+       "kind": 2,
+       "startTimeUnixNano": "1794475620000000000",
+       "endTimeUnixNano": "1794475622064999936",
+       "status": {
+        "code": 2,
+        "message": "payment authorization failed"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ]
+      },
+      {
+       "traceId": "b5c1313aec7365fb30722744933fabdb",
+       "spanId": "503e8e3a32d0e80c",
+       "name": "POST payment-service /v1/charges",
+       "kind": 3,
+       "startTimeUnixNano": "1794475620005000192",
+       "endTimeUnixNano": "1794475622055000064",
+       "status": {
+        "code": 2,
+        "message": "504 Gateway Timeout"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "peer.service",
+         "value": {
+          "stringValue": "payment-service"
+         }
+        }
+       ],
+       "parentSpanId": "389762e4b1e3e53d"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "payment-service"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "example"
+     },
+     "spans": [
+      {
+       "traceId": "e012498f938f5c4cafca7537a520918d",
+       "spanId": "11963b7f3084c656",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794472380008000000",
+       "endTimeUnixNano": "1794472380147000064",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "ed05ec41cf6e7f3f"
+      },
+      {
+       "traceId": "1ca0aa30dd21760a98132302c89cf98e",
+       "spanId": "54e6c9772c9129fb",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794473100008000000",
+       "endTimeUnixNano": "1794473100118000128",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "72895d7e7a42ba35"
+      },
+      {
+       "traceId": "0c095695b85cb5f70c20a3e7525a5e10",
+       "spanId": "41f5393d8f8e2858",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794473820008000000",
+       "endTimeUnixNano": "1794473820147000064",
+       "status": {
+        "code": 1
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "ab7087c114da68c3"
+      },
+      {
+       "traceId": "82df1b7d69d53c46d580c484b616da00",
+       "spanId": "eb417ac030381fc4",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794474900008000000",
+       "endTimeUnixNano": "1794474902048000000",
+       "status": {
+        "code": 2,
+        "message": "card-vault client: connection pool exhausted (max 5)"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "69001472b6f49bc8"
+      },
+      {
+       "traceId": "3fcb0dbfa939445ef8303145c30ff945",
+       "spanId": "78033a08aa5b400b",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794475080008000000",
+       "endTimeUnixNano": "1794475082048000000",
+       "status": {
+        "code": 2,
+        "message": "card-vault client: connection pool exhausted (max 5)"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "17dfe9505600953d"
+      },
+      {
+       "traceId": "aa9010691fe9497338902e27ff88091d",
+       "spanId": "897cb769395a2524",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794475260008000000",
+       "endTimeUnixNano": "1794475262048000000",
+       "status": {
+        "code": 2,
+        "message": "card-vault client: connection pool exhausted (max 5)"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "f0a02197ee73b699"
+      },
+      {
+       "traceId": "26b6a712501afdae4a79678ed8067846",
+       "spanId": "eda3d654e9b505d4",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794475440008000000",
+       "endTimeUnixNano": "1794475442048000000",
+       "status": {
+        "code": 2,
+        "message": "card-vault client: connection pool exhausted (max 5)"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "9faeac182ee710eb"
+      },
+      {
+       "traceId": "b5c1313aec7365fb30722744933fabdb",
+       "spanId": "1314f89e0c37c88b",
+       "name": "POST /v1/charges",
+       "kind": 2,
+       "startTimeUnixNano": "1794475620008000000",
+       "endTimeUnixNano": "1794475622048000000",
+       "status": {
+        "code": 2,
+        "message": "card-vault client: connection pool exhausted (max 5)"
+       },
+       "attributes": [
+        {
+         "key": "http.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        }
+       ],
+       "parentSpanId": "503e8e3a32d0e80c"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

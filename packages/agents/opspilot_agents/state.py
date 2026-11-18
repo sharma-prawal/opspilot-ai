@@ -40,6 +40,7 @@ class InvestigationState(TypedDict, total=False):
     rca: dict[str, Any] | None
     proposed_action: dict[str, Any] | None
     remediation_plan: list[dict[str, Any]]
+    suggested_remediation: list[dict[str, Any]]  # v0.5: read-only (uploaded evidence) analyses only
     plan_index: int
     executions: list[dict[str, Any]]
     outcome: dict[str, Any] | None

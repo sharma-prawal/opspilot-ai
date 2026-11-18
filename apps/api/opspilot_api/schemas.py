@@ -9,8 +9,10 @@ from typing import Annotated, Any
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from opspilot_shared.domain.actions import ApprovalDecisionKind
+from opspilot_shared.domain.common import ServiceName, Severity
 from opspilot_shared.domain.knowledge import RetrievalFilters, RetrievalMode
 from opspilot_shared.redaction import redact
+from opspilot_shared.uploads.model import MAX_FILE_BYTES, MAX_FILES
 
 # Every free-form JSON field that leaves the API passes the central redaction policy (audit finding E).
 RedactedJson = Annotated[dict[str, Any], AfterValidator(redact)]
@@ -22,6 +24,30 @@ class Dto(BaseModel):
 
 class SimulateRequest(BaseModel):
     scenario: str = Field(default="INC-001", pattern=r"^(INC|NEG)-\d{3}$")
+
+
+class UploadFileIn(BaseModel):
+    """One uploaded file, read as text by the browser. Only the base name is used; content is untrusted data."""
+
+    name: str = Field(min_length=1, max_length=200)
+    content: str = Field(max_length=MAX_FILE_BYTES)
+    service: str | None = Field(default=None, max_length=63, description="service for records that name none")
+
+
+class UploadPreviewRequest(BaseModel):
+    files: list[UploadFileIn] = Field(min_length=1, max_length=MAX_FILES)
+    timezone: str = Field(default="UTC", max_length=64, description="IANA zone for timestamps without an offset")
+    incident_time: str | None = Field(default=None, max_length=64)
+    service: ServiceName | None = None
+    affected_services: list[ServiceName] = Field(default_factory=list, max_length=6)
+
+
+class UploadIncidentRequest(UploadPreviewRequest):
+    title: str = Field(min_length=3, max_length=300)
+    description: str = Field(default="", max_length=4000)
+    service: ServiceName
+    severity: Severity = Severity.SEV2
+    incident_time: str = Field(min_length=10, max_length=64)
 
 
 class InvestigationOut(Dto):
