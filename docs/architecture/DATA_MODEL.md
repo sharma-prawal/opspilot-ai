@@ -93,6 +93,18 @@ erDiagram
   `service_source`), `affected_services`, `timezone`, `storage_dir` (raw copies under `UPLOAD_DIR`). Only the
   application role can read it; the MCP roles have no grant.
 
+## Connected telemetry snapshots (v0.6, migration 0011)
+
+- `ops.incidents.evidence_source` also accepts `connector` (no environment, like `upload`).
+- A connected incident has one `ops.uploaded_datasets` row:
+  - `files` is empty;
+  - `queries` (new JSONB column, `[]` for uploads) holds the provenance of each Loki/Prometheus query;
+  - `records` holds the normalized logs and metrics (`source` = `<connector>/<template>/<service>:entry|point N`,
+    `ts_original` as returned, `tz` = `epoch`, `service_source` `record` or `query`, metric `unit` and `labels`) and
+    `collected` (services per signal whose queries succeeded);
+  - `summary` adds `window`, `connectors`, `redactions` and `collected`.
+- Deleted with the incident, like uploads.
+
 ## Status enumerations
 
 - Incident: `open → investigating → awaiting_approval → mitigated | resolved`, or `open` again on failure.

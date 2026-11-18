@@ -45,7 +45,8 @@ calls to the action tool without approval fail, (d) replayed approvals are rejec
 ## Data
 
 All datasets are synthetic and generated in this repository. No customer or production data. Since v0.5 an
-operator can upload their own sanitized files (see below); they stay local.
+operator can upload their own sanitized files, and since v0.6 query their own Loki/Prometheus (see below). Both
+stay local.
 
 ## Uploaded evidence (v0.5)
 
@@ -61,6 +62,34 @@ operator can upload their own sanitized files (see below); they stay local.
 - Uploaded incidents are read-only (D105): no approval request, no execution, no recovery claim. The normalized
   records are readable by the application role only (no MCP role grant).
 - Retention: delete from the incident page or `make uploads-purge` (files, records, investigations, checkpoints).
+
+## Connected observability (v0.6)
+
+Full detail: [CONNECTORS.md](../integrations/CONNECTORS.md#security). Decisions D109–D112.
+
+- **Destinations.** Only `LOKI_URL` / `PROMETHEUS_URL` from the API environment. Requests carry connector and
+  template IDs, service slugs and a window. A query, URL or path field is rejected with 422. Base URLs with
+  credentials, a query or a fragment are refused at start-up.
+- **Read-only transport** (`ReadOnlyHttp`):
+  - GET only, to a fixed per-connector allowlist: `query_range`, `labels`, `label/<label>/values`, `status/buildinfo`;
+  - redirects refused, `trust_env=False` (no proxy variables or netrc);
+  - connect/read timeouts and a streamed response-size cap.
+  - Tests assert that only GETs to these paths of the configured hosts are made.
+- **Bounds.** Window ≤ 6 h and not in the future, ≤ 40 queries, a line limit per Loki query, a series limit per
+  Prometheus query, step ≈ window/240 (≥ 15 s).
+- **Credentials.**
+  - Bearer or basic auth from the environment; sent only over https or to loopback.
+  - Never returned: the connector list shows the auth mode only.
+  - Configured secrets and credential-like values are replaced in every error message.
+  - Log lines are redacted like uploads.
+- **Operator boundary.** Connection tests, service discovery, previews and creation are operator-only BFF/API
+  mutations. A backend 401/403 is reported as a per-query `auth_error` (HTTP 200), never as an HTTP 401.
+- **Read-only incidents.** Connected incidents follow D105: the investigation reads the stored snapshot only and
+  never calls the backend; there is no approval request, no execution and no recovery claim.
+- **Residual risk.**
+  - OpsPilot cannot verify that a token is read-only: use read-only credentials.
+  - A configured URL may point at an internal host by design (that is the operator's choice), but only that host.
+  - Tested only against local containers with synthetic data.
 
 ## Safety gates on model proposals (Phase B)
 
