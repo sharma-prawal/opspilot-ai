@@ -30,6 +30,8 @@ apps/web/playwright-report/
 # Runtime artefacts
 .run/
 *.log
+# synthetic example served by the web app (v0.5); every other .log stays ignored
+!/apps/web/public/examples/uploads/checkout-api.log
 datasets/evaluation/results/*.tmp.json
 
 # OS / editors

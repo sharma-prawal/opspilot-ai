@@ -1,0 +1,162 @@
+2026-11-12T08:30:26.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 88 ms trace_id=6c737db5f67fdd09273a03a6dc911d85
+2026-11-12T08:30:52.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 123 ms trace_id=2ad87974037fef1d4832d4f47f543240
+2026-11-12T08:31:36.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 119 ms trace_id=9eb4d1f77142ade9ae12f4068f9bba41
+2026-11-12T08:32:12.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 142 ms trace_id=513fb6efddaa9b8a851ab873dfe367de
+2026-11-12T08:32:53.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 167 ms trace_id=1445f0ea5f00e2f3e04abb7057341a79
+2026-11-12T08:33:20.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 129 ms trace_id=adc56f566fbd7c81211c82b80421a0c6
+2026-11-12T08:34:04.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 94 ms trace_id=84431f86046c0aed5807460fefc54c9c
+2026-11-12T08:34:34.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 85 ms trace_id=bb2bc6ca25e0d176a7f35ca0fe2ac17f
+2026-11-12T08:35:08.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 137 ms trace_id=6088070ab810c52cc8ea310aefa5babc
+2026-11-12T08:35:46.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 86 ms trace_id=3ec67e61808b6a16c403b77a2a69ad0a
+2026-11-12T08:36:18.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 124 ms trace_id=17f20488109a41bee614af1673337027
+2026-11-12T08:36:40.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 139 ms trace_id=372732456d61929e3998187cd0d02d23
+2026-11-12T08:37:18.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 128 ms trace_id=c9d24b9ff725ca614bc99aa08a07f8a0
+2026-11-12T08:38:01.000Z INFO  [http-nio-8080-exec-9] CheckoutController - POST /api/checkout -> 200 in 186 ms trace_id=c975ae74962ebff9c04ea5ab827c90c5
+2026-11-12T08:38:41.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 187 ms trace_id=652fd4b143b9d062756eacd6df2a9adb
+2026-11-12T08:39:07.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 118 ms trace_id=9e10ec28bf4393d7105ae2272cb663a0
+2026-11-12T08:39:56.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 126 ms trace_id=56687c8d50e62b071edfdf381290766b
+2026-11-12T08:40:34.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 190 ms trace_id=b44b5f13207d0d640a99d7723e8f7493
+2026-11-12T08:41:21.000Z INFO  [http-nio-8080-exec-9] CheckoutController - POST /api/checkout -> 200 in 130 ms trace_id=db26d4607ab7b05b6042be5f5c6e4d52
+2026-11-12T08:42:07.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 121 ms trace_id=4b9ae30c33f060900c8c93076a0b1ff8
+2026-11-12T08:42:07.000Z DEBUG [main] VaultConfig - refreshed client credentials token=sk_test_EXAMPLE0000000
+2026-11-12T08:42:29.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 187 ms trace_id=6b50d3fa1dc88ea3d0b899bf4e121688
+2026-11-12T08:43:11.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 135 ms trace_id=35f6719eb9c1fcc6d0d09e120324caee
+2026-11-12T08:43:59.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 97 ms trace_id=f9b5d83531e7aaaf4127e78966eccd8a
+2026-11-12T08:44:43.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 174 ms trace_id=cd6c9601cf86fb773a50db750b79d3f2
+2026-11-12T08:45:32.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 98 ms trace_id=6d4e231359051d1664ea0a50aa530adf
+2026-11-12T08:45:57.000Z INFO  [http-nio-8080-exec-2] CheckoutController - POST /api/checkout -> 200 in 160 ms trace_id=2b05dc1faa38b84ce5c9dec783e46f6d
+2026-11-12T08:46:34.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 125 ms trace_id=1d3e2918d52a0428a987dba2c91f1b2d
+2026-11-12T08:46:55.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 149 ms trace_id=6480b8844b1824dd0140e744b0b88935
+2026-11-12T08:47:27.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 93 ms trace_id=69f443c4598809c22ca68a8d9d75ebb2
+2026-11-12T08:48:17.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 168 ms trace_id=57d07d0ab62ef27ec4e1711c9a29f947
+2026-11-12T08:48:50.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 94 ms trace_id=8b21bdabf99a51c148b7cfe1fe3dfc11
+2026-11-12T08:49:14.000Z INFO  [http-nio-8080-exec-9] CheckoutController - POST /api/checkout -> 200 in 90 ms trace_id=05fd80f972bf34c95b498cd216509410
+2026-11-12T08:50:00.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 128 ms trace_id=d1dc1d8a4462bde0376d9fd11a7ba87e
+2026-11-12T08:50:28.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 157 ms trace_id=3bb5d37a549d0a5d92f3fc5e34f179be
+2026-11-12T08:51:03.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 158 ms trace_id=e811ee8cabbbf5dd510069652041b51b
+2026-11-12T08:51:30.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 116 ms trace_id=f86c4b2aae27e8e49f10515f7fdf3dc4
+2026-11-12T08:52:14.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 144 ms trace_id=aee03fb67fd5121aee3f3081e0072fdf
+2026-11-12T08:52:51.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 166 ms trace_id=6bb5a3c6cc66247bc5cb3645b9de0615
+2026-11-12T08:53:34.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 138 ms trace_id=359d8807932f7c4cd8bb266e83ed1180
+2026-11-12T08:54:11.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 101 ms trace_id=f8c7e69b5da74c55505ff88735bc8ce9
+2026-11-12T08:54:57.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 121 ms trace_id=f1044eb1b8edc18b6f9df47356b4530c
+2026-11-12T08:55:31.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 139 ms trace_id=3aa8058ff2c91551e92087ff68ae3272
+2026-11-12T08:56:03.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 145 ms trace_id=3a3f55b7a37b6762c1e5848bd2661fa2
+2026-11-12T08:56:45.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 147 ms trace_id=06426a9fd4b73d611b63bec2ffb3d255
+2026-11-12T08:57:07.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 131 ms trace_id=cf0c907f281a8030b6628e94cba4c0b3
+2026-11-12T08:57:52.000Z INFO  [http-nio-8080-exec-2] CheckoutController - POST /api/checkout -> 200 in 119 ms trace_id=25f40d14070cd8efc3b6fc7fce738901
+2026-11-12T08:58:20.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 166 ms trace_id=66a24e4d85b4e59b75e349e061c49055
+2026-11-12T08:58:41.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 169 ms trace_id=8701cb54006beb1aab5add891e061bfa
+2026-11-12T08:59:26.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 95 ms trace_id=28dbea9717e59f7089350f23325bc3f2
+2026-11-12T09:00:05.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 132 ms trace_id=b917429090a3695eddd254f6811b5325
+2026-11-12T09:00:51.000Z INFO  [http-nio-8080-exec-2] CheckoutController - POST /api/checkout -> 200 in 115 ms trace_id=a91d414d5558f86f7f9f93fcec9e5b8f
+2026-11-12T09:01:40.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 130 ms trace_id=b733dd6f2037529ceb1befca9a06b135
+2026-11-12T09:02:07.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 81 ms trace_id=0aa4741995b927d77ca6c41d4a1b4491
+2026-11-12T09:02:34.000Z INFO  [http-nio-8080-exec-1] CheckoutController - POST /api/checkout -> 200 in 189 ms trace_id=525cd4384b91d3ad020c396530b528aa
+2026-11-12T09:02:57.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 92 ms trace_id=09f14dafebd8a44430264f788ba1d8c8
+2026-11-12T09:03:25.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 185 ms trace_id=cdef5b652f0e6d71d0e0bbc237eb610d
+2026-11-12T09:04:11.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 98 ms trace_id=08b6dd824c95833eb12e609dd959db4a
+2026-11-12T09:04:35.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 166 ms trace_id=580f5a9af6a805b04e8b72ad84fe9045
+2026-11-12T09:05:03.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 151 ms trace_id=685444d0acc14e4f358bb2aa258d9df5
+2026-11-12T09:05:45.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 181 ms trace_id=c51f81177f4477cf60c214b3a3c35765
+2026-11-12T09:06:28.000Z INFO  [http-nio-8080-exec-2] CheckoutController - POST /api/checkout -> 200 in 98 ms trace_id=4b426aba39d25bcc76c400f0de3f7403
+2026-11-12T09:07:06.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 174 ms trace_id=6e3b54b00c96ac8a81c5b84878260474
+2026-11-12T09:07:36.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 167 ms trace_id=d043dee5223e473599ab714c0ffa14ac
+2026-11-12T09:08:00.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 103 ms trace_id=0d8e8f7dd893cba3d18cdf113cad312a
+2026-11-12T09:08:42.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 80 ms trace_id=ee5f8fe52feeb867db76451d69b484d2
+2026-11-12T09:09:23.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 189 ms trace_id=f2697420c41549e7fcbd1694f5eaf1ce
+2026-11-12T09:09:55.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 127 ms trace_id=a9885bbd83c6391b0ac94fa6cfe4c79d
+2026-11-12T09:10:30.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 111 ms trace_id=a6c1570c686a5e9cb4316e97c265056c
+2026-11-12T09:10:59.000Z INFO  [http-nio-8080-exec-9] CheckoutController - POST /api/checkout -> 200 in 93 ms trace_id=73d9c892baab1594372c0ce5da421788
+2026-11-12T09:11:33.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 161 ms trace_id=88719c5b05fabace32a204b432d78d35
+2026-11-12T09:12:06.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 111 ms trace_id=ca0842f86e984150fb53f9c8996be5c9
+2026-11-12T09:12:46.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 143 ms trace_id=e3fb5e80417ac45d1a2f091df80859f9
+2026-11-12T09:13:22.000Z INFO  [http-nio-8080-exec-5] CheckoutController - POST /api/checkout -> 200 in 165 ms trace_id=c045b60eaeb0af3da4be6ad2d11669e8
+2026-11-12T09:14:05.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2042 ms order_id=ord-28441 trace_id=397e440d904a30a2fe91d7a447d81fc5
+2026-11-12T09:14:45.000Z WARN  [http-nio-8080-exec-9] PaymentClient - retrying payment authorization (attempt 2/2) upstream=payment-service trace_id=49476c31d2c3dc798f9669e470bb1c86
+2026-11-12T09:15:25.000Z ERROR [http-nio-8080-exec-5] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2009 ms order_id=ord-88177 trace_id=f4cb9577426b8059da0c9fd01e27577f
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:16:15.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2089 ms order_id=ord-78446 trace_id=3cada6b97b3f915f9e93cab6d73036a3
+2026-11-12T09:16:58.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2060 ms order_id=ord-81706 trace_id=607cb958f7d940de869fa6808b1355bb
+2026-11-12T09:17:36.000Z ERROR [http-nio-8080-exec-7] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2017 ms order_id=ord-11522 trace_id=d2158846a5c57637d8a86c60ef87f409
+2026-11-12T09:18:02.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2098 ms order_id=ord-54004 trace_id=a3193434b0622372e246bd5b0b469454
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:18:52.000Z ERROR [http-nio-8080-exec-3] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2002 ms order_id=ord-20441 trace_id=685b2eccd4ce388ca37c712040a886f1
+2026-11-12T09:19:26.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2012 ms order_id=ord-87282 trace_id=e91f02e28d14eb3996fffbf512305dff
+2026-11-12T09:19:55.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2012 ms order_id=ord-98768 trace_id=3afe92f602b3265d36dbddd7eeba4537
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:20:37.000Z ERROR [http-nio-8080-exec-7] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2015 ms order_id=ord-16221 trace_id=dcaceddcce9eda5bb716fcb96de03569
+2026-11-12T09:21:19.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2001 ms order_id=ord-37479 trace_id=98aaef8772b6afa6bec7aa6772b9fce8
+2026-11-12T09:21:39.000Z ERROR [http-nio-8080-exec-9] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2089 ms order_id=ord-54522 trace_id=3fee66fd968e1eae507129d96607c52c
+2026-11-12T09:22:17.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 153 ms trace_id=9a07cdd8bf08c06be3d5a4ef1d09ee56
+2026-11-12T09:22:56.000Z ERROR [http-nio-8080-exec-5] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2026 ms order_id=ord-25218 trace_id=51f47701dec2a6a8f0601a5b85c4615f
+2026-11-12T09:23:19.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 170 ms trace_id=28d416be43f0e25fd77144bf10e47ad0
+2026-11-12T09:24:06.000Z ERROR [http-nio-8080-exec-1] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2024 ms order_id=ord-37230 trace_id=dfd8ce9da8bf84a34dfc7506df636f2b
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:24:36.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2097 ms order_id=ord-37791 trace_id=3b0f6b7883949d74072dad11de3696e4
+2026-11-12T09:25:16.000Z ERROR [http-nio-8080-exec-7] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2089 ms order_id=ord-65759 trace_id=dbf42e3af4f706ceba5f3afe85aff9b5
+2026-11-12T09:25:43.000Z INFO  [http-nio-8080-exec-3] CheckoutController - POST /api/checkout -> 200 in 171 ms trace_id=329b094f3f0ae261c67b408032c44a01
+2026-11-12T09:26:07.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2088 ms order_id=ord-94550 trace_id=b92b46fdadbb4b0d464d6bcca964d514
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:26:52.000Z ERROR [http-nio-8080-exec-6] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2093 ms order_id=ord-71399 trace_id=a3c806f18b488a761328e673df054347
+2026-11-12T09:27:18.000Z INFO  [http-nio-8080-exec-4] CheckoutController - POST /api/checkout -> 200 in 95 ms trace_id=f5d26c93dff3f40807e331171fa9e686
+2026-11-12T09:27:44.000Z ERROR [http-nio-8080-exec-9] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2038 ms order_id=ord-10357 trace_id=840fd48e3e6a193f823856d454139574
+2026-11-12T09:28:04.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 131 ms trace_id=58f29fc9d462c37d2c3c887d29120487
+2026-11-12T09:28:41.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2056 ms order_id=ord-57825 trace_id=ab8a9f98d8bd16aeaaa35e349f5e5963
+2026-11-12T09:29:07.000Z ERROR [http-nio-8080-exec-6] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2091 ms order_id=ord-10986 trace_id=ffe6f128934e16587f74b33e46161e41
+2026-11-12T09:29:46.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2096 ms order_id=ord-55576 trace_id=1d8c21e3547eaf5c9f6053999fe67cde
+2026-11-12T09:30:15.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2075 ms order_id=ord-95581 trace_id=282860b3a68926a493dfa22e4ac11091
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:30:46.000Z WARN  [http-nio-8080-exec-8] PaymentClient - retrying payment authorization (attempt 2/2) upstream=payment-service trace_id=f37cdf3ae6489cd19403b345c7663f8b
+2026-11-12T09:31:07.000Z ERROR [http-nio-8080-exec-1] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2024 ms order_id=ord-66755 trace_id=cae79e2f2806a2effd9c180f3a0bc6cf
+2026-11-12T09:31:36.000Z ERROR [http-nio-8080-exec-6] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2018 ms order_id=ord-19839 trace_id=f6576f4ec8f20ed96ad0875cbb0585f9
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:32:23.000Z ERROR [http-nio-8080-exec-3] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2071 ms order_id=ord-86825 trace_id=c12c3c1b1f1ae015fe5eb750d4a4cec5
+2026-11-12T09:33:03.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2048 ms order_id=ord-64338 trace_id=46930cd06b36212eac94075f387bf90e
+2026-11-12T09:33:29.000Z ERROR [http-nio-8080-exec-2] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2065 ms order_id=ord-17588 trace_id=97cb3027f9509746f6047f0604929b1e
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:34:00.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2025 ms order_id=ord-11898 trace_id=0cb23bb4bd73e45af41c87cbc4777451
+2026-11-12T09:34:29.000Z WARN  [http-nio-8080-exec-6] PaymentClient - retrying payment authorization (attempt 2/2) upstream=payment-service trace_id=a32b6fabc5baecf21cd76504632c468d
+2026-11-12T09:35:04.000Z INFO  [http-nio-8080-exec-8] CheckoutController - POST /api/checkout -> 200 in 174 ms trace_id=4adb41d4667bc12c689961b66aa9d93f
+2026-11-12T09:35:43.000Z ERROR [http-nio-8080-exec-4] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2007 ms order_id=ord-77560 trace_id=957e7232e194ad05d3bcd836a9fdcd19
+2026-11-12T09:36:26.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2003 ms order_id=ord-47062 trace_id=eb914e8ba4f09ae9af026f155183ff28
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:36:53.000Z INFO  [http-nio-8080-exec-6] CheckoutController - POST /api/checkout -> 200 in 107 ms trace_id=452e3f708be0f453b50fc3b8efbdacb3
+2026-11-12T09:37:23.000Z ERROR [http-nio-8080-exec-5] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2011 ms order_id=ord-35186 trace_id=8e19be835cb45bdcd4c0c0d256ceff2d
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:38:07.000Z ERROR [http-nio-8080-exec-9] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2006 ms order_id=ord-93211 trace_id=098eaf22df1e57bac4e56bd84df2c220
+2026-11-12T09:38:40.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2042 ms order_id=ord-90137 trace_id=b0c4873c0eb46c62f1f56ac31531fd28
+2026-11-12T09:39:29.000Z ERROR [http-nio-8080-exec-1] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2046 ms order_id=ord-45049 trace_id=a74de16145490324450f5988adf4f34a
+2026-11-12T09:40:04.000Z ERROR [http-nio-8080-exec-7] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2020 ms order_id=ord-50877 trace_id=b98ae975bfac7a166a07a1dda575ec79
+2026-11-12T09:40:49.000Z INFO  [http-nio-8080-exec-9] CheckoutController - POST /api/checkout -> 200 in 93 ms trace_id=f78bb4bcb222441ae78d6ca0f48b57bd
+2026-11-12T09:41:39.000Z ERROR [http-nio-8080-exec-7] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2056 ms order_id=ord-76523 trace_id=d05ad5e8e8898bfb5a7e9eb714421f9d
+2026-11-12T09:42:18.000Z ERROR [http-nio-8080-exec-3] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2018 ms order_id=ord-97080 trace_id=6f5079172ed9f176ec13b5039b3a0a84
+2026-11-12T09:42:38.000Z ERROR [http-nio-8080-exec-9] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2003 ms order_id=ord-15851 trace_id=4faf484e27ac50b88cac4744f26bb1af
+java.net.SocketTimeoutException: Read timed out
+	at com.example.checkout.payment.PaymentClient.authorize(PaymentClient.java:118)
+	at com.example.checkout.CheckoutService.placeOrder(CheckoutService.java:74)
+2026-11-12T09:43:07.000Z ERROR [http-nio-8080-exec-6] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2098 ms order_id=ord-15556 trace_id=2900ae591067913b7cce63cc50b3a504
+2026-11-12T09:43:32.000Z ERROR [http-nio-8080-exec-8] PaymentClient - payment authorization failed: upstream=payment-service status=504 timeout after 2056 ms order_id=ord-98873 trace_id=10a15aa1f4aaa7557ccac34d10ee0bc8
+2026-11-12T09:44:19.000Z INFO  [http-nio-8080-exec-7] CheckoutController - POST /api/checkout -> 200 in 173 ms trace_id=db1b1bac2831e9d2be30f5a1482b85b7
+2026-11-12T09:44:52.000Z WARN  [http-nio-8080-exec-1] PaymentClient - retrying payment authorization (attempt 2/2) upstream=payment-service trace_id=c10e41ef9e09a34ba6315a4832bfbee9
+2026-11-12T09:45:23.000Z WARN  [http-nio-8080-exec-6] PaymentClient - retrying payment authorization (attempt 2/2) upstream=payment-service trace_id=aad6ed461d1927da7946e9c9fbabfc28
