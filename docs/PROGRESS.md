@@ -363,9 +363,14 @@ Phase C1 is not started.
 - Real browser upload: `apps/web/e2e/upload.spec.ts` (Playwright `setInputFiles` from disk, invalid file rejected,
   preview counts and sources, investigation, cited report, Markdown download, deletion with files removed from disk)
   passed on the isolated e2e stack with `E2E_LLM_MODEL=qwen3.5:9b-q4_K_M` (process-level; `.env` untouched): RCA
-  24 s, `analysis_complete`, top hypothesis deploy-7731 (100%), unrelated search-api deploy ranked 10%, suggested
+  24 s, `analysis_complete`, top hypothesis deploy-7731 (model-estimated 100%, uncalibrated), unrelated search-api deploy ranked 10%, suggested
   rollback, nothing executed.
 - `docs/releases/V0.5.0_NOTES.md` prepared.
+- Release maintenance: simulator Playwright spec updated to the current UI (heading "RCA Postmortem Report", exact
+  "mcp read" status, visible scenario select, header "Start investigation" button; assertions unchanged); both
+  `investigation.spec.ts` and `upload.spec.ts` pass on the isolated e2e stack with the configured `qwen3:8b`.
+  Report and UI label hypothesis confidence as model-estimated and uncalibrated. Migration 0010 verified on a clean
+  database and on a v0.4.0-schema database with existing incidents (throwaway databases, dropped afterwards).
 
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 

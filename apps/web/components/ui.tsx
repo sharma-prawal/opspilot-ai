@@ -217,6 +217,7 @@ export function ConfidenceBar({ value }: { value: number }) {
     <div
       className="flex items-center gap-2.5"
       aria-label={`confidence ${percentage} percent (${label})`}
+      title="Model-estimated confidence, not a calibrated probability"
     >
       <div className="h-2 w-28 overflow-hidden rounded-full bg-panel-2 border border-border">
         <div

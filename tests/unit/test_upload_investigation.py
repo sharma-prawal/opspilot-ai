@@ -174,6 +174,8 @@ async def test_uploaded_example_is_analyzed_read_only() -> None:
     assert "Uploaded evidence — read-only analysis" in md and "Suggested remediation (not executed)" in md
     assert "Recommended next investigation steps" in md and "## Remediation" not in md
     assert "_(source: change-events.json:item 2)_" in md  # citations name the uploaded file and record
+    assert "model-estimated confidence 85%" in md and "not calibrated probabilities" in md
+    assert "uncalibrated" in state["outcome"]["reason"]
 
 
 async def test_missing_evidence_gives_an_uncertain_result_with_next_steps() -> None:

@@ -140,8 +140,8 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         )
     if code == "analysis_complete" and not esc.get("reason"):
         reason = (
-            f"Most likely cause ({top:.0%}): {hyps[0]['title']}. Verify it in your environment; any remediation is "
-            "for a human to carry out outside OpsPilot."
+            f"Most likely cause (model-estimated {top:.0%}, uncalibrated): {hyps[0]['title']}. Verify it in your "
+            "environment; any remediation is for a human to carry out outside OpsPilot."
         )
     extra: dict[str, Any] = {}
     if uploaded:
@@ -217,9 +217,15 @@ def render_report(state: dict[str, Any]) -> str:
             imp = rca["impact"]
             lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
     if hyps:
-        lines += ["## Ranked hypotheses", ""]
+        lines += [
+            "## Ranked hypotheses",
+            "",
+            "_Confidence values are the model's own estimates, not calibrated probabilities: even 100% means the model "
+            "found no competing explanation in the evidence, not that the cause is statistically established._",
+            "",
+        ]
         for h in hyps:
-            lines.append(f"### {h['rank']}. {h['title']} — confidence {h['confidence']:.0%}")
+            lines.append(f"### {h['rank']}. {h['title']} — model-estimated confidence {h['confidence']:.0%}")
             lines += ["", f"*Category:* `{h['category']}`", "", h["description"], "", "Supporting evidence:"]
             lines += [
                 f"- `{i}` — {_one_line(ev[i]['summary'])}{_cite(ev[i])}"
