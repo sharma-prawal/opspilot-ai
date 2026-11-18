@@ -65,25 +65,40 @@ every held-out question (MRR 0.603).
 
 ### Analyze your own incident data (v0.5)
 
-Upload sanitized evidence from your own systems on **Analyze files** (`/incidents/new`): application logs
-(`.log`, `.txt`), structured logs, change events and OTLP traces (`.json`), and metric or event exports (`.csv`).
-OpsPilot shows what it extracted from each file (records per signal, rejected rows and why, services, time range,
-sample records with `file:line` sources) before anything is stored, then runs the same LangGraph investigation with
-your local Ollama model.
+Upload evidence exported from your own systems on **Analyze files** (`/incidents/new`), preview what OpsPilot
+extracted, then run the same LangGraph investigation with your local Ollama model.
 
+**Sanitize before uploading.** Remove customer data, personal data and secrets from the files first. OpsPilot redacts
+values that look like credentials (password/token/secret/API-key fields, bearer tokens, AWS keys, private keys) as a
+safety net, but it cannot recognize every kind of sensitive data.
+
+| File | Read as |
+|---|---|
+| `.log`, `.txt` | one entry per line starting with a timestamp (ISO-8601, epoch, or `[18/Nov/2026:10:02:03 +0000]`); level and `key=value` pairs such as `upstream=`, `trace_id=` are recognized; stack-trace lines join the entry above; JSON lines also work |
+| `.json` | an array of objects, an object holding one (`records`, `events`, `logs`, …), JSON Lines, or an OTLP/JSON trace export (`resourceSpans`). Each object becomes a log (message), metric sample (name + numeric value), trace span (trace and span IDs) or change event (deployment, rollback, migration, config change, alert) |
+| `.csv` | a header with a timestamp column, then one numeric column per metric, `metric,value[,unit]` rows, or an event-type column. Units come from headers like `latency (ms)` or suffixes like `_ms`, `_ratio` |
+
+- **Limits:** 5 files per incident, 5 MB each, 8 MB total, 50 000 records.
+- **Preview first.** Before anything is stored you see records per signal, rejected rows and why, services, time
+  range, timezones, redactions and sample records with `file:line` sources.
+- **Nothing invented.** Records without a timestamp or service are rejected, not filled in. Timestamps without an
+  offset are read in the timezone you choose and marked as assumed. A record without a service uses the service you
+  declare for its file.
 - **Read-only.** Uploaded incidents get evidence correlation, ranked hypotheses with citations to your files,
   uncertainty and evidence gaps, recommended next steps, suggested remediation (checked by the same evidence gates)
-  and a downloadable Markdown report. Nothing is executed, no approval is requested, recovery is never claimed.
-- **Nothing invented.** Records without a timestamp or service are rejected, not filled in; timestamps without an
-  offset are read in the timezone you choose and marked as assumed. Live health, configuration, datastore and queue
-  state are not in files, and the report says so.
-- **Untrusted and local.** File content is data, never instructions; credential-like values are redacted on parse;
-  files stay in `UPLOAD_DIR` and the local database. Delete an upload from its incident page or run
-  `make uploads-purge`. Limits: 5 files, 5 MB each, 8 MB total, 50 000 records.
+  and a downloadable Markdown report. No approval is requested, nothing is executed, and recovery is never claimed.
+  Live health, configuration, datastore and queue state cannot come from files; the report lists them as gaps.
+- **Local only.** Raw files are kept under `UPLOAD_DIR` (default `var/uploads`, git-ignored, owner-only
+  permissions) and the normalized records in the local database. Inference uses your local Ollama model; nothing is
+  sent to an external AI API. File content is treated as data, never as instructions.
+- **Deletion.** **Delete uploaded data** on an uploaded incident removes its files, normalized records,
+  investigations and their checkpoints. `make uploads-purge` (API stopped) deletes uploads older than
+  `UPLOAD_RETENTION_DAYS` (default 14); `uv run opspilot uploads list` lists them.
 
-Try it with the synthetic example set in [`apps/web/public/examples/uploads/`](apps/web/public/examples/uploads/)
-(a checkout outage after a payment-service deploy; **Load example into the form** on the upload page). Supported
-shapes and the design are in the in-app guide and D103–D107 in [DECISIONS.md](docs/DECISIONS.md).
+**Example data:** synthetic files for a checkout outage after a payment-service deploy are in
+[`apps/web/public/examples/uploads/`](apps/web/public/examples/uploads/) (a text log, a metrics CSV, change events and
+OTLP traces; regenerate with `scripts/generate_upload_examples.py`). Download them from the upload page, or use
+**Load example into the form**. Design: D103–D108 in [DECISIONS.md](docs/DECISIONS.md).
 
 ### v0.4 reasoning and model comparison
 

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Integer, func, select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,17 +28,22 @@ _log = get_logger(__name__)
 
 
 async def next_incident_reference(s: AsyncSession, day: datetime) -> str:
-    prefix = f"INC-{day:%Y%m%d}-"
-    # Highest existing number + 1 (not a count): uploaded incidents can be deleted (v0.5), and a count would then
-    # hand out a reference that is still in use.
-    highest = (
+    """Next ``INC-YYYYMMDD-NNNN``. The per-day counter row is incremented atomically in the caller's transaction
+    (migration 0010): concurrent creators serialize on its row lock, and numbers are never reused, even after the
+    incident holding the highest one is deleted. A day without a row starts after any reference already present."""
+    key = f"{day:%Y%m%d}"
+    number = (
         await s.execute(
-            select(func.max(func.cast(func.substr(OpsIncident.reference, len(prefix) + 1), Integer))).where(
-                OpsIncident.reference.like(prefix + "%"), OpsIncident.reference.regexp_match(r"^INC-\d{8}-\d+$")
-            )
+            text(
+                "INSERT INTO ops.incident_reference_counters AS c (day, last_number) "
+                "VALUES (CAST(:day AS varchar), 1 + coalesce((SELECT max(substr(reference, 14)::int) "
+                "FROM ops.incidents WHERE reference ~ ('^INC-' || CAST(:day AS varchar) || '-[0-9]+$')), 0)) "
+                "ON CONFLICT (day) DO UPDATE SET last_number = c.last_number + 1 RETURNING c.last_number"
+            ),
+            {"day": key},
         )
     ).scalar_one()
-    return f"{prefix}{(highest or 0) + 1:04d}"
+    return f"INC-{key}-{number:04d}"
 
 
 async def add_event(

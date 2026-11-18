@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -153,6 +155,13 @@ def create_app(
         if code == 500:
             _log.error("unhandled_domain_error", error_class=exc.error_class, error=str(exc))
         return JSONResponse(status_code=code, content={"error": {"class": exc.error_class, "message": str(exc)}})
+
+    @app.exception_handler(RequestValidationError)
+    async def request_invalid(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Same shape as FastAPI's default 422, minus the rejected input: for an upload that is file content, which
+        # may hold credentials, and must not be echoed back to the browser or the BFF (v0.5).
+        detail = [{k: v for k, v in e.items() if k in ("type", "loc", "msg")} for e in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(detail)})
 
     for r in (
         health.router,

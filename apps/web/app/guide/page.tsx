@@ -402,7 +402,12 @@ make dev`}
               <p className="mt-1">A timestamp column plus one numeric column per metric, <code className="font-mono">metric,value[,unit]</code> rows, or an event-type column. Units come from headers like <code className="font-mono">latency (ms)</code> or suffixes like <code className="font-mono">_ms</code>.</p>
             </div>
           </div>
+          <div className="rounded-lg border border-warn/30 bg-warn-soft/30 p-3">
+            <strong className="text-warn">Sanitize before uploading.</strong> Remove customer data, personal data and
+            secrets from your exports. Credential-looking values are redacted on parse as a safety net only.
+          </div>
           <ul className="list-disc space-y-1 pl-4">
+            <li><strong className="text-text">Limits:</strong> 5 files per incident, 5 MB each, 8 MB total, 50,000 records.</li>
             <li><strong className="text-text">Nothing is invented.</strong> Records without a timestamp are rejected; timestamps without an offset are read in the timezone you choose and marked as assumed. A record without a service uses the service you declare for its file, or is rejected.</li>
             <li><strong className="text-text">Citations point at your files.</strong> Every normalized record keeps <code className="font-mono">file:line</code> (or row/item/span) and its original timestamp, and evidence in the RCA shows where it came from.</li>
             <li><strong className="text-text">Read-only.</strong> Uploaded incidents get hypotheses, uncertainty and evidence gaps, recommended next steps, suggested remediation and a downloadable Markdown report. No approval is requested, nothing is executed, and recovery is never claimed.</li>
@@ -412,7 +417,7 @@ make dev`}
           <p>
             Try it with the synthetic example set (a checkout outage after a payment-service deploy): use{" "}
             <strong className="text-text">Load example into the form</strong> on the upload page, or download the files from{" "}
-            <code className="font-mono">/examples/uploads/</code>. Clean up with the delete button on an uploaded incident, or:
+            <code className="font-mono">/examples/uploads/</code>. Delete an upload with <strong className="text-text">Delete uploaded data</strong> on its incident page (removes its files, normalized records, investigations and checkpoints, nothing else), or:
           </p>
           <CodeBlock
             language="bash"

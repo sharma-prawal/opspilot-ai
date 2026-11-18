@@ -310,6 +310,15 @@ class OpsIncident(Base):
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
 
+class OpsIncidentReferenceCounter(Base):
+    """Last incident reference number issued per day (migration 0010); never decremented."""
+
+    __tablename__ = "incident_reference_counters"
+    __table_args__ = {"schema": "ops"}
+    day: Mapped[str] = mapped_column(String(8), primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer)
+
+
 class OpsUploadedDataset(Base):
     """Normalized evidence uploaded for one incident (v0.5). The raw files are kept under ``storage_dir``."""
 

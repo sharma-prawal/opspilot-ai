@@ -242,6 +242,12 @@ export function UploadView() {
         }
       />
 
+      <div role="note" className="rounded-xl border border-warn/30 bg-warn-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
+        <strong>Sanitize your files before uploading.</strong> Remove customer data, personal data and secrets.
+        Values that look like passwords, tokens or keys are redacted automatically as a safety net, but other
+        sensitive data is not detected. Files stay on this machine.
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card title="1. Incident" subtitle="What happened, where and when. The agent treats this text as data, not instructions.">

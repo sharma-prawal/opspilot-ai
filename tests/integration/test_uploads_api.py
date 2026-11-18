@@ -161,6 +161,7 @@ async def test_uploaded_incident_is_investigated_read_only_and_deleted(
     assert sim["evidence_source"] == "simulator" and sim["environment_id"]
     assert (await app_client.post(f"/api/v1/incidents/{sim['id']}/discard")).status_code == 409
 
+    other = (await app_client.post("/api/v1/incidents/upload", json=incident())).json()  # unrelated upload
     gone = await app_client.post(f"/api/v1/incidents/{inc['id']}/discard")
     assert gone.status_code == 200 and gone.json()["files_removed"] is True
     assert not stored.exists()
@@ -171,16 +172,92 @@ async def test_uploaded_incident_is_investigated_read_only_and_deleted(
             await s.execute(text("select count(*) from langgraph.checkpoints where thread_id = :t"), {"t": inv})
         ).scalar_one()
     assert left == 0  # checkpoints derived from the uploaded files are deleted too
+    async with session_factory() as s:
+        for table in ("evidence", "tool_invocations", "workflow_events", "investigations"):
+            rows = await s.execute(
+                text(
+                    f"select count(*) from ops.{table} "
+                    f"where {'id' if table == 'investigations' else 'investigation_id'} = :i"
+                ),
+                {"i": inv},
+            )
+            assert rows.scalar_one() == 0, table
+        assert (
+            await s.execute(text("select count(*) from ops.uploaded_datasets where incident_id = :i"), {"i": inc["id"]})
+        ).scalar_one() == 0
+    # unrelated incidents and their files are untouched
+    assert (await app_client.get(f"/api/v1/incidents/{sim['id']}")).status_code == 200
+    other_ds = (await app_client.get(f"/api/v1/incidents/{other['id']}/dataset")).json()
+    assert (Path(app_client.upload_dir) / other_ds["dataset_id"]).is_dir()  # type: ignore[attr-defined]
+    assert (await app_client.post(f"/api/v1/incidents/{other['id']}/discard")).status_code == 200
 
 
-async def test_references_stay_unique_after_an_upload_is_deleted(app_client: httpx.AsyncClient) -> None:
+async def test_errors_and_previews_do_not_echo_credentials(app_client: httpx.AsyncClient) -> None:
+    secret = "hunter2-SECRET-VALUE"
+    bad_csv = f"timestamp,service,metric,value\n2026-11-12T09:00:00Z,api,password={secret},x\n"
+    r = await app_client.post(
+        "/api/v1/incidents/upload/preview", json={"files": [{"name": "m.csv", "content": bad_csv}]}
+    )
+    assert r.status_code == 200 and r.json()["files"][0]["rejected"] == 1 and secret not in r.text
+    too_big = {"files": [{"name": "a.log", "content": f"token={secret} " + "x" * (5 * 1024 * 1024)}]}
+    r = await app_client.post("/api/v1/incidents/upload/preview", json=too_big)
+    assert r.status_code == 422 and secret not in r.text and len(r.text) < 2000  # rejected input is not echoed
+    r = await app_client.post(
+        "/api/v1/incidents/upload", json=incident(files=[{"name": "a.log", "content": f"api_key={secret}"}])
+    )
+    assert r.status_code == 422 and secret not in r.text
+
+
+async def test_references_are_never_reused_after_deletion(app_client: httpx.AsyncClient) -> None:
     small = incident(
         files=[{"name": "e.log", "content": "2026-11-12T09:10:00Z ERROR boom\n", "service": "checkout-api"}]
     )
-    first = (await app_client.post("/api/v1/incidents/upload", json=small)).json()
-    second = (await app_client.post("/api/v1/incidents/upload", json=small)).json()
-    assert (await app_client.post(f"/api/v1/incidents/{first['id']}/discard")).status_code == 200
-    third = await app_client.post("/api/v1/incidents/upload", json=small)
-    assert third.status_code == 201 and third.json()["reference"] != second["reference"]
-    for inc in (second, third.json()):
+    made = [(await app_client.post("/api/v1/incidents/upload", json=small)).json() for _ in range(2)]
+    highest = max(made, key=lambda i: i["reference"])
+    assert (await app_client.post(f"/api/v1/incidents/{highest['id']}/discard")).status_code == 200
+    after = await app_client.post("/api/v1/incidents/upload", json=small)
+    assert after.status_code == 201
+    number = int(after.json()["reference"].rsplit("-", 1)[1])
+    assert number > int(highest["reference"].rsplit("-", 1)[1])  # the deleted (highest) number is not handed out again
+    for inc in [i for i in made if i is not highest] + [after.json()]:
         await app_client.post(f"/api/v1/incidents/{inc['id']}/discard")
+
+
+async def test_concurrent_reference_allocation_is_unique(session_factory) -> None:  # type: ignore[no-untyped-def]
+    import uuid
+    from datetime import UTC, datetime
+
+    from opspilot_api import repositories as repo
+    from opspilot_shared.db.models import OpsIncident
+
+    day = datetime(2099, 1, 1, tzinfo=UTC)  # a day no other test uses
+    ids: list[uuid.UUID] = []
+
+    async def create() -> str:
+        async with session_factory() as s, s.begin():
+            ref = await repo.next_incident_reference(s, day)
+            await asyncio.sleep(0.01)  # keep transactions overlapping
+            iid = uuid.uuid4()
+            ids.append(iid)
+            s.add(
+                OpsIncident(
+                    id=iid,
+                    reference=ref,
+                    title="t",
+                    description="",
+                    severity="SEV3",
+                    status="open",
+                    service="api",
+                    evidence_source="upload",
+                    environment_id=None,
+                    detected_at=day,
+                )
+            )
+        return ref
+
+    refs = await asyncio.gather(*(create() for _ in range(8)))
+    assert len(set(refs)) == 8 and all(r.startswith("INC-20990101-") for r in refs)
+    async with session_factory() as s, s.begin():
+        await s.execute(text("DELETE FROM ops.incidents WHERE id = ANY(:ids)"), {"ids": ids})
+        nxt = await repo.next_incident_reference(s, day)
+    assert int(nxt.rsplit("-", 1)[1]) > max(int(r.rsplit("-", 1)[1]) for r in refs)  # deletions never rewind it

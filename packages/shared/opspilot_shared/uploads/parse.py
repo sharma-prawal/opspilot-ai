@@ -365,7 +365,7 @@ class _Ctx:
 
     def issue(self, message: str) -> None:
         if len(self.report.issues) < MAX_ISSUES_PER_FILE:
-            self.report.issues.append(message)
+            self.report.issues.append(scrub(message)[0])  # issues may quote a cell or line from the file
         else:
             self.suppressed += 1
 
