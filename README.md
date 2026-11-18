@@ -63,6 +63,28 @@ The deterministic gates and human approval, not the model, produce the correct o
 Held-out retrieval: hybrid Recall@5 0.972. On the agent's actual path, a relevant passage reached the RCA prompt for
 every held-out question (MRR 0.603).
 
+### Analyze your own incident data (v0.5)
+
+Upload sanitized evidence from your own systems on **Analyze files** (`/incidents/new`): application logs
+(`.log`, `.txt`), structured logs, change events and OTLP traces (`.json`), and metric or event exports (`.csv`).
+OpsPilot shows what it extracted from each file (records per signal, rejected rows and why, services, time range,
+sample records with `file:line` sources) before anything is stored, then runs the same LangGraph investigation with
+your local Ollama model.
+
+- **Read-only.** Uploaded incidents get evidence correlation, ranked hypotheses with citations to your files,
+  uncertainty and evidence gaps, recommended next steps, suggested remediation (checked by the same evidence gates)
+  and a downloadable Markdown report. Nothing is executed, no approval is requested, recovery is never claimed.
+- **Nothing invented.** Records without a timestamp or service are rejected, not filled in; timestamps without an
+  offset are read in the timezone you choose and marked as assumed. Live health, configuration, datastore and queue
+  state are not in files, and the report says so.
+- **Untrusted and local.** File content is data, never instructions; credential-like values are redacted on parse;
+  files stay in `UPLOAD_DIR` and the local database. Delete an upload from its incident page or run
+  `make uploads-purge`. Limits: 5 files, 5 MB each, 8 MB total, 50 000 records.
+
+Try it with the synthetic example set in [`apps/web/public/examples/uploads/`](apps/web/public/examples/uploads/)
+(a checkout outage after a payment-service deploy; **Load example into the form** on the upload page). Supported
+shapes and the design are in the in-app guide and D103–D107 in [DECISIONS.md](docs/DECISIONS.md).
+
 ### v0.4 reasoning and model comparison
 
 [MODEL_COMPARISON_V0.4.md](docs/evaluation/MODEL_COMPARISON_V0.4.md) diagnoses the qwen3:8b traces (rollbacks
@@ -119,7 +141,8 @@ sample, planner robustness, per-server OS isolation for MCP, INC-004/005, OIDC o
 v0.2.1 received a **conditional** sign-off from the final independent verification
 ([report](docs/audits/PHASE_C0_H_INDEPENDENT_VERIFICATION.md)). These limits apply:
 
-1. **Experimental, local-first only.** One machine, local models, services bound to `127.0.0.1`.
+1. **Experimental, local-first only.** One machine, local models, services bound to `127.0.0.1`. Uploaded-file
+   analysis (v0.5) is read-only and understands common log, JSON and CSV shapes, not every format.
 2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
 3. **One execution owner per database.** A second API worker, CLI demo or evaluation run on the same database is
    refused. Multi-worker operation is unsupported.
@@ -182,6 +205,7 @@ Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. W
 | `make test` | deterministic Python + web unit tests (no model needed) |
 | `make test-live` / `make e2e` | live-model tests / Playwright UI tests on an isolated stack (API :8100 on `opspilot_test`, web :3100; safe beside `make dev`) |
 | `make db-roles` | create/refresh least-privilege DB roles for the MCP servers |
+| `make uploads-purge` / `uv run opspilot uploads list` | delete uploaded incidents older than `UPLOAD_RETENTION_DAYS` (files, records, checkpoints; stop the API first) / list uploads |
 | `make lint` | ruff, mypy --strict, import-linter, ESLint, tsc |
 | `make evaluate` | retrieval (development + held-out) and agent evaluation over all scenarios → `docs/evaluation/BASELINE.md` |
 

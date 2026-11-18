@@ -65,7 +65,11 @@ FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema a
 | GET | `/api/v1/incidents?status=` | list |
 | GET | `/api/v1/incidents/scenarios` | available simulator scenarios |
 | POST 🔒 | `/api/v1/incidents/simulate` | `{"scenario": "INC-001"}` → `201` new environment + incident |
-| GET | `/api/v1/incidents/{id}` | incident |
+| POST 🔒 | `/api/v1/incidents/upload/preview` | v0.5. `{"files": [{"name", "content", "service"?}], "timezone", "incident_time"?, "service"?, "affected_services"}` → per-file reports (format, records by signal, rejected, issues), summary, coverage warnings, sample records. Stores nothing. `422` for unsupported types or exceeded limits |
+| POST 🔒 | `/api/v1/incidents/upload` | v0.5. Preview body plus `title`, `description`, `service`, `severity`, `incident_time` → `201` incident with `evidence_source: "upload"` and `environment_id: null`. `422` if no file is usable or no log/metric/trace belongs to `service` |
+| GET | `/api/v1/incidents/{id}/dataset` | v0.5. Uploaded files, summary, samples and warnings of an uploaded incident (`404` for simulator incidents) |
+| POST 🔒 | `/api/v1/incidents/{id}/discard` | v0.5. Deletes an uploaded incident with its files, records, investigations and checkpoints; `409` for simulator incidents or while an investigation is active |
+| GET | `/api/v1/incidents/{id}` | incident (v0.5: includes `evidence_source`; `environment_id` is null for uploads) |
 | GET | `/api/v1/incidents/{id}/investigations` | investigations for the incident |
 | POST 🔒 | `/api/v1/incidents/{id}/investigations` | start → `202 {"investigation_id", "status", "status_url"}`; `409` if one is already active (DB-enforced; concurrent duplicates answer 409 even at the admission limit); `429` at the admission limit, with nothing written. A `202` row is durable: if dispatch fails it is re-dispatched by the maintenance sweep |
 

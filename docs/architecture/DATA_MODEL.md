@@ -7,7 +7,7 @@ except `langgraph.*`, which is owned and migrated by `langgraph-checkpoint-postg
 
 | Schema | Owner (single writer) | Purpose |
 |---|---|---|
-| `ops` | API (one exception: the action server writes `action_requests.status` for the execution claim, C0 H) | incidents, investigations, evidence, workflow events, action requests, outbox, audit log |
+| `ops` | API (one exception: the action server writes `action_requests.status` for the execution claim, C0 H) | incidents, investigations, evidence, workflow events, action requests, outbox, audit log, uploaded datasets (v0.5) |
 | `kb` | RAG ingestion | documents, chunks (+ embeddings, tsvector), ingestion runs, retrieval traces |
 | `sim` | Simulator (+ action server via simulator API) | synthetic environment: services, dependencies, deployments, config changes, logs, metrics |
 | `langgraph` | LangGraph checkpointer | checkpoints, blobs, writes, checkpointer migrations |
@@ -82,6 +82,16 @@ erDiagram
     tsvector tsv "generated, GIN"
   }
 ```
+
+## Uploaded evidence (v0.5, migration 0009)
+
+- `ops.incidents.evidence_source`: `simulator` (has `environment_id`) or `upload` (no environment); a check
+  constraint keeps them consistent.
+- `ops.uploaded_datasets` (one per uploaded incident, `ON DELETE CASCADE`): `files` (per-file reports: sanitized
+  name, size, SHA-256, format, record counts, rejected rows, issues), `summary` (counts, services, time range,
+  samples, warnings), `records` (normalized logs, metrics, spans and events with `source`, `ts_original`, `tz`,
+  `service_source`), `affected_services`, `timezone`, `storage_dir` (raw copies under `UPLOAD_DIR`). Only the
+  application role can read it; the MCP roles have no grant.
 
 ## Status enumerations
 

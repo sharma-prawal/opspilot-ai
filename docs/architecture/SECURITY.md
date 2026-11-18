@@ -44,7 +44,23 @@ calls to the action tool without approval fail, (d) replayed approvals are rejec
 
 ## Data
 
-All datasets are synthetic and generated in this repository. No customer or production data.
+All datasets are synthetic and generated in this repository. No customer or production data. Since v0.5 an
+operator can upload their own sanitized files (see below); they stay local.
+
+## Uploaded evidence (v0.5)
+
+- File content is untrusted data. It reaches the model only inside the fenced `<evidence>` block, like simulator
+  logs; incident title and description are treated the same way.
+- Only `.log`, `.txt`, `.json` and `.csv` are accepted, as text; nothing is executed or rendered as HTML. File names
+  are reduced to a sanitized base name; raw copies are written under `UPLOAD_DIR/<dataset id>/` with
+  server-generated names and mode 0600, inside a 0700 directory, and are never read back. No tool argument is a path.
+- Credential-like values (password/token/secret/api key/authorization/cookie keys, bearer and basic schemes, AWS
+  access keys, PEM private keys) are redacted at parse time, before storage or prompting.
+- Limits bound memory: 5 files, 5 MB each, 8 MB total, 50 000 records; the BFF refuses bodies above 12 MB. Upload,
+  preview and delete are operator-only, CSRF-checked BFF mutations.
+- Uploaded incidents are read-only (D105): no approval request, no execution, no recovery claim. The normalized
+  records are readable by the application role only (no MCP role grant).
+- Retention: delete from the incident page or `make uploads-purge` (files, records, investigations, checkpoints).
 
 ## Safety gates on model proposals (Phase B)
 
