@@ -1,7 +1,8 @@
 // All browser traffic goes through the same-origin BFF (/api/ops/*). The operator token is
 // attached server-side by the route handler and never reaches the browser.
 import type {
-  ActionRequest, DependencyHealth, Evidence, Incident, Investigation, KbDocument, Overview, SearchResponse,
+  ActionRequest, ConnectedIncidentRequest, ConnectedPreview, ConnectedRequest, ConnectionStatus, ConnectorId,
+  ConnectorList, DependencyHealth, Evidence, Incident, Investigation, KbDocument, Overview, SearchResponse,
   ToolCall, UploadedDataset, UploadIncidentRequest, UploadPreview, UploadRequest, WorkflowEvent,
 } from "./types";
 
@@ -65,6 +66,14 @@ export const api = {
   uploadIncident: (body: UploadIncidentRequest) => post<Incident>("api/v1/incidents/upload", body),
   dataset: (id: string) => request<UploadedDataset>(`api/v1/incidents/${id}/dataset`),
   discardUpload: (id: string) => post<{ incident_id: string; files_removed: boolean }>(`api/v1/incidents/${id}/discard`),
+  // v0.6 connected observability: configured Loki/Prometheus only; requests carry IDs and a window, never a URL.
+  connectors: () => request<ConnectorList>("api/v1/connectors"),
+  testConnector: (id: ConnectorId) => post<ConnectionStatus>(`api/v1/connectors/${id}/test`),
+  connectorServices: (id: ConnectorId, window: { start: string; end: string }) =>
+    post<{ connector: string; services: string[]; error: { kind: string; message: string } | null }>(
+      `api/v1/connectors/${id}/services`, window),
+  connectedPreview: (body: ConnectedRequest) => post<ConnectedPreview>("api/v1/incidents/connected/preview", body),
+  connectedIncident: (body: ConnectedIncidentRequest) => post<Incident>("api/v1/incidents/connected", body),
   incidentInvestigations: (id: string) => request<Investigation[]>(`api/v1/incidents/${id}/investigations`),
   startInvestigation: (id: string) =>
     post<{ investigation_id: string; status: string }>(`api/v1/incidents/${id}/investigations`),

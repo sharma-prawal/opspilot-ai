@@ -4,7 +4,7 @@ export type IncidentStatus = "open" | "investigating" | "awaiting_approval" | "m
 export type InvestigationStatus =
   | "queued" | "running" | "awaiting_approval" | "completed" | "failed" | "cancelled" | "interrupted";
 
-export type EvidenceSource = "simulator" | "upload";
+export type EvidenceSource = "simulator" | "upload" | "connector";
 
 export interface Incident {
   id: string; reference: string; title: string; description: string; severity: string;
@@ -28,7 +28,7 @@ export interface UploadSummary {
 }
 
 export interface NormalizedRecord {
-  ts: string; ts_original: string; tz: string; service: string; service_source: "record" | "file_default";
+  ts: string; ts_original: string; tz: string; service: string; service_source: "record" | "file_default" | "query";
   source: string; level?: string; level_inferred?: boolean; message?: string; metric?: string; value?: number;
   unit?: string; name?: string; status?: string; duration_ms?: number | null; trace_id?: string | null;
   event_type?: string; summary?: string; attributes?: Record<string, unknown>;
@@ -53,8 +53,56 @@ export interface UploadIncidentRequest extends UploadRequest {
 
 export interface UploadedDataset {
   dataset_id: string; incident_id: string; timezone: string; affected_services: string[]; files: UploadFileReport[];
-  summary: UploadSummary & { samples: Record<SignalType, NormalizedRecord[]>; warnings: string[] };
+  queries: QueryProvenance[]; // v0.6 connector snapshots; empty for uploads
+  summary: UploadSummary & {
+    samples: Record<SignalType, NormalizedRecord[]>; warnings: string[];
+    window?: { start: string; end: string }; connectors?: string[];
+  };
   created_at: string; retention_days: number;
+}
+
+// ---- v0.6 connected observability ----------------------------------------------------------------------------
+export type ConnectorId = "loki" | "prometheus";
+
+export interface QueryTemplate {
+  id: string; connector: ConnectorId; label: string; description: string; query: string; metric: string | null;
+  unit: string; default: boolean; source: "built-in" | "file";
+}
+
+export interface ConnectorInfo {
+  id: ConnectorId; kind: ConnectorId; name: string; signal: "log" | "metric"; configured: boolean;
+  endpoint?: string; auth?: string; service_label?: string; tenant?: string | null; templates?: QueryTemplate[];
+  limits?: { timeout_seconds: number; max_window_hours: number; max_log_lines_per_query: number;
+    max_series_per_query: number; max_response_kib: number };
+  problem?: string | null; hint?: string;
+}
+
+export interface ConnectorList { connectors: ConnectorInfo[]; template_problems: string[]; planned: string[]; max_queries: number }
+
+export type ConnectionState = "ok" | "not_configured" | "auth_error" | "unavailable" | "error";
+export interface ConnectionStatus { connector: string; status: ConnectionState; message: string; version?: string | null;
+  latency_ms?: number | null; checked_at?: string }
+
+export interface QueryProvenance {
+  id: string; connector: ConnectorId; connector_name: string; endpoint: string; template: string; template_label: string;
+  service: string; query: string; start: string; end: string; step_seconds: number | null; limit: number | null;
+  status: "ok" | "empty" | "error"; error: { kind: string; message: string } | null; returned: number; rejected: number;
+  redactions: number; truncated: boolean; series: number | null; unit: string; fetched_at: string; duration_ms: number;
+  issues: string[];
+}
+
+export interface ConnectedRequest {
+  sources: { connector: ConnectorId; templates: string[] }[]; service: string; affected_services: string[];
+  start: string; end: string; incident_time: string | null;
+}
+
+export interface ConnectedIncidentRequest extends ConnectedRequest {
+  title: string; description: string; severity: string; incident_time: string;
+}
+
+export interface ConnectedPreview {
+  usable: boolean; summary: UploadSummary; queries: QueryProvenance[]; collected: Record<"log" | "metric", string[]>;
+  warnings: string[]; samples: Record<SignalType, NormalizedRecord[]>;
 }
 
 export interface Hypothesis {

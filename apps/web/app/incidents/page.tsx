@@ -27,12 +27,15 @@ export default function IncidentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Incidents"
-        subtitle="Simulated demo incidents and incidents created from your own uploaded files."
+        subtitle="Simulated demo incidents, and read-only incidents from your own uploaded files or connected Loki/Prometheus telemetry."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SimulateButton picker />
             <Link href="/incidents/new">
               <Button variant="secondary" size="md">Analyze your files</Button>
+            </Link>
+            <Link href="/incidents/new?source=connected">
+              <Button variant="secondary" size="md">Use Loki / Prometheus</Button>
             </Link>
           </div>
         }

@@ -8,7 +8,7 @@ import { api, clearSession, getSession } from "@/lib/api";
 const LINKS = [
   { href: "/", label: "Overview" },
   { href: "/incidents", label: "Incidents" },
-  { href: "/incidents/new", label: "Analyze files" },
+  { href: "/incidents/new", label: "Analyze data" },
   { href: "/architecture", label: "Architecture" },
   { href: "/integrations", label: "Integrations" },
   { href: "/guide", label: "Guide" },

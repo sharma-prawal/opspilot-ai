@@ -31,7 +31,7 @@ import {
 import type { Evidence, WorkflowEvent } from "@/lib/types";
 import { downloadText } from "@/lib/uploads";
 
-/** Where uploaded evidence came from (file and line/row), when the evidence carries it (v0.5). */
+/** Where stored evidence came from (file and line/row, or connector query and entry/point), when known (v0.5/v0.6). */
 function sourceRef(e: Evidence): string | null {
   const d = e.data as { attributes?: { source_ref?: string }; sources?: string; metadata?: { source_ref?: string } };
   return d?.attributes?.source_ref ?? d?.sources ?? d?.metadata?.source_ref ?? null;
@@ -60,7 +60,7 @@ function Stepper({
       {STAGES.map((s, i) => {
         const isActive = i === activeIdx;
         const isDone = visited.has(i);
-        // v0.5: uploaded evidence is analyzed read-only; there is no approval or execution stage
+        // v0.5/v0.6: stored evidence is analyzed read-only; there is no approval or execution stage
         const disabled = readOnly && s.key === "remediate";
         const label = readOnly && s.key === "approval" ? "Suggestions" : disabled ? "Remediate (read-only: off)" : s.label;
 
@@ -436,7 +436,8 @@ export function InvestigationView() {
 
   const outcome = v?.result?.outcome;
   const isAwaitingApproval = v?.status === "awaiting_approval";
-  const readOnly = incident.data?.evidence_source === "upload";
+  const source = incident.data?.evidence_source;
+  const readOnly = source === "upload" || source === "connector"; // v0.5 files / v0.6 telemetry snapshot
   const suggested = v?.result?.suggested_remediation ?? [];
 
   return (
@@ -524,7 +525,16 @@ export function InvestigationView() {
 
       <ErrorNote error={inv.error ?? resume.error ?? cancel.error} />
 
-      {readOnly && (
+      {source === "connector" && (
+        <div className="rounded-xl border border-info/30 bg-info-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
+          <strong>Read-only analysis of connected telemetry.</strong> Logs and metrics come from the Loki/Prometheus
+          snapshot taken when this incident was created (tool server{" "}
+          <code className="font-mono">opspilot-connected-telemetry</code>); runbooks come from the knowledge base.
+          Remediation is suggested, never executed, and recovery is not verified: historical data does not show the
+          current state.
+        </div>
+      )}
+      {source === "upload" && (
         <div className="rounded-xl border border-purple/30 bg-purple-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
           <strong>Read-only analysis of uploaded evidence.</strong> Logs, metrics, traces and change events come from the
           files uploaded for this incident (tool server <code className="font-mono">opspilot-uploaded-evidence</code>);
@@ -782,7 +792,7 @@ export function InvestigationView() {
               <Card
                 id="remediation-section"
                 title="Suggested Remediation (read-only)"
-                subtitle="Checked against the same evidence gates as sandbox plans, then kept as advice. OpsPilot cannot execute anything for uploaded incidents."
+                subtitle="Checked against the same evidence gates as sandbox plans, then kept as advice. OpsPilot cannot execute anything for read-only incidents."
               >
                 {suggested.length ? (
                   <ol className="space-y-2" aria-label="Suggested remediation">
@@ -804,7 +814,7 @@ export function InvestigationView() {
                 ) : (
                   <Empty>
                     {v && TERMINAL.has(v.status)
-                      ? "No remediation step was supported well enough by the uploaded evidence to suggest. See the next investigation steps in the report."
+                      ? `No remediation step was supported well enough by the ${source === "connector" ? "connected telemetry" : "uploaded evidence"} to suggest. See the next investigation steps in the report.`
                       : "Suggestions appear after the root-cause analysis."}
                   </Empty>
                 )}
