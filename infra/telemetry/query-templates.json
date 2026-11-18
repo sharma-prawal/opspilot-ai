@@ -1,0 +1,22 @@
+{
+  "templates": [
+    {
+      "id": "db_pool_in_use",
+      "connector": "prometheus",
+      "label": "DB pool connections in use",
+      "description": "Database connections checked out (db_pool_connections_in_use gauge)",
+      "query": "max(db_pool_connections_in_use{$selector})",
+      "metric": "db_pool_in_use",
+      "unit": "connections"
+    },
+    {
+      "id": "db_pool_max",
+      "connector": "prometheus",
+      "label": "DB pool size",
+      "description": "Configured database pool size (db_pool_connections_max gauge)",
+      "query": "max(db_pool_connections_max{$selector})",
+      "metric": "db_pool_max",
+      "unit": "connections"
+    }
+  ]
+}

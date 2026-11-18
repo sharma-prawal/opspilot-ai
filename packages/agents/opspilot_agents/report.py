@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from opspilot_agents.prompts import is_uploaded
+from opspilot_agents.prompts import is_connected, is_read_only
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
 
@@ -31,6 +31,13 @@ OUTCOMES = {
     # v0.5 read-only analysis of uploaded files: findings and suggestions only, never execution or verified recovery
     "analysis_complete": "Read-only analysis of uploaded evidence: nothing was executed and recovery was not verified.",
     "analysis_inconclusive": "Read-only analysis of uploaded evidence was inconclusive; more evidence is needed.",
+}
+# v0.6: the same read-only outcomes for an incident built from a Loki/Prometheus snapshot
+CONNECTED_OUTCOMES = {
+    "analysis_complete": "Read-only analysis of a connected-telemetry snapshot: nothing was executed and recovery "
+    "was not verified.",
+    "analysis_inconclusive": "Read-only analysis of a connected-telemetry snapshot was inconclusive; more evidence "
+    "is needed.",
 }
 ESCALATE = {
     "not_recovered",
@@ -94,7 +101,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     impact = impact_state(rca)
     verification = state.get("verification") or {}
     withheld = [r for r in state.get("rejected_proposals") or [] if r.get("category") == "withheld_uncertain"]
-    uploaded = is_uploaded(state.get("incident"))
+    uploaded = is_read_only(state.get("incident"))
     if state.get("status") == "failed":
         code = "failed"
     elif uploaded:  # no environment: never an executed, verified, resolved or "no action required" outcome
@@ -136,7 +143,7 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         reason = (
             f"top hypothesis confidence {top:.0%} is below {confidence_threshold:.0%}"
             if hyps
-            else "no hypothesis could be supported by the uploaded evidence"
+            else f"no hypothesis could be supported by the {_evidence_words(state.get('incident'))}"
         )
     if code == "analysis_complete" and not esc.get("reason"):
         reason = (
@@ -146,10 +153,13 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
     extra: dict[str, Any] = {}
     if uploaded:
         extra = {"read_only": True, "suggested_steps": len(state.get("suggested_remediation") or [])}
+    summary = OUTCOMES[code]
+    if is_connected(state.get("incident")):
+        summary = CONNECTED_OUTCOMES.get(code, summary)
     return {
         **extra,
         "code": code,
-        "summary": OUTCOMES[code],
+        "summary": summary,
         "escalate": code in ESCALATE or (uploaded and bool(esc.get("required"))),
         "escalate_to": esc.get("to") or None,
         "reason": reason,
@@ -157,6 +167,10 @@ def determine_outcome(state: dict[str, Any], confidence_threshold: float = 0.6) 
         "steps_planned": len(plan),
         "impact": impact,
     }
+
+
+def _evidence_words(incident: dict[str, Any] | None) -> str:
+    return "connected telemetry" if is_connected(incident) else "uploaded evidence"
 
 
 def _one_line(text: str, limit: int = 220) -> str:
@@ -178,8 +192,15 @@ def render_report(state: dict[str, Any]) -> str:
     outcome = state.get("outcome") or determine_outcome(state)
     hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
-    uploaded = is_uploaded(inc)
-    if uploaded:
+    uploaded = is_read_only(inc)
+    if is_connected(inc):
+        lines += [
+            "> **Connected telemetry — read-only analysis.** Findings come only from a snapshot of Loki logs and "
+            f"Prometheus metrics queried for the incident window (taken {_ts(inc.get('snapshot_at'))}). No action "
+            "was executed and recovery was not verified; the historical data does not show the current state.",
+            "",
+        ]
+    elif uploaded:
         lines += [
             "> **Uploaded evidence — read-only analysis.** Findings come only from the files the user uploaded. "
             "No action was executed and recovery was not verified; live state was not observed.",
@@ -264,6 +285,8 @@ def render_report(state: dict[str, Any]) -> str:
 
     if uploaded:
         lines += _uploaded_sections(state, rca, ev)
+        if is_connected(inc):
+            lines += _query_section(inc)
         return "\n".join(lines + _trailer(state, rca, ev)) + "\n"
 
     lines += ["## Remediation", ""]
@@ -336,9 +359,62 @@ def _cite(e: dict[str, Any]) -> str:
     return f" _(source: {_one_line(str(src), 120)})_" if src else ""
 
 
-def next_steps(state: dict[str, Any]) -> list[str]:
-    """Deterministic follow-up investigation steps for an uploaded-evidence analysis: what is missing and why."""
+def _query_section(inc: dict[str, Any]) -> list[str]:
+    """v0.6 provenance: every connector query behind the snapshot, as run."""
+    queries = inc.get("telemetry_queries") or []
+    if not queries:
+        return []
+    lines = [
+        "## Telemetry queries (provenance)",
+        "",
+        "Evidence citations of the form `<connector>/<template>/<service>:entry|point N` refer to these queries.",
+        "",
+        "| Query | Source | Window (UTC) | Result | Query text |",
+        "|---|---|---|---|---|",
+    ]
+    for q in queries:
+        res = f"{q.get('status')}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
+        step = f", step {q['step_seconds']} s" if q.get("step_seconds") else ""
+        lines.append(
+            f"| `{q.get('id')}` | {q.get('connector_name')} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
+            f"{res} | `{_one_line(str(q.get('query')), 160).replace('`', chr(39))}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _connected_next_steps(state: dict[str, Any]) -> list[str]:
     inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    steps: list[str] = []
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Add or select Prometheus templates that measure errors and latency for {svc} (error ratio, p95 "
+            "latency); without them impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Check that Loki holds {svc} logs under the configured service label for this window.")
+    steps.append(
+        "Review deployment and configuration-change history in your CD and config systems: change events are not "
+        "part of Loki/Prometheus telemetry, so change correlation was not possible."
+    )
+    steps.append("Inspect traces for the failing requests in your tracing backend; dependencies were not observed.")
+    steps.append(
+        f"Check the current health of {svc} in your own monitoring: this analysis used a historical snapshot, not "
+        "live state."
+    )
+    return steps
+
+
+def next_steps(state: dict[str, Any]) -> list[str]:
+    """Deterministic follow-up investigation steps for a read-only analysis: what is missing and why."""
+    inc = state.get("incident") or {}
+    if is_connected(inc):
+        return _connected_next_steps(state)
     svc = inc.get("service") or "the affected service"
     ev = list((state.get("evidence") or {}).values())
     kinds = {e["kind"] for e in ev}
@@ -397,7 +473,10 @@ def _uploaded_sections(state: dict[str, Any], rca: dict[str, Any], ev: dict[str,
         ]
         lines.append("")
     else:
-        lines.append("- No remediation step was supported well enough by the uploaded evidence to suggest.")
+        lines.append(
+            f"- No remediation step was supported well enough by the {_evidence_words(state.get('incident'))} "
+            "to suggest."
+        )
     for r in state.get("rejected_proposals") or []:
         lines.append(
             f"- Not suggested: model proposal `{r['proposal'].get('action_type')}` "
@@ -412,7 +491,7 @@ def _uploaded_sections(state: dict[str, Any], rca: dict[str, Any], ev: dict[str,
 
 def _trailer(state: dict[str, Any], rca: dict[str, Any], ev: dict[str, Any]) -> list[str]:
     lines: list[str] = []
-    if rca.get("evidence_gaps") and not is_uploaded(state.get("incident")):
+    if rca.get("evidence_gaps") and not is_read_only(state.get("incident")):
         lines += ["## Evidence gaps", ""] + [f"- {g}" for g in rca["evidence_gaps"]] + [""]
     tool_errors = [e for e in ev.values() if e["kind"] == "tool_error"]
     if tool_errors:

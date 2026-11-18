@@ -40,7 +40,9 @@ class EventType(StrEnum):
     ALERT = "alert"
 
 
-ServiceSource = Literal["record", "file_default"]
+# record: the record names its service; file_default: the user declared it for the file; query (v0.6): the record
+# came from a connector query scoped to that service (e.g. an aggregated PromQL series without a service label).
+ServiceSource = Literal["record", "file_default", "query"]
 
 
 class _Record(BaseModel):
@@ -50,7 +52,9 @@ class _Record(BaseModel):
     tz: str = Field(description="offset as written, 'epoch' (UTC) or 'assumed <zone>' for timestamps without one")
     service: ServiceName
     service_source: ServiceSource
-    source: str = Field(description="<file>:<line N | row N | item N>")
+    source: str = Field(
+        description="<file>:<line N | row N | item N>, or <connector>/<template>/<service>:<entry|point N>"
+    )
 
 
 class LogRecord(_Record):
@@ -68,6 +72,7 @@ class MetricRecord(_Record):
     metric_original: str
     value: float
     unit: str = Field(default="", description="empty when the file does not state a unit")
+    labels: dict[str, str] = Field(default_factory=dict, description="series labels (v0.6 connector records)")
 
 
 class SpanRecord(_Record):
@@ -121,6 +126,9 @@ class Dataset(BaseModel):
     spans: list[SpanRecord] = Field(default_factory=list)
     events: list[EventRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    # v0.6 connector snapshots: services for which each signal was actually collected ({"log": [...], "metric": [...]}).
+    # None for uploads. A signal not collected for a service is reported as unavailable, never as "nothing found".
+    collected: dict[str, list[str]] | None = None
 
     def all_records(self) -> list[_Record]:
         return [*self.logs, *self.metrics, *self.spans, *self.events]

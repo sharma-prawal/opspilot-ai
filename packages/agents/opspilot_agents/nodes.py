@@ -36,7 +36,7 @@ from opspilot_agents.prompts import (
     PlanOutput,
     RcaOutput,
     applicable_actions,
-    is_uploaded,
+    is_read_only,
     plan_messages,
     rca_messages,
     rca_schema,
@@ -325,10 +325,10 @@ class InvestigationNodes:
             }
             for c in caps
         ]
-        if is_uploaded(incident):  # v0.5: every service the user declared as affected is inspected too
+        if is_read_only(incident):  # v0.5: every service the user declared as affected is inspected too
             for other in [s for s in incident.get("affected_services") or [] if s != service][:4]:
                 queue.append({"capability": "telemetry", "service": other, "reason": "declared affected service"})
-                notes.append(f"telemetry for {other} added (declared affected service in the uploaded incident)")
+                notes.append(f"telemetry for {other} added (declared affected service of the read-only incident)")
         return {
             **update,
             "classification": cls,
@@ -369,7 +369,7 @@ class InvestigationNodes:
         catalog_res = await calls.one("list_service_metrics", {"environment_id": env, "service": svc})
         catalog = {m["metric"]: m["unit"] for m in ((catalog_res.data or {}).get("metrics", []) if catalog_res else [])}
         chosen = [m for m in METRIC_PRIORITY if m in catalog][:MAX_METRICS_PER_SERVICE]
-        if is_uploaded(state["incident"]):  # v0.5: uploaded files name their own metrics; keep them, known ones first
+        if is_read_only(state["incident"]):  # v0.5: uploaded files name their own metrics; keep them, known ones first
             chosen += [m for m in sorted(catalog) if m not in chosen][: MAX_METRICS_PER_SERVICE - len(chosen)]
         results = await calls.many(
             [("query_metrics", {**base, "metric": m}) for m in chosen]
@@ -1220,7 +1220,7 @@ class InvestigationNodes:
         for i, p in enumerate(plan):
             p["step"], p["plan_size"] = i + 1, len(plan)
             p["action_id"] = str(stable_uuid("action", state["investigation_id"], i, p["params_hash"]))
-        if is_uploaded(state["incident"]):
+        if is_read_only(state["incident"]):
             # v0.5 read-only analysis: an uploaded incident has no environment to act on. The validated plan is kept
             # as a suggestion for a human; nothing is proposed for approval, so nothing can be executed or verified.
             return {
@@ -1243,8 +1243,10 @@ class InvestigationNodes:
     async def await_approval(self, state: State) -> Update:
         action = state["proposed_action"]
         assert action is not None
-        if is_uploaded(state["incident"]):  # unreachable by routing; never ask approval for a file-only incident
-            raise ApprovalError("uploaded-evidence investigations are read-only; no action can be approved")
+        if is_read_only(state["incident"]):  # unreachable by routing; never ask approval for a file-only incident
+            raise ApprovalError(
+                "stored-evidence (uploaded or connected) investigations are read-only; no action can be approved"
+            )
         decision = interrupt(
             {
                 "type": "approval_required",
@@ -1283,8 +1285,10 @@ class InvestigationNodes:
     async def execute(self, state: State) -> Update:
         action, approval = state["proposed_action"], state["approval"]
         assert action is not None and approval is not None and approval["decision"] == "approve"
-        if is_uploaded(state["incident"]):
-            raise ApprovalError("uploaded-evidence investigations are read-only; nothing can be executed")
+        if is_read_only(state["incident"]):
+            raise ApprovalError(
+                "stored-evidence (uploaded or connected) investigations are read-only; nothing can be executed"
+            )
         if self.d.actions is None:
             result: dict[str, Any] = {"status": "failed", "message": "no action gateway configured"}
             return {

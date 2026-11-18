@@ -1,0 +1,5 @@
+# Local Prometheus for the OpsPilot connector test setup (v0.6). It scrapes nothing: its only data is the synthetic
+# history backfilled at start-up by prometheus-start.sh.
+global:
+  scrape_interval: 1m
+scrape_configs: []

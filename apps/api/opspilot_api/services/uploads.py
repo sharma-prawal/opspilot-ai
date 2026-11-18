@@ -247,6 +247,7 @@ class UploadService:
             "timezone": ds.timezone,
             "affected_services": ds.affected_services,
             "files": ds.files,
+            "queries": ds.queries or [],
             "summary": ds.summary,
             "created_at": ds.created_at.isoformat(),
             "retention_days": self._retention,
@@ -258,8 +259,8 @@ class UploadService:
             inc = await s.get(OpsIncident, incident_id, with_for_update=True)
             if inc is None:
                 raise NotFoundError(f"incident {incident_id} not found")
-            if inc.evidence_source != "upload":
-                raise ConflictError("only incidents created from uploaded files can be deleted")
+            if inc.evidence_source not in ("upload", "connector"):
+                raise ConflictError("only incidents created from uploaded files or connected telemetry can be deleted")
             active = (
                 await s.execute(
                     select(OpsInvestigation.id).where(
@@ -279,7 +280,8 @@ class UploadService:
                 (
                     await s.execute(
                         select(OpsIncident.id).where(
-                            OpsIncident.evidence_source == "upload", OpsIncident.created_at < cutoff
+                            OpsIncident.evidence_source.in_(("upload", "connector")),
+                            OpsIncident.created_at < cutoff,
                         )
                     )
                 ).scalars()

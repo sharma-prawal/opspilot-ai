@@ -1,9 +1,11 @@
-"""File-backed evidence provider for incidents built from user-uploaded files (v0.5).
+"""Stored-evidence provider for read-only incidents: uploaded files (v0.5) and connector snapshots (v0.6).
 
 The investigation agents call the same read tools for every incident (``search_logs``, ``query_metrics``, …). For an
-uploaded incident those calls are answered here, from the normalized records stored in ``ops.uploaded_datasets``,
-instead of by the simulator-backed MCP read server. Tool-call records name this provider as their server
-(``opspilot-uploaded-evidence``), so traces never present uploaded evidence as simulator data.
+uploaded incident, or one built from a Loki/Prometheus snapshot, those calls are answered here, from the normalized
+records stored in ``ops.uploaded_datasets``, instead of by the simulator-backed MCP read server. Tool-call records
+name the provider as their server (``opspilot-uploaded-evidence`` or ``opspilot-connected-telemetry``), so traces
+never present this evidence as simulator data. A snapshot is answered from what was stored when the incident was
+created; investigations never contact the telemetry backend again.
 
 What an upload cannot contain is reported as a tool error rather than invented: there is no live service health, no
 runtime configuration, no datastore or queue inspection. Knowledge tools (runbooks, past incidents) are not served
@@ -36,7 +38,9 @@ from opspilot_shared.uploads.model import Dataset, EventRecord, EventType, LogRe
 
 _log = get_logger(__name__)
 SERVER = "opspilot-uploaded-evidence"
+CONNECTED_SERVER = "opspilot-connected-telemetry"
 EVIDENCE_SOURCE = "upload"
+READ_ONLY_SOURCES = ("upload", "connector")
 _LEVEL_RANK = {"DEBUG": 0, "INFO": 1, "WARN": 2, "ERROR": 3}
 _DEPLOY_KINDS = {
     EventType.DEPLOYMENT: "application",
@@ -50,6 +54,17 @@ NOT_IN_UPLOAD = {
     "get_datastore_status": "datastore status is not part of uploaded evidence",
     "inspect_queue": "queue state is not part of uploaded evidence",
 }
+NOT_IN_SNAPSHOT = {
+    "get_service_health": "live service health is not observed: this is a historical snapshot of Loki/Prometheus "
+    "telemetry; impact is judged only from its metrics and logs",
+    "get_service_config": "runtime configuration is not part of the connected telemetry",
+    "get_datastore_status": "datastore status is not part of the connected telemetry",
+    "inspect_queue": "queue state is not part of the connected telemetry",
+}
+NO_CHANGE_HISTORY = (
+    "not_available: deployment and configuration-change history is not part of the connected telemetry "
+    "(Loki logs and Prometheus metrics); whether a change happened is unknown"
+)
 
 
 class ToolInputError(ValueError):
@@ -78,18 +93,28 @@ def _short(*parts: str) -> str:
 
 
 class LoadedUpload:
-    __slots__ = ("data", "dataset_id", "incident")
+    __slots__ = ("data", "dataset_id", "incident", "source")
 
-    def __init__(self, dataset_id: uuid.UUID, incident: dict[str, Any], data: Dataset) -> None:
+    def __init__(self, dataset_id: uuid.UUID, incident: dict[str, Any], data: Dataset, source: str = "upload") -> None:
         self.dataset_id = dataset_id
         self.incident = incident
         self.data = data
+        self.source = source
+
+    @property
+    def server(self) -> str:
+        return CONNECTED_SERVER if self.source == "connector" else SERVER
+
+
+def _query_view(q: dict[str, Any]) -> dict[str, Any]:
+    keys = ("id", "connector", "connector_name", "template_label", "service", "query", "start", "end", "step_seconds")
+    return {k: q.get(k) for k in (*keys, "limit", "status", "returned", "truncated", "unit")}
 
 
 def incident_view(row: OpsIncident, ds: OpsUploadedDataset) -> dict[str, Any]:
-    """What ``get_incident`` returns for an uploaded incident. ``environment_id`` is the evidence-scope ID that the
+    """What ``get_incident`` returns for a read-only incident. ``environment_id`` is the evidence-scope ID that the
     agents pass back to every operational tool."""
-    return {
+    view: dict[str, Any] = {
         "id": str(row.id),
         "reference": row.reference,
         "title": row.title,
@@ -99,9 +124,13 @@ def incident_view(row: OpsIncident, ds: OpsUploadedDataset) -> dict[str, Any]:
         "service": row.service,
         "environment_id": str(ds.id),
         "detected_at": _iso(row.detected_at),
-        "evidence_source": EVIDENCE_SOURCE,
+        "evidence_source": row.evidence_source,
         "affected_services": list(ds.affected_services or []),
     }
+    if row.evidence_source == "connector":  # v0.6: query provenance, for the report (never sent to the model)
+        view["telemetry_queries"] = [_query_view(q) for q in ds.queries or []]
+        view["snapshot_at"] = _iso(ds.created_at) if ds.created_at else None
+    return view
 
 
 class UploadedEvidenceProvider:
@@ -145,7 +174,7 @@ class UploadedEvidenceProvider:
                 source = (
                     await s.execute(select(OpsIncident.evidence_source).where(OpsIncident.id == incident_id))
                 ).scalar_one_or_none()
-            return source == EVIDENCE_SOURCE
+            return source in READ_ONLY_SOURCES
         scope = args.get("environment_id")
         if tool not in self.TOOLS or scope is None:
             return False
@@ -179,7 +208,7 @@ class UploadedEvidenceProvider:
         if row is None:
             raise ToolInputError("not_found: uploaded evidence for this incident no longer exists")
         ds, inc = row
-        loaded = LoadedUpload(ds.id, incident_view(inc, ds), Dataset.model_validate(ds.records))
+        loaded = LoadedUpload(ds.id, incident_view(inc, ds), Dataset.model_validate(ds.records), inc.evidence_source)
         for k in (str(ds.id), f"incident:{inc.id}"):
             self._cache[k] = loaded
             self._cache.move_to_end(k)
@@ -196,16 +225,21 @@ class UploadedEvidenceProvider:
     async def call(self, tool: str, arguments: dict[str, Any], *, agent: str) -> ToolResult:
         started, t0 = utcnow(), time.perf_counter()
         status, data, error = ToolCallStatus.OK, None, None
+        server = SERVER
         try:
             if tool not in self.TOOLS:
                 status, error = ToolCallStatus.REJECTED, f"tool {tool!r} is not exposed by {SERVER}"
-            elif tool in NOT_IN_UPLOAD:
-                status, error = ToolCallStatus.ERROR, f"not_available: {NOT_IN_UPLOAD[tool]}"
             elif tool == "get_incident":
-                data = (await self._load(incident_id=str(arguments["incident_id"]))).incident
+                up = await self._load(incident_id=str(arguments["incident_id"]))
+                server, data = up.server, up.incident
             else:
                 up = await self._load(scope=str(arguments["environment_id"]))
-                data = self._dispatch(tool, arguments, up.data)
+                server = up.server
+                if tool in NOT_IN_UPLOAD:
+                    missing = NOT_IN_SNAPSHOT if up.source == "connector" else NOT_IN_UPLOAD
+                    status, error = ToolCallStatus.ERROR, f"not_available: {missing[tool]}"
+                else:
+                    data = self._dispatch(tool, arguments, up.data)
         except (ToolInputError, KeyError, ValueError) as exc:
             status, error = ToolCallStatus.ERROR, f"invalid_input: {exc}"
         except Exception as exc:  # storage failure: reported like any tool failure, never raised into the graph
@@ -213,7 +247,7 @@ class UploadedEvidenceProvider:
             _log.warning("uploaded_evidence_tool_failed", tool=tool, error=error)
         if isinstance(data, dict) and data.get("_error"):
             status, error, data = ToolCallStatus.ERROR, str(data["_error"]), None
-        return self.result(tool, arguments, agent, status, data, error, started, t0)
+        return self.result(tool, arguments, agent, status, data, error, started, t0, server=server)
 
     def result(
         self,
@@ -225,11 +259,13 @@ class UploadedEvidenceProvider:
         error: str | None,
         started: datetime | None = None,
         t0: float | None = None,
+        *,
+        server: str = SERVER,
     ) -> ToolResult:
         record = ToolCallRecord(
             id=f"tc-{uuid.uuid4().hex[:16]}",
             tool=tool,
-            server=SERVER,
+            server=server,
             agent=agent,
             arguments=redact({k: str(v) if isinstance(v, datetime | uuid.UUID) else v for k, v in arguments.items()}),
             status=status,
@@ -241,6 +277,10 @@ class UploadedEvidenceProvider:
         return ToolResult(tool=tool, ok=status is ToolCallStatus.OK, data=data, error=error, record=record)
 
     def _dispatch(self, tool: str, a: dict[str, Any], d: Dataset) -> dict[str, Any]:
+        if d.collected is not None:  # v0.6 snapshot: what was not collected is unknown, never "nothing found"
+            gap = _snapshot_gap(tool, a, d)
+            if gap:
+                return {"_error": gap}
         handlers: dict[str, Callable[[dict[str, Any], Dataset], dict[str, Any]]] = {
             "search_logs": search_logs,
             "query_metrics": query_metrics,
@@ -250,6 +290,21 @@ class UploadedEvidenceProvider:
             "get_service_dependencies": get_service_dependencies,
         }
         return handlers[tool](a, d)
+
+
+def _snapshot_gap(tool: str, a: dict[str, Any], d: Dataset) -> str | None:
+    collected = d.collected or {}
+    svc = str(a.get("service") or "")
+    if tool in ("list_recent_deployments", "get_config_changes") and not d.events:
+        return NO_CHANGE_HISTORY
+    if tool == "search_logs" and svc not in collected.get("log", []):
+        return f"not_available: no logs were collected for {svc} (no Loki query for it succeeded); its logs are unknown"
+    if tool in ("query_metrics", "list_service_metrics") and svc not in collected.get("metric", []):
+        return (
+            f"not_available: no metrics were collected for {svc} (no Prometheus query for it succeeded); "
+            "its metrics are unknown"
+        )
+    return None
 
 
 def _summary(data: dict[str, Any] | None) -> str | None:

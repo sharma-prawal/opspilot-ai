@@ -15,12 +15,14 @@ from opspilot_api.container import Infrastructure
 from opspilot_api.ownership import ExecutionOwnership, RuntimeLifecycle, RuntimeState
 from opspilot_api.services.approvals import ApprovalService
 from opspilot_api.services.commands import CommandDispatcher
+from opspilot_api.services.connected import ConnectedService
 from opspilot_api.services.incidents import IncidentService
 from opspilot_api.services.investigations import InvestigationRunner, InvestigationService
 from opspilot_api.services.uploads import UploadService
 from opspilot_mcp.file_evidence import EvidenceRouter, UploadedEvidenceProvider
 from opspilot_mcp.gateway import Profile, connect_gateway
 from opspilot_shared.config import Settings
+from opspilot_shared.connectors.registry import ConnectorRegistry
 from opspilot_shared.errors import OwnershipError
 from opspilot_shared.logging import get_logger
 
@@ -51,6 +53,7 @@ class AppRuntime:
     dispatcher: CommandDispatcher
     ownership: ExecutionOwnership
     uploads: UploadService
+    connected: ConnectedService
 
     @classmethod
     @asynccontextmanager
@@ -62,8 +65,9 @@ class AppRuntime:
         gateways: GatewayFactory | None = None,
         embedder: Any | None = None,
         on_owner_lost: Callable[[str], Awaitable[None]] | None = None,
+        connectors: ConnectorRegistry | None = None,
     ) -> AsyncIterator[AppRuntime]:
-        """``chat`` / ``gateways`` / ``embedder`` let tests inject deterministic adapters.
+        """``chat`` / ``gateways`` / ``embedder`` / ``connectors`` let tests inject deterministic adapters.
 
         Lifecycle (C0-H2): ``INITIALIZING → ACQUIRING_OWNERSHIP`` (the database's execution-owner lock and a new
         epoch are taken *first*; a second runtime fails here) → initialization (gateways, fenced checkpointer, runner
@@ -128,6 +132,8 @@ class AppRuntime:
                     dispatcher,
                     ownership,
                     UploadService(infra.session_factory, settings, checkpointer=saver, provider=provider),
+                    # v0.6: read-only Loki/Prometheus connectors (only those configured in the settings exist)
+                    ConnectedService(infra.session_factory, connectors or ConnectorRegistry.from_settings(settings)),
                 )
                 await _require_fencing(infra)
                 # The runner is registered and gated; ownership is now re-proven against the database before READY.

@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, computed_field, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +73,26 @@ class Settings(BaseSettings):
     upload_dir: Path = REPO_ROOT / "var/uploads"
     upload_retention_days: int = Field(default=14, ge=1, le=3650)
 
+    # Connected observability (v0.6): optional, read-only Loki and Prometheus connectors. A connector exists only
+    # when its URL is set; OpsPilot contacts no other destination. Credentials are never returned by the API.
+    loki_url: str = ""
+    loki_tenant_id: str = ""  # X-Scope-OrgID for multi-tenant Loki (Grafana Enterprise Logs, Grafana Cloud user ID)
+    loki_bearer_token: SecretStr = SecretStr("")
+    loki_username: str = ""
+    loki_password: SecretStr = SecretStr("")
+    loki_service_label: str = "service_name"
+    prometheus_url: str = ""
+    prometheus_bearer_token: SecretStr = SecretStr("")
+    prometheus_username: str = ""
+    prometheus_password: SecretStr = SecretStr("")
+    prometheus_service_label: str = "service"
+    telemetry_templates_file: Path | None = None  # extra/overriding query templates (JSON), see docs
+    telemetry_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    telemetry_max_window_hours: float = Field(default=6.0, gt=0, le=24)
+    telemetry_max_log_lines: int = Field(default=2000, ge=10, le=5000)  # per Loki query
+    telemetry_max_series: int = Field(default=20, ge=1, le=200)  # per Prometheus query
+    telemetry_max_response_bytes: int = Field(default=5 * 1024 * 1024, ge=64 * 1024, le=50 * 1024 * 1024)
+
     # Agent policy
     agent_max_tool_calls: int = Field(default=60, ge=1, le=500)
     agent_max_llm_calls: int = Field(default=6, ge=1, le=50)
@@ -110,10 +130,12 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://127.0.0.1:4317"
     otel_service_name: str = "opspilot-api"
 
-    @field_validator("knowledge_dir", "upload_dir", mode="before")
+    @field_validator("knowledge_dir", "upload_dir", "telemetry_templates_file", mode="before")
     @classmethod
-    def _resolve_knowledge_dir(cls, value: object) -> object:
-        if isinstance(value, str) and not Path(value).is_absolute():
+    def _resolve_knowledge_dir(cls, value: object, info: ValidationInfo) -> object:
+        if value == "" and info.field_name == "telemetry_templates_file":
+            return None
+        if isinstance(value, str) and value and not Path(value).is_absolute():
             return REPO_ROOT / value
         return value
 
