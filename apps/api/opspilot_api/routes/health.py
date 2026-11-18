@@ -8,6 +8,7 @@ from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from opspilot_api.deps import Runtime
+from opspilot_shared.llm.models import describe_model
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -38,8 +39,15 @@ async def _checks(rt: Any) -> dict[str, dict[str, Any]]:
         async with httpx.AsyncClient(base_url=rt.settings.ollama_base_url, timeout=5) as c:
             version = (await c.get("/api/version")).json()["version"]
             models = {m["name"] for m in (await c.get("/api/tags")).json().get("models", [])}
-        want = {rt.settings.llm_model, rt.settings.embedding_model}
-        out["ollama"] = {"ok": want <= models, "version": version, "missing_models": sorted(want - models)}
+            want = {rt.settings.llm_model, rt.settings.embedding_model}
+            llm = await describe_model(c, rt.settings.llm_model, "llm") if rt.settings.llm_model in models else None
+        out["ollama"] = {
+            "ok": want <= models and (llm is None or llm.compatible),
+            "version": version,
+            "missing_models": sorted(want - models),
+            # Details of the active investigation model (LLM_MODEL), shown by the UI.
+            "llm": llm.model_dump(exclude={"role", "installed"}) if llm else None,
+        }
     except Exception as exc:
         out["ollama"] = {"ok": False, "error": str(exc)[:300]}
     own = getattr(rt, "ownership", None)

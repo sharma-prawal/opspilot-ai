@@ -6,7 +6,7 @@ import hashlib
 import math
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -115,7 +115,19 @@ class ScriptedChatModel:
         self, *, messages: list[ChatMessage], schema: type[T], purpose: str
     ) -> StructuredResult[T]:
         self.calls.append((purpose, messages))
-        value = schema.model_validate(self.handlers[schema](messages))
+        # v0.4: the RCA schema is a per-investigation subclass (identifiers restricted to observed values), so
+        # dispatch on the nearest registered base class.
+        base = next(c for c in schema.__mro__ if c in self.handlers)
+        handler = self.handlers[base]
+        payload = handler(messages)
+        if isinstance(payload, dict) and "remediation_plan" in payload and "decision" not in payload:
+            # fixtures written before the v0.4 `decision` field: derive it the way a consistent model would
+            escalate = (payload.get("escalation") or {}).get("required")
+            payload = {**payload, "decision": "escalate" if escalate else "remediate"}
+        # Validated against the base schema, not the decode-time-constrained subclass: a real model on an Ollama
+        # build that ignores the constraint could still return such values, and the tests exercise the checks
+        # behind it (citation filtering, plan gates). The constraint itself is unit-tested.
+        value = cast(T, base.model_validate(payload))
         rec = LLMCallRecord(
             id=f"llm-test-{len(self.calls)}",
             purpose=purpose,

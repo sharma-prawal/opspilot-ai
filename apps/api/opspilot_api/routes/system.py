@@ -43,6 +43,17 @@ async def overview(rt: Runtime) -> dict[str, Any]:
     out["runtime"] = {
         "llm_model": rt.settings.llm_model,
         "embedding_model": rt.settings.embedding_model,
+        # Active inference configuration (LLM_* settings). The UI renders these instead of naming a model.
+        "inference": {
+            "provider": "ollama",
+            "llm_model": rt.settings.llm_model,
+            "think": rt.settings.llm_think,
+            "temperature": rt.settings.llm_temperature,
+            "num_ctx": rt.settings.llm_num_ctx,
+            "num_predict": rt.settings.llm_num_predict,
+            "embedding_model": rt.settings.embedding_model,
+            "embedding_dimensions": rt.settings.embedding_dimensions,
+        },
         "mcp_read_tools": sorted(rt.read_tools.available_tools()),
         "mcp_action_tools": sorted(rt.action_tools.available_tools()),
         "max_concurrent_investigations": rt.settings.max_concurrent_investigations,

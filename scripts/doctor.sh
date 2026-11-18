@@ -19,13 +19,19 @@ echo "== Ollama"
 if curl -fsS "$OLLAMA_BASE_URL/api/version" >/dev/null 2>&1; then
   ok "API reachable at $OLLAMA_BASE_URL"
   for m in "$LLM_MODEL" "$EMBEDDING_MODEL"; do
-    ollama list | awk 'NR>1{print $1}' | grep -qx "$m" && ok "model $m present" || bad "model $m missing" "ollama pull $m"
+    ollama list | awk 'NR>1{print $1}' | grep -qx "$m" && ok "model $m present" || bad "model $m missing" "make models (explicit download) or: ollama pull $m"
   done
   dim=$(curl -s "$OLLAMA_BASE_URL/api/embed" -d "{\"model\":\"$EMBEDDING_MODEL\",\"input\":\"doctor\"}" | jq '.embeddings[0] | length')
   [[ "$dim" == "$EMBEDDING_DIMENSIONS" ]] && ok "embedding dimension $dim matches EMBEDDING_DIMENSIONS" \
     || bad "embedding dimension $dim != EMBEDDING_DIMENSIONS=$EMBEDDING_DIMENSIONS" "set EMBEDDING_DIMENSIONS and re-run migrations + reindex"
-  gen=$(curl -s --max-time 120 "$OLLAMA_BASE_URL/api/generate" -d "{\"model\":\"$LLM_MODEL\",\"prompt\":\"Reply with OK\",\"stream\":false,\"think\":false,\"options\":{\"num_predict\":5}}" | jq -r '.response // empty')
-  [[ -n "$gen" ]] && ok "generation responds ($LLM_MODEL)" || bad "generation failed for $LLM_MODEL" "check: ollama ps; tail /opt/homebrew/var/log/ollama.log"
+  # The agent needs JSON-schema structured output, not just text (some builds, e.g. MLX tags, answer HTTP 501).
+  gen=$(curl -s --max-time 120 "$OLLAMA_BASE_URL/api/chat" -d "{\"model\":\"$LLM_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Return ok=true\"}],\"stream\":false,\"think\":false,\"format\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"}},\"required\":[\"ok\"]},\"options\":{\"num_predict\":20}}")
+  if [[ $(jq -r '.message.content // empty' <<<"$gen" | jq -r '.ok // empty' 2>/dev/null) =~ ^(true|false)$ ]]; then
+    ok "structured output works ($LLM_MODEL)"
+  else
+    bad "structured output failed for $LLM_MODEL: $(jq -r '.error // "no JSON"' <<<"$gen" 2>/dev/null)" \
+      "use a GGUF tag such as qwen3.5:9b-q4_K_M; details: uv run opspilot models --probe"
+  fi
 else
   bad "Ollama API not reachable" "brew services start ollama"
 fi

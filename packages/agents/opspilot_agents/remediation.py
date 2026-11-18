@@ -54,6 +54,40 @@ def shows_abnormality(service: str, evidence: dict[str, dict[str, Any]]) -> bool
 
 MIN_ROLLBACK_CORRELATION = 0.3
 AMBIGUITY_MARGIN = 0.15
+STRONG_CHANGE_CORRELATION = 0.5  # a rival change at or above this blocks a rollback (see rollback_gates)
+
+
+def consumer_state(service: str, evidence: dict[str, dict[str, Any]]) -> str:
+    """'running', 'paused' or 'unknown' from queue evidence; missing or unrecognised state is unknown (v0.4 Fix A)."""
+    states = [
+        (e["data"].get("consumer") or {}).get("state")
+        for e in _by_kind(evidence, "queue")
+        if (e["data"].get("consumer") or {}).get("service") == service
+    ]
+    if not states or any(s not in ("running", "paused") for s in states):
+        return "unknown"
+    if "running" in states:
+        return "running"
+    return "paused"
+
+
+def unresolved_change_ambiguity(evidence: dict[str, dict[str, Any]]) -> str | None:
+    """Describe two strongly and similarly correlated changes, or None (v0.4 Fix B).
+
+    Same definition as the rollback rival rule, but evaluated on the evidence alone, so it applies whatever the model
+    proposed: a plan cannot avoid the ambiguity gate by proposing a restart instead of the ambiguous rollback.
+    """
+    changes = sorted(
+        (e["data"] for e in evidence.values() if e["kind"] in ("deployment", "config_change")),
+        key=lambda d: -float(d.get("correlation") or 0.0),
+    )
+    strong = [d for d in changes if float(d.get("correlation") or 0.0) >= STRONG_CHANGE_CORRELATION]
+    if len(strong) >= 2:
+        a, b = strong[0], strong[1]
+        ca, cb = float(a.get("correlation") or 0.0), float(b.get("correlation") or 0.0)
+        if ca - cb < AMBIGUITY_MARGIN:
+            return f"{a.get('id')} ({ca:.2f}) and {b.get('id')} ({cb:.2f}) are similarly correlated with the onset"
+    return None
 
 
 def rollback_gates(dep: dict[str, Any], evidence: dict[str, dict[str, Any]]) -> StepCheck | None:
@@ -173,7 +207,14 @@ def capacity_check(service: str, new_pool: int, evidence: dict[str, dict[str, An
     return StepCheck(True, "scale_connection_pool", {"service": service, "max_connections": new_pool}, details=details)
 
 
-def validate_step(step: dict[str, Any], evidence: dict[str, dict[str, Any]], incident_service: str) -> StepCheck:
+def validate_step(
+    step: dict[str, Any],
+    evidence: dict[str, dict[str, Any]],
+    incident_service: str,
+    *,
+    paused_in_plan: frozenset[str] = frozenset(),
+) -> StepCheck:
+    """Admit one step. ``paused_in_plan``: consumers paused by an already validated earlier step of this plan."""
     raw_type = str(step.get("action_type"))
     try:
         action = ActionType(raw_type)
@@ -249,6 +290,27 @@ def validate_step(step: dict[str, Any], evidence: dict[str, dict[str, Any]], inc
                 reason=f"no failures observed on queues consumed by {step['service']!r}",
                 category="invalid",
             )
+        if action is ActionType.RESUME_CONSUMER:
+            # v0.4 Fix A: resuming is only meaningful for a paused consumer. Missing state is unknown, not paused.
+            svc = str(step["service"])
+            if svc in paused_in_plan:
+                return StepCheck(True, raw_type, {"service": svc}, details={"resume_justified_by": "pause_in_plan"})
+            observed = consumer_state(svc, evidence)
+            if observed == "paused":
+                return StepCheck(True, raw_type, {"service": svc}, details={"resume_justified_by": "observed_paused"})
+            if observed == "running":
+                return StepCheck(
+                    False,
+                    raw_type,
+                    reason=f"consumer {svc!r} is already running and is not paused earlier in this plan",
+                    category="invalid",
+                )
+            return StepCheck(
+                False,
+                raw_type,
+                reason=f"state of consumer {svc!r} is unknown; a resume needs evidence that it is paused",
+                category="insufficient_evidence",
+            )
         return StepCheck(True, raw_type, {"service": step["service"]})
 
     if action is ActionType.QUARANTINE_MESSAGES:
@@ -283,6 +345,62 @@ ROLE_ORDER = {"containment": 0, "resolution": 1, "recovery": 2}
 
 
 REDUNDANT_WITH_RESOLUTION = {"restart_service", "scale_connection_pool"}
+
+
+def role_of(action_type: str) -> str | None:
+    try:
+        return REMEDIATION_CATALOG[ActionType(action_type)].role.value
+    except ValueError:
+        return None
+
+
+def enforce_causal_prerequisites(
+    plan: list[dict[str, Any]], rejected: list[dict[str, Any]], evidence: dict[str, dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """v0.4 Fix B: no state-changing step may bypass a rejected resolution or unresolved causal ambiguity.
+
+    1. Unresolved change ambiguity in the evidence withholds every step (the cause is not established, so neither a
+       revert nor a restart is justified by it).
+    2. When the model's plan had a resolution step and every resolution step was rejected, the containment and
+       recovery steps that were meant to accompany it are dropped. A restart or other containment proposed on its
+       own (no rejected resolution) is still judged by its own gates.
+    3. A resume justified only by a pause in this plan is dropped if that pause is no longer in the plan.
+    Returns (kept, dropped-with-reason).
+    """
+    dropped: list[dict[str, Any]] = []
+
+    def drop(step: dict[str, Any], reason: str, category: str = "insufficient_evidence") -> None:
+        dropped.append(
+            {"proposal": {k: step[k] for k in ("action_type", "parameters")}, "category": category, "reason": reason}
+        )
+
+    ambiguity = unresolved_change_ambiguity(evidence)
+    if ambiguity:
+        for step in plan:
+            drop(step, f"unresolved causal ambiguity: {ambiguity}; no state-changing step may bypass it")
+        return [], dropped
+    rejected_resolution = [
+        r for r in rejected if role_of(str((r.get("proposal") or {}).get("action_type"))) == "resolution"
+    ]
+    kept = list(plan)
+    if rejected_resolution and not any(s.get("role") == "resolution" for s in kept):
+        why = "; ".join(str(r.get("reason", ""))[:160] for r in rejected_resolution)
+        for step in kept:
+            drop(step, f"the plan's resolution step was rejected ({why}); {step['action_type']} would act without it")
+        kept = []
+    paused = {s["parameters"].get("service") for s in kept if s["action_type"] == "pause_consumer"}
+    final: list[dict[str, Any]] = []
+    for step in kept:
+        justified = (step.get("validation") or {}).get("resume_justified_by")
+        if (
+            step["action_type"] == "resume_consumer"
+            and justified == "pause_in_plan"
+            and step["parameters"].get("service") not in paused
+        ):
+            drop(step, "resume depended on a pause that is no longer in the plan", "invalid")
+            continue
+        final.append(step)
+    return final, dropped
 
 
 def enforce_plan_shape(steps: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

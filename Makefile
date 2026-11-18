@@ -9,8 +9,11 @@ TEST_DB ?= opspilot_test
 help: ## Show available commands
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z_-]+:.*## /{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-bootstrap: ## Install/verify everything, start infra, migrate, ingest, seed (ARGS=--install allows brew installs)
+bootstrap: ## Install/verify everything, start infra, migrate, ingest, seed (ARGS=--install allows brew installs; models: make models)
 	./scripts/bootstrap.sh $(ARGS)
+
+models: ## Download the configured LLM_MODEL and EMBEDDING_MODEL (explicit opt-in, several GB) and check them
+	./scripts/pull-models.sh
 
 doctor: ## Check toolchain, models, ports, database and configuration
 	./scripts/doctor.sh
@@ -70,4 +73,4 @@ evaluate: ## Retrieval benchmark + agent evaluation (TRIALS=3); renders docs/eva
 build-web: ## Production build of the web app
 	cd apps/web && pnpm build
 
-.PHONY: help bootstrap doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web
+.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web

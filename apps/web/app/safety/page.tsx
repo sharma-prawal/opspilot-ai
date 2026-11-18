@@ -91,7 +91,7 @@ export default function SafetyPage() {
               <div className="rounded-xl border border-border bg-panel-2/60 p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
                   <span className="font-mono text-xs font-bold text-purple">
-                    Raw Qwen3 LLM Proposal
+                    Raw LLM Proposal (recorded trace)
                   </span>
                   <Badge tone="warn">Probabilistic Suggestion</Badge>
                 </div>
@@ -137,7 +137,7 @@ export default function SafetyPage() {
               <div className="rounded-xl border border-border bg-panel-2/60 p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
                   <span className="font-mono text-xs font-bold text-purple">
-                    Raw Qwen3 LLM Proposal
+                    Raw LLM Proposal (recorded trace)
                   </span>
                   <Badge tone="warn">False Correlation</Badge>
                 </div>

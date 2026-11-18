@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TB
   subgraph mac["macOS host (Apple Silicon, 24 GB)"]
-    ollama["Ollama (native, Metal)<br/>127.0.0.1:11434<br/>qwen3:8b ≈5.3 GB, qwen3-embedding:0.6b ≈0.6 GB"]
+    ollama["Ollama (native, Metal)<br/>127.0.0.1:11434<br/>LLM_MODEL (default qwen3.5:9b-q4_K_M ≈6.6 GB;<br/>fallback qwen3:8b ≈5.2 GB), qwen3-embedding:0.6b ≈0.6 GB"]
     apiproc["uvicorn opspilot_api<br/>127.0.0.1:8000"]
     mcpchild["MCP read/action servers<br/>(stdio children of API)"]
     webproc["next dev<br/>127.0.0.1:3000"]
@@ -68,7 +68,8 @@ Multi-worker execution (global admission) is not supported in v0.2.1.
 
 | Component | Measured |
 |---|---|
-| qwen3:8b loaded (`ollama ps`, num_ctx 8192) | 5.2 GB |
+| qwen3:8b loaded (`ollama ps`, num_ctx 8192) | 5.2 GB (5.6 GB re-measured 2026-11-16) |
+| qwen3.5:9b-q4_K_M loaded, v0.4 default (`ollama ps`, num_ctx 8192, measured 2026-11-16) | 4.9 GB |
 | qwen3-embedding:0.6b loaded | 1.0 GB |
 | Postgres container (`docker stats`; limit 1 GiB) | 277 MB |
 | Colima VM ceiling | 4 GiB (allocation, not usage) |

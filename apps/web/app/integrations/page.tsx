@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { fillModels, useActiveModels } from "@/lib/models";
 import { Badge, Button, Card, CodeBlock, PageHeader } from "@/components/ui";
 
 type UsageMode = "all" | "demo" | "offline" | "connected";
@@ -53,7 +54,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     ],
     prerequisites: [
       "PostgreSQL 17 + pgvector container running on port 5433",
-      "Local Ollama running with qwen3:8b and qwen3-embedding:0.6b",
+      "Local Ollama running the configured {LLM_MODEL} and {EMBEDDING_MODEL}",
       "Database migrations applied to head (0008)",
     ],
     configuration: "Built-in: POST /api/v1/incidents/simulate with scenario key (INC-001..003, NEG-001..003) or CLI uv run opspilot simulate.",
@@ -105,7 +106,7 @@ UndefinedColumn errors on transaction-api following deployment.
 ## Verification
 Confirm 5xx error ratio returns below baseline 0.1%.`,
     },
-    normalization: "Chunked using heading-aware boundaries (220 words / 40 word overlap). Embedded via local Qwen3-Embedding (1024 dims). Stored in kb.documents and kb.chunks with composite foreign key guards preventing revision drift.",
+    normalization: "Chunked using heading-aware boundaries (220 words / 40 word overlap). Embedded via the configured local {EMBEDDING_MODEL}. Stored in kb.documents and kb.chunks with composite foreign key guards preventing revision drift.",
     troubleshooting: [
       "Re-index the corpus with uv run opspilot ingest --reindex.",
       "Verify chunk count on the /knowledge dashboard page.",
@@ -423,6 +424,7 @@ GET /repos/sharma-prawal/opspilot-ai/commits/23c7ef2`,
 ];
 
 export default function IntegrationsPage() {
+  const models = useActiveModels();
   const [selectedMode, setSelectedMode] = useState<UsageMode>("all");
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
   const [selectedItemId, setSelectedItemId] = useState<string>(INTEGRATIONS[0].id);
@@ -652,7 +654,7 @@ export default function IntegrationsPage() {
                   </h4>
                   <ul className="mt-1 list-disc pl-4 space-y-0.5 text-text-muted">
                     {activeItem.prerequisites.map((p, i) => (
-                      <li key={i}>{p}</li>
+                      <li key={i}>{fillModels(p, models)}</li>
                     ))}
                   </ul>
                 </div>
@@ -682,7 +684,7 @@ export default function IntegrationsPage() {
                     Normalization &amp; Reasoning Pipeline
                   </h4>
                   <p className="mt-1 text-text leading-relaxed">
-                    {activeItem.normalization}
+                    {fillModels(activeItem.normalization, models)}
                   </p>
                   <div className="mt-2 text-[11px] text-muted">
                     <strong>Primary Consuming Agent: </strong>

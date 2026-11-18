@@ -17,6 +17,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { api } from "@/lib/api";
+import { ModelName } from "@/lib/models";
 import { utcTime } from "@/lib/format";
 
 interface ScenarioMeta {
@@ -171,7 +172,7 @@ export default function OverviewPage() {
                 Autonomous SRE Agent
               </span>
               <span className="text-xs text-muted">
-                LangGraph StateGraph · Local Ollama (Qwen3 8B) · MCP stdio
+                LangGraph StateGraph · Local Ollama (<ModelName className="font-mono" />) · MCP stdio
               </span>
             </div>
             <h2 className="text-lg font-bold tracking-tight text-text sm:text-xl">
@@ -441,6 +442,17 @@ export default function OverviewPage() {
                       {o.runtime.embedding_model}
                     </code>,
                   ],
+                  ...(o.runtime.inference
+                    ? [
+                        [
+                          "LLM options",
+                          <span key="io" className="text-text">
+                            {o.runtime.inference.provider} · think {o.runtime.inference.think ? "on" : "off"} · ctx{" "}
+                            {o.runtime.inference.num_ctx} · T={o.runtime.inference.temperature}
+                          </span>,
+                        ] as [string, React.ReactNode],
+                      ]
+                    : []),
                   [
                     "MCP read tools",
                     <span key="mr" className="text-text">

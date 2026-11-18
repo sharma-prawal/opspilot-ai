@@ -284,6 +284,54 @@ the dev DB (additive); test DB: audit-reproducer and test rows left terminal, te
 **Next:** independent re-verification of the branch. Merge, tag `v0.2.1` and publish only with authorisation.
 Phase C1 is not started.
 
+## Status — 2026-11-16, v0.4.0 reasoning and model flexibility (`feature/ai-reasoning-v04`, not pushed)
+
+- **Diagnosis** of the published qwen3:8b traces and a fresh re-run (identical raw plans): system outcomes 13/13 correct
+  only because of the gates; raw model plan acceptable 4/13; the decisive evidence was present but ignored. Write-up:
+  `docs/evaluation/MODEL_COMPARISON_V0.4.md` §1.
+- **Model selection** (D97): `opspilot models [--model] [--probe]`; health/overview expose the active model; UI renders
+  configured names; fail-fast on 501/4xx. `qwen3.5:9b` default tag = MLX build without structured output on Ollama
+  0.40.14; `qwen3.5:9b-q4_K_M` (GGUF) works.
+- **Agent changes** (D98): evidence digest (`synthesis.py`), explicit `decision`, observed-value enums for citations and
+  plan identifiers. No gate, uncertainty or approval rule changed.
+- **Comparison** (six public scenarios, 1 trial, supplementary `--out` runs in
+  `datasets/evaluation/history/v0.4-model-comparison/`; BASELINE.md untouched): qwen3.5:9b-q4_K_M after — system 6/6,
+  raw plan 6/6, 0 gate rejections, 3/3 negatives self-handled, repeat identical; qwen3:8b after — system 6/6, raw plan
+  1/6, 8 rejections. Recommendation D99 (default left at qwen3:8b pending owner).
+- **Verified**: `make lint` clean; `uv run pytest` 317 passed / 3 skipped; web 38 passed; live-model tests 3/3 with both
+  models.
+- **Open for the owner**: switch the default model? Two pre-existing gate gaps (resume of a running consumer;
+  containment admitted when its resolution is rejected) — report §5. `make evaluate` (official baseline) not re-run.
+- Models on disk added this session: `qwen3.5:9b-q4_K_M` (6.6 GB) and the unusable MLX `qwen3.5:9b` (7.6 GB, can be
+  removed with `ollama rm qwen3.5:9b`).
+
+## Status — 2026-11-16, v0.4.0 safety-gate corrections (`feature/ai-reasoning-v04`, not pushed)
+
+- **Fix A (D100)** resume only for paused consumers; **Fix B (D101)** no step bypasses a rejected resolution or
+  unresolved change ambiguity. 9 regression cases in `tests/unit/test_v04_gate_corrections.py`; recorded NEG-002 /
+  NEG-003 failure traces replayed through the fixed `propose`: nothing proposed.
+- **Prompt/schema (D102)**: evidence-applicable actions only, pause→resume guidance restored, changed-dependency fact.
+  Six scenarios: qwen3:8b raw plan 3/6 (was 1/6), qwen3.5:9b-q4_K_M 6/6; both 6/6 system outcomes; NEG-003 executed
+  nothing; INC-003 recovered with both. Report §7.
+- **Defaults**: `.env.example` → `qwen3.5:9b-q4_K_M` (fallback `qwen3:8b`); models download only via `make models`
+  or `bootstrap --pull-models`. This machine's `.env` still says `qwen3:8b` (not edited).
+- **Verified**: `make lint` clean; `uv run pytest` 328 passed / 3 skipped; web 38 passed; live-model tests 3/3 with
+  qwen3.5:9b-q4_K_M. Not re-run: official `make evaluate`, Playwright e2e.
+
+## Status — 2026-11-17, v0.4.0 release-readiness pass (`feature/ai-reasoning-v04`, not pushed)
+
+- Onboarding aligned: `.env.example` (qwen3.5:9b-q4_K_M, fallback qwen3:8b), bootstrap (no silent download),
+  `make models`, `make doctor` (now checks structured output, catches the MLX 501), `opspilot models --probe`,
+  README, guide, DEPLOYMENT.md, ADR-001 note, DEMO/CONTRIBUTING.
+- UI smoke test on an isolated stack (API :8200 with `LLM_MODEL=qwen3.5:9b-q4_K_M` in the process environment, web
+  :3200, throwaway passphrase; `.env` untouched): INC-001 → evidence → RCA (dep-ls-0042, 98%) → UI approval →
+  sandbox rollback → recovered 5/5 → mitigated; model shown correctly on overview, runtime panel and investigation.
+- Report: "plan acceptable" (answer key) vs "admitted unchanged by gates" now reported separately (qwen3.5 6/6 vs
+  5/6); labelled development testing on reused scenarios.
+- Checks: lint clean; pytest 328 passed / 3 skipped; web 38 passed; `make build-web` OK.
+- Branch: based on published v0.3.0 (`1305d1e` = origin/main), 7 commits ahead, 0 behind, merges cleanly.
+  `docs/releases/V0.4.0_NOTES.md` prepared. Not pushed, merged or tagged. `phase-c1` branch untouched.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

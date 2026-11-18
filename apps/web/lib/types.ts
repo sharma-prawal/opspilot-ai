@@ -90,10 +90,16 @@ export interface KbDocument {
   status: string; duplicate_of: string | null; chunk_count: number; updated_at: string;
 }
 
+export interface InferenceConfig {
+  provider: string; llm_model: string; think: boolean; temperature: number; num_ctx: number; num_predict: number;
+  embedding_model: string; embedding_dimensions: number;
+}
+
 export interface Overview {
   incidents: Record<string, number>; investigations: Record<string, number>; actions: Record<string, number>;
   knowledge: { documents: number; chunks: number };
   runtime: { llm_model: string; embedding_model: string; mcp_read_tools: string[]; mcp_action_tools: string[];
+             inference?: InferenceConfig;
              max_concurrent_investigations: number; agent_budgets: Record<string, number> };
 }
 

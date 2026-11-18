@@ -161,6 +161,9 @@ class PlatformScenario:
                     False, f"deployment {parameters['deployment_id']} is not eligible for rollback", fault_cleared=False
                 )
             return self.rollback_effect(target, now, cleared=self.is_culprit(target.id))
+        if action_type == "resume_consumer" and not state.get("consumer_paused"):
+            # v0.4 Fix A, execution side: the environment's own state decides; nothing paused -> refused, no effect.
+            return ActionEffect(False, "consumer is not paused; nothing to resume", fault_cleared=False)
         return ActionEffect(False, f"action {action_type} has no effect in this environment", fault_cleared=False)
 
     def is_culprit(self, deployment_id: str) -> bool:

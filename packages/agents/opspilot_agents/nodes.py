@@ -32,10 +32,18 @@ from opspilot_agents.analysis import (
 )
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
-from opspilot_agents.prompts import PlanOutput, RcaOutput, plan_messages, rca_messages
-from opspilot_agents.remediation import enforce_plan_shape, validate_step
+from opspilot_agents.prompts import (
+    PlanOutput,
+    RcaOutput,
+    applicable_actions,
+    plan_messages,
+    rca_messages,
+    rca_schema,
+)
+from opspilot_agents.remediation import enforce_causal_prerequisites, enforce_plan_shape, validate_step
 from opspilot_agents.report import determine_outcome, render_report
 from opspilot_agents.state import CAPABILITIES, InvestigationState, Task, task_key
+from opspilot_agents.synthesis import evidence_digest
 from opspilot_agents.uncertainty import uncertainty_reasons
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import (
@@ -992,9 +1000,15 @@ class InvestigationNodes:
         try:
             out = await self.d.chat.generate_structured(
                 messages=rca_messages(
-                    state["incident"], state["window"], prompt_ev, state.get("observations", []), round_no
+                    state["incident"],
+                    state["window"],
+                    prompt_ev,
+                    state.get("observations", []),
+                    round_no,
+                    facts=evidence_digest(state),
+                    actions=applicable_actions(evidence),
                 ),
-                schema=RcaOutput,
+                schema=rca_schema(evidence, state["incident"]["service"]),
                 purpose="rca.analyze",
             )
         except LLMError as exc:
@@ -1039,6 +1053,7 @@ class InvestigationNodes:
                 "impact": _impact(state),
                 "impact_ongoing": _impact(state)["state"] == ImpactState.ONGOING.value,
                 "impact_ongoing_model": value.impact_ongoing,
+                "decision": value.decision,
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
@@ -1078,8 +1093,15 @@ class InvestigationNodes:
         plan: list[dict[str, Any]] = []
         rejected: list[dict[str, Any]] = []
         seen: set[str] = set()
-        for step in rca.get("remediation_plan", []):
-            check = validate_step(step, evidence, state["incident"]["service"])
+        # Resumes are validated after every other step, so a resume can rely on a pause validated in this plan
+        # (v0.4 Fix A); canonical ordering below puts the pause first.
+        proposed = list(rca.get("remediation_plan", []))
+        ordered = [s for s in proposed if s.get("action_type") != "resume_consumer"] + [
+            s for s in proposed if s.get("action_type") == "resume_consumer"
+        ]
+        for step in ordered:
+            paused_in_plan = frozenset(p["parameters"]["service"] for p in plan if p["action_type"] == "pause_consumer")
+            check = validate_step(step, evidence, state["incident"]["service"], paused_in_plan=paused_in_plan)
             if not check.ok or check.params is None:
                 rejected.append(
                     {
@@ -1112,6 +1134,8 @@ class InvestigationNodes:
                     "validation": check.details,
                 }
             )
+        plan, dropped_causal = enforce_causal_prerequisites(plan, rejected, evidence)  # v0.4 Fix B
+        rejected += [{**d, "at": _iso(utcnow())} for d in dropped_causal]
         impact = _impact(state)
         if plan and impact["state"] != ImpactState.ONGOING.value:
             recovered = impact["state"] == ImpactState.RECOVERED.value
@@ -1156,7 +1180,10 @@ class InvestigationNodes:
             if svc_name in resumed:
                 continue
             check = validate_step(
-                {"action_type": "resume_consumer", "service": svc_name}, evidence, state["incident"]["service"]
+                {"action_type": "resume_consumer", "service": svc_name},
+                evidence,
+                state["incident"]["service"],
+                paused_in_plan=frozenset({svc_name}),
             )
             if check.ok and check.params is not None:
                 ph = action_params_hash(check.action_type, check.params)

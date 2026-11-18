@@ -47,7 +47,7 @@ stateDiagram-v2
 | `changes` | **Change agent**: deployments/config changes, temporal correlation scoring | no | `list_recent_deployments`, `get_config_changes` |
 | `dependencies` | Runtime config, downstream health, datastore capacity, queue state | no | `get_service_dependencies`, `get_service_config`, `get_service_health`, `get_datastore_status`, `inspect_queue` |
 | `knowledge` | **Knowledge agent**: hybrid retrieval over runbooks and past incidents, cited chunks | no | `search_runbooks`, `get_historical_incidents` |
-| `rca` | **RCA agent**: ranked hypotheses, evidence gaps, follow-ups, remediation choice | yes (1 call per round) | — |
+| `rca` | **RCA agent**: ranked hypotheses, evidence gaps, follow-ups, explicit `decision` (remediate / no_action_needed / escalate), remediation choice. Prompt leads with a deterministic evidence digest (`synthesis.py`); the JSON schema restricts cited evidence IDs and plan identifiers to observed values (v0.4) | yes (1 call per round) | — |
 | `followup` | Translate LLM-requested follow-ups into queued tasks (bounded rounds) | no | — |
 | `propose` | Validate each plan step against evidence and safety gates; canonical order; derive stable action IDs | no | — |
 | `await_approval` | `interrupt()` with the exact action; validate the resume payload | no | — |
@@ -145,7 +145,12 @@ The resume value must reference the same action ID and parameter hash or the nod
 
 ## Remediation plans and safety gates
 
-The RCA model returns an ordered plan of 0–4 catalogue steps. `propose` admits a step only if it passes
+The RCA model returns an explicit `decision` and an ordered plan of 0–4 catalogue steps. Since v0.4 the RCA
+prompt starts with `investigation_facts` — impact state, changes ranked by correlation, error attribution to
+dependencies, queue state and missing evidence, computed in code by `synthesis.py` from the same evidence and
+thresholds the gates use — and the per-investigation JSON schema (`prompts.rca_schema`) only admits evidence IDs,
+deployment ids, services, queues and error codes that were actually observed. These shape what the model can
+propose; they do not replace any gate below. `propose` admits a step only if it passes
 generic, evidence-based rules (`packages/agents/opspilot_agents/remediation.py`); none of them names a
 scenario:
 

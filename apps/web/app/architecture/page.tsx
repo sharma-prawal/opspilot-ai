@@ -15,6 +15,7 @@ import {
 } from "@xyflow/react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
+import { fillModels, useActiveModels } from "@/lib/models";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
 
 type DiagramKey = "system" | "workflow" | "rag" | "sources";
@@ -59,6 +60,7 @@ export interface CustomNodeData extends Record<string, unknown> {
 export type CustomNodeType = Node<CustomNodeData, "custom">;
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
+  const models = useActiveModels();
   const tone = data.tone ?? "neutral";
   const borderTone =
     tone === "accent" || tone === "info"
@@ -116,7 +118,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
       <div className="mt-1.5">
         <h4 className="text-xs font-bold text-text leading-snug">{data.label}</h4>
         {data.tech && (
-          <p className="mt-1 font-mono text-[10px] text-muted truncate">{data.tech}</p>
+          <p className="mt-1 font-mono text-[10px] text-muted truncate">{fillModels(data.tech, models)}</p>
         )}
       </div>
 
@@ -191,13 +193,13 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     id: "ollama-llm",
     name: "Ollama Local Inference",
     category: "Inference Engine",
-    role: "Local Metal GPU inference runtime serving Qwen3 8B (structured reasoning & planning) and Qwen3-Embedding 0.6B (1024-dim vector generation). Air-gapped with no cloud dependencies.",
+    role: "Local Metal GPU inference runtime serving the configured investigation model {LLM_MODEL} (structured reasoning & planning) and embedding model {EMBEDDING_MODEL} (vector generation). Air-gapped with no cloud dependencies.",
     sourcePath: "packages/shared/opspilot_shared/llm",
     inputs: ["System prompts with structured Pydantic schemas", "Unembedded text documents and search queries"],
     outputs: ["Valid JSON structured outputs", "1024-dimensional normalized float vectors"],
     safetyBoundary: "100% local localhost-only (127.0.0.1). Zero outbound network traffic. Prompt injection attacks in logs are captured as inert evidence strings and ignored.",
     errorPathways: "Inference timeouts (180s) or invalid schemas trigger bounded retries before failing closed to evidence gaps.",
-    technicalSpecs: ["Ollama 0.40+", "qwen3:8b (4-bit quantized)", "qwen3-embedding:0.6b (1024 dims)"],
+    technicalSpecs: ["Ollama 0.40+", "LLM_MODEL = {LLM_MODEL}", "EMBEDDING_MODEL = {EMBEDDING_MODEL}", "Check a model: uv run opspilot models --probe"],
     implementationStatus: "implemented",
   },
   "mcp-read-server": {
@@ -522,7 +524,7 @@ const SYSTEM_NODES: CustomNodeType[] = [
       category: "Model Engine",
       badge: "Metal GPU",
       tone: "accent",
-      tech: "qwen3:8b · qwen3-embedding:0.6b",
+      tech: "{LLM_MODEL} · {EMBEDDING_MODEL}",
       detailId: "ollama-llm",
     },
   },
@@ -786,7 +788,7 @@ const RAG_NODES: CustomNodeType[] = [
       category: "Ollama Embedding",
       badge: "1024 dims",
       tone: "accent",
-      tech: "qwen3-embedding:0.6b · Batched",
+      tech: "{EMBEDDING_MODEL} · Batched",
       detailId: "ollama-llm",
     },
   },
@@ -1090,6 +1092,7 @@ const SOURCES_EDGES: Edge[] = [
 // Main Interactive Architecture Explorer Page
 // ---------------------------------------------------------------------------
 export default function ArchitectureExplorerPage() {
+  const models = useActiveModels();
   const [activeDiagram, setActiveDiagram] = useState<DiagramKey>("system");
   const [selectedDetail, setSelectedDetail] = useState<ComponentDetail | null>(
     COMPONENT_DETAILS["fastapi-api"]
@@ -1369,7 +1372,7 @@ export default function ArchitectureExplorerPage() {
                       Role &amp; Responsibility
                     </h4>
                     <p className="mt-1 text-text leading-relaxed font-normal">
-                      {selectedDetail.role}
+                      {fillModels(selectedDetail.role, models)}
                     </p>
                   </div>
 
@@ -1428,7 +1431,7 @@ export default function ArchitectureExplorerPage() {
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {selectedDetail.technicalSpecs.map((s, i) => (
                           <Badge key={i} tone="neutral">
-                            {s}
+                            {fillModels(s, models)}
                           </Badge>
                         ))}
                       </div>
@@ -1477,7 +1480,7 @@ export default function ArchitectureExplorerPage() {
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-text-muted">{c.role}</p>
+                <p className="text-xs text-text-muted">{fillModels(c.role, models)}</p>
                 {c.sourcePath && (
                   <p className="font-mono text-xs text-accent">Source: {c.sourcePath}</p>
                 )}

@@ -1,4 +1,4 @@
-"""``opspilot`` management CLI: migrate, ingest, search, simulate, investigate, sanitize-secrets.
+"""``opspilot`` management CLI: migrate, ingest, search, simulate, investigate, models, sanitize-secrets.
 
 Evaluation has its own entry point (``opspilot-eval``) so nothing in the app imports the harness.
 """
@@ -78,6 +78,18 @@ def _investigate(args: argparse.Namespace) -> None:
     asyncio.run(run_demo(get_settings(), scenario=args.scenario, decision=args.decision, out=args.out))
 
 
+def _models(args: argparse.Namespace) -> None:
+    from opspilot_shared.llm.models import inspect_configured_models
+
+    settings = get_settings()
+    if args.model:  # check a candidate without editing .env (same as running with LLM_MODEL=<name>)
+        settings = settings.model_copy(update={"llm_model": args.model})
+    report = asyncio.run(inspect_configured_models(settings, probe=args.probe))
+    print(json.dumps(report, indent=2))
+    if not (report["llm"]["compatible"] and report["embedding"]["compatible"]):
+        sys.exit(1)
+
+
 def _sanitize_secrets(args: argparse.Namespace) -> None:
     from opspilot_api.services.sanitize import sanitize_secrets
 
@@ -118,6 +130,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--decision", default="approve", choices=["approve", "reject", "none"])
     p.add_argument("--out", default=None, help="write the run summary JSON here")
     p.set_defaults(fn=_investigate)
+
+    p = sub.add_parser(
+        "models", help="show the configured chat/embedding models, their local capabilities and compatibility"
+    )
+    p.add_argument("--probe", action="store_true", help="also run one structured-output call through the adapter")
+    p.add_argument("--model", default=None, help="check this chat model instead of LLM_MODEL")
+    p.set_defaults(fn=_models)
 
     p = sub.add_parser(
         "sanitize-secrets", help="count (default) or redact credentials stored in JSON columns; prints counts only"
