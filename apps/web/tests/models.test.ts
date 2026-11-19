@@ -19,9 +19,9 @@ describe("active model display", () => {
     expect(fillModels("{LLM_MODEL} · {EMBEDDING_MODEL}", m)).toBe("family-a:9b · embed-b:1b");
   });
 
-  it("falls back to the setting names instead of guessing a model", () => {
+  it("marks unknown models unavailable instead of guessing a model", () => {
     expect(fillModels("{LLM_MODEL} / {EMBEDDING_MODEL}", activeModelsFrom(undefined))).toBe(
-      "LLM_MODEL / EMBEDDING_MODEL",
+      "LLM_MODEL (unavailable) / EMBEDDING_MODEL (unavailable)",
     );
   });
 

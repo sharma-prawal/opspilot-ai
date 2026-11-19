@@ -463,6 +463,15 @@ Phase C1 is not started.
   - Playwright E2E: `auth.spec.ts` (3/3), `overview-smoke.spec.ts` (1/1), `investigation.spec.ts` (1/1), `upload.spec.ts` (1/1), `connected.spec.ts` (1/1).
   - All 10 screenshots refreshed in `docs/images/redesign/`.
 
+## Status — 2026-11-19, v0.7.0 maintenance (`fix/v0.7.0-maintenance`, not pushed)
+
+- Web process environment (D116): `make dev` / `scripts/start.sh` start `next dev` detached with an allowlisted
+  environment from `opspilot_shared.web_env`; backend-only credentials and settings are excluded
+  (`tests/security/test_web_process_env.py`).
+- Unavailable states: model names show `unavailable` (`…` while loading) and overview counts `—` when the backend
+  did not answer, instead of setting names and zeros. Launcher-only startup documented in `apps/web/README.md`
+  and `docs/development/DEVELOPMENT.md`.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

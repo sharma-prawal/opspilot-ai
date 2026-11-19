@@ -128,6 +128,8 @@ export default function OverviewPage() {
   const runningInvsCount = sum(o?.investigations, ["queued", "running"]);
   const pendingApprovalsCount = o?.actions?.pending ?? 0;
   const knowledgeChunksCount = o?.knowledge?.chunks ?? 0;
+  // Without an overview from the backend the counts are unknown, not zero.
+  const stat = (n: number) => (o ? n : "—");
 
   return (
     <div className="space-y-8">
@@ -222,19 +224,19 @@ export default function OverviewPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-[10px] text-muted">OPEN CASES</div>
-                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{openIncidentsCount}</div>
+                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{stat(openIncidentsCount)}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">RUNNING THREADS</div>
-                <div className="text-lg font-bold text-info tabular-nums" suppressHydrationWarning>{runningInvsCount}</div>
+                <div className="text-lg font-bold text-info tabular-nums" suppressHydrationWarning>{stat(runningInvsCount)}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">PENDING APPROVALS</div>
-                <div className="text-lg font-bold text-warn tabular-nums" suppressHydrationWarning>{pendingApprovalsCount}</div>
+                <div className="text-lg font-bold text-warn tabular-nums" suppressHydrationWarning>{stat(pendingApprovalsCount)}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">KNOWLEDGE CHUNKS</div>
-                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{knowledgeChunksCount}</div>
+                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{stat(knowledgeChunksCount)}</div>
               </div>
             </div>
             {pendingApprovalsCount > 0 && (

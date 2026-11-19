@@ -24,6 +24,14 @@ make e2e                 # Playwright against the running stack
 make evaluate            # measured benchmark → docs/evaluation/BASELINE.md
 ```
 
+Always start the stack with `make dev` (or `scripts/start.sh`), not a bare `pnpm dev` in `apps/web`. The
+launcher loads the repository-root `.env` and starts the web server detached through
+`packages/shared/opspilot_shared/web_env.py`, which passes it only an allowlist: the BFF settings (API URL,
+operator token, session secret and passphrases, origin) and basic process variables. Database and MCP role
+passwords, `ACTION_SIGNING_KEY` and model/connector settings stay with the API (`tests/security/test_web_process_env.py`).
+Next.js itself only reads `.env*` files from `apps/web`, so a bare `pnpm dev` runs without auth configuration
+and the BFF fails closed. To add a variable the web needs, add it to the allowlist in `web_env.py`.
+
 Tests run against the separate `opspilot_test` database (the conftest refuses any database whose name
 does not end in `_test`). Deterministic tests use a feature-hashing embedder and a scripted chat model,
 but real PostgreSQL, the real LangGraph checkpointer and the real MCP protocol (in-process and stdio).
@@ -70,5 +78,6 @@ but real PostgreSQL, the real LangGraph checkpointer and the real MCP protocol (
 |---|---|
 | `docker compose` uses an old plugin | scripts use `docker-compose` (v5) automatically |
 | `make dev` says port in use | `make stop`, or another process owns the port (`lsof -iTCP:8000 -sTCP:LISTEN`) |
+| UI shows `web authentication is not configured`, model `unavailable`, counts `—` | the web server on :3000 was started without the launcher (e.g. a bare `pnpm dev`); stop it and run `make dev` |
 | investigation shows `interrupted` after a restart | press *Resume from checkpoint* or `POST /investigations/{id}/resume` |
 | slow first investigation | model cold load (~4 s) + embedding load; later runs ~25 s to approval |
