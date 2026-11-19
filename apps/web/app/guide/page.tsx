@@ -443,28 +443,40 @@ make uploads-purge`}
             environment, and OpsPilot contacts no other address. Azure Monitor, Datadog, CloudWatch and custom adapters
             are planned, not implemented.
           </p>
-          <p>Try it locally with synthetic telemetry (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
+          <p>First run with the local demo stack (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
           <CodeBlock
             language="bash"
-            code={`make telemetry-up      # Loki :3310 (tenant opspilot-demo) + Prometheus :9390, seeded
+            code={`# 1. database up and migration 0011 applied (additive; existing incidents are kept)
+make infra-up && make migrate
 
-# add to .env (or the API's environment), then restart the API (make stop && make dev)
+# 2. local Loki :3310 (tenant opspilot-demo) + Prometheus :9390 with a synthetic incident
+make telemetry-up
+
+# 3. add to .env (demo needs no credentials)
 LOKI_URL=http://127.0.0.1:3310
 LOKI_TENANT_ID=opspilot-demo
 PROMETHEUS_URL=http://127.0.0.1:9390
-TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json`}
+TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+
+# 4. restart the API so it reads the settings
+make stop && make dev`}
           />
-          <ol className="list-decimal space-y-1 pl-4">
-            <li>Check the connectors on <Link href="/integrations" className="font-semibold text-accent hover:underline">Integrations</Link> with <strong className="text-text">Test connection</strong>: connected, authentication failed, unavailable or not configured.</li>
+          <ol className="list-decimal space-y-1 pl-4" start={5}>
+            <li>On <Link href="/integrations" className="font-semibold text-accent hover:underline">Integrations</Link>, click <strong className="text-text">Test connection</strong> for each connector: connected, authentication failed, unavailable or not configured.</li>
             <li>Open <Link href="/incidents/new?source=connected" className="font-semibold text-accent hover:underline">Use Loki / Prometheus</Link> and click <strong className="text-text">Use the local demo incident</strong> (or enter your own service, incident time and window, at most 6 h).</li>
-            <li>Keep or change the approved templates (errors and warnings, start-up/config lines, 5xx ratio, p95 latency, request rate, plus any from your templates file). You never type a query.</li>
+            <li>Keep or change the ticked <strong className="text-text">query templates</strong> (errors and warnings, start-up/config lines, 5xx ratio, p95 latency, request rate, plus any from your templates file). You never type a query.</li>
             <li><strong className="text-text">Preview returned evidence</strong>: per-query status (ok, no data, auth error, unavailable, rejected, truncated), counts, warnings and sample records with their query source.</li>
-            <li><strong className="text-text">Create incident & start analysis</strong> stores the results as a snapshot and starts the investigation with <ModelName />; the report cites queries and entries and lists every query.</li>
+            <li><strong className="text-text">Create incident & start analysis</strong> stores the results as a snapshot and starts the investigation with <ModelName />; the report cites queries and entries, lists every query, and downloads as Markdown.</li>
+            <li>When done: <code className="font-mono">make telemetry-down</code>, then remove the connector lines from <code className="font-mono">.env</code> and restart the API.</li>
           </ol>
+          <p>
+            <strong className="text-text">Your own telemetry.</strong> For your own backends, set <code className="font-mono">LOKI_URL</code> / <code className="font-mono">PROMETHEUS_URL</code> with read-only credentials in <code className="font-mono">LOKI_BEARER_TOKEN</code> (or <code className="font-mono">LOKI_USERNAME</code> + <code className="font-mono">LOKI_PASSWORD</code>) and the <code className="font-mono">PROMETHEUS_</code> equivalents; https is required for credentials except on loopback. Point <code className="font-mono">LOKI_SERVICE_LABEL</code> / <code className="font-mono">PROMETHEUS_SERVICE_LABEL</code> at the label that holds your service names, and describe your metric names in a templates file (<code className="font-mono">TELEMETRY_TEMPLATES_FILE</code>). Restart the API after every change.
+          </p>
           <ul className="list-disc space-y-1 pl-4">
             <li><strong className="text-text">Read-only.</strong> No approval, no execution, no claim of verified recovery from historical data. The investigation reads only the stored snapshot.</li>
             <li><strong className="text-text">Unknown stays unknown.</strong> Change history, traces and live state are not in Loki/Prometheus; failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
             <li><strong className="text-text">Bounded and safe.</strong> GET-only to fixed query endpoints, no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
+            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported.</li>
           </ul>
           <p>
             Details, all settings and the interface for adding a provider: <code className="font-mono">docs/integrations/CONNECTORS.md</code>.

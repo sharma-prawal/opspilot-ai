@@ -72,41 +72,103 @@ All settings are environment variables of the API process (`.env` or the process
 Restart the API after changing them. **Integrations** shows each connector's endpoint, auth mode, templates and
 limits, and has a **Test connection** button. The incident form has the same button.
 
-### Local test setup (synthetic data, verified)
+### First run with the local demo stack (tested)
 
-```bash
-make infra-up        # PostgreSQL (if not running)
-make telemetry-up    # Loki on 127.0.0.1:3310 (tenant opspilot-demo) and Prometheus on 127.0.0.1:9390
-```
+From a working OpsPilot checkout (`make bootstrap` done, `make dev` used before):
 
-`make telemetry-up` does the following:
+1. **Start the database and apply migration `0011`** with the normal workflow. It is additive: it allows
+   `connector` incidents and adds a `queries` column, and existing incidents are kept.
 
-- generates the synthetic incident (`scripts/generate_telemetry.py`; 2026-11-12 08:00–10:00 UTC);
-- backfills it into Prometheus (`promtool tsdb create-blocks-from openmetrics`);
-- pushes the logs to Loki.
+   ```bash
+   make infra-up    # PostgreSQL, if not running
+   make migrate     # app and test databases (Alembic head = 0011)
+   ```
 
-Both containers keep their data in tmpfs, create no volumes and listen only on 127.0.0.1. Loki runs in multi-tenant
-mode, so a missing tenant answers 401 (useful to see the authentication-error state). `make telemetry-down` removes
-the containers.
+2. **Start the local Loki and Prometheus with synthetic telemetry:**
 
-Then point the API at them (in `.env`, or only for one process) and restart it:
+   ```bash
+   make telemetry-up   # Loki 127.0.0.1:3310 (tenant opspilot-demo), Prometheus 127.0.0.1:9390
+   ```
 
-```bash
-LOKI_URL=http://127.0.0.1:3310
-LOKI_TENANT_ID=opspilot-demo
-PROMETHEUS_URL=http://127.0.0.1:9390
-TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
-```
+   `make telemetry-up` does the following:
+   - generates the synthetic incident (`scripts/generate_telemetry.py`; 2026-11-12 08:00–10:00 UTC);
+   - backfills it into Prometheus (`promtool tsdb create-blocks-from openmetrics`);
+   - pushes the logs to Loki.
 
-To try it:
+   Both containers keep their data in tmpfs, create no volumes and listen only on 127.0.0.1. Loki runs in
+   multi-tenant mode, so a missing tenant answers 401 (useful to see the authentication-error state).
 
-1. Open **Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`).
-2. Click **Use the local demo incident**, **Preview returned evidence**, then **Create incident & start analysis**.
+3. **Configure the connectors in `.env`.** The demo stack needs no credentials:
+
+   ```bash
+   LOKI_URL=http://127.0.0.1:3310
+   LOKI_TENANT_ID=opspilot-demo
+   PROMETHEUS_URL=http://127.0.0.1:9390
+   TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+   ```
+
+   For your own backends, put read-only credentials in their own variables: `LOKI_BEARER_TOKEN`, or
+   `LOKI_USERNAME` + `LOKI_PASSWORD`, and the same for `PROMETHEUS_`. Never put them in the URL. They are sent only
+   over https, or to a loopback address.
+
+4. **Restart the API.** Settings are read once at start-up:
+
+   ```bash
+   make stop && make dev
+   ```
+
+5. **Test the connections.** On **Integrations** (`/integrations`), use **Test connection** on each connector. You
+   should see *Connected (version 3.5.0)*. *Authentication failed*, *Unavailable* or *Not configured* tell you what
+   to fix.
+
+6. **Investigate:**
+   1. Open **Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`) and click **Use the local demo
+      incident**, which fills the service, the other affected service, the incident time and the window.
+   2. Optionally click **Find services in this window**.
+   3. Keep or change the ticked **query templates** under each connector.
+   4. Click **Preview returned evidence** and check the per-query results, the warnings and the samples.
+   5. Click **Create incident & start analysis**. The investigation page shows hypotheses with citations; use
+      **Download Markdown** for the report.
+
+7. **Stop the demo stack** when you are done (the containers and their data are removed; nothing else is touched):
+
+   ```bash
+   make telemetry-down
+   ```
+
+   Remove or comment out the connector lines in `.env` and restart the API, otherwise the connectors show as
+   *Unavailable*.
 
 The story: payment-service 2.14.0 starts at 09:12:20Z with a smaller database pool (50 → 10). From 09:14Z its
 authorizations time out waiting for connections, and checkout-api payments fail with 504s. search-api restarts with a
 new version at 08:31Z and stays healthy (an unrelated change). One fake credential is logged so that redaction can be
 seen.
+
+### Adapting to your application
+
+Restart the API after each change.
+
+| Your telemetry | What to set |
+|---|---|
+| Streams labelled `app="checkout"` instead of `service_name` | `LOKI_SERVICE_LABEL=app` |
+| Series labelled `job="checkout"` instead of `service` | `PROMETHEUS_SERVICE_LABEL=job` |
+| Label values with capitals or underscores (`Checkout_API`) | not supported: values must be lower-case slugs such as `checkout-api`; use a label that holds such values, or relabel in your pipeline |
+| Different metric names (e.g. `http_server_requests_seconds_count` from Spring, or `istio_requests_total`) | write templates for them in a JSON file and set `TELEMETRY_TEMPLATES_FILE` (see [Query templates](#query-templates)). A file template with the same ID as a built-in replaces it; give it an agent-known `metric` name (`http_5xx_ratio`, `p95_latency_ms`, `db_pool_in_use`, …) so it is examined first |
+| Logs in JSON | nothing: JSON lines are parsed (level, message, trace and span IDs, attributes) |
+| A multi-tenant Loki or Grafana Cloud Logs | `LOKI_TENANT_ID` (the tenant or Grafana Cloud user ID) plus read-only credentials |
+| A large or slow backend | `TELEMETRY_TIMEOUT_SECONDS`, `TELEMETRY_MAX_LOG_LINES`, `TELEMETRY_MAX_SERIES`, `TELEMETRY_MAX_RESPONSE_BYTES`, or a shorter window |
+
+A template that returns "no data" in the preview usually means the metric or label name does not exist in your
+backend. Run the rendered query (shown in the preview) in Grafana Explore or the Prometheus UI to adjust it.
+
+### What was verified, and what was not
+
+| Configuration | Status |
+|---|---|
+| Local `grafana/loki:3.5.0` (multi-tenant, `X-Scope-OrgID`) and `prom/prometheus:v3.5.0` over http on 127.0.0.1, synthetic data | **tested**: live connector tests, API tests and the Playwright journey |
+| Error states: 401 without tenant, connection refused, 404 wrong path | tested against the local containers |
+| Bearer and basic auth, timeouts, redirects, oversized answers, 4xx/5xx answers | tested against in-process fakes of the documented API responses only |
+| Remote or cloud endpoints (Grafana Cloud, self-hosted Loki/Prometheus over https, Mimir, Thanos, VictoriaMetrics, Amazon Managed Prometheus, Azure Monitor managed Prometheus) | **not verified**. The official query API is the same, but authentication schemes (e.g. AWS SigV4 or Azure AD tokens) other than bearer or basic are not supported, and no remote system was contacted during development |
 
 ## Query templates
 

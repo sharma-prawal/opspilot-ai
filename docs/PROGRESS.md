@@ -421,6 +421,31 @@ Phase C1 is not started.
   - connectors tested only against local containers with synthetic data;
   - `alembic check` reports the pre-existing `ops.execution_owner` table (migration-managed, no ORM model).
 
+## Status — 2026-11-19, v0.6.0 release-readiness pass (same branch)
+
+- First-time documentation aligned in README, `CONNECTORS.md`, Integrations (setup panel) and the guide (section 12):
+  - `make migrate` (0011);
+  - `make telemetry-up`;
+  - `.env` URLs and credentials;
+  - `make stop && make dev`;
+  - test → templates → preview → investigate;
+  - adapting service labels, metric names and templates;
+  - `make telemetry-down`;
+  - tested (local Loki/Prometheus 3.5.0 containers) vs not verified (remote and cloud endpoints, auth other than
+    bearer or basic).
+- Consistency assertions added:
+  - the connected report and outcome label confidence as uncalibrated (API test, Playwright);
+  - the connector credential appears in none of the dataset, investigation, tool-call, evidence, event or report
+    responses.
+- Verified:
+  - `make lint` clean;
+  - pytest 388 passed / 3 skipped; web 50 passed; `make build-web` OK;
+  - Playwright with `E2E_TELEMETRY=1`: 6 passed (auth ×3, connected, simulator INC-001 with verified recovery,
+    upload).
+- Migration 0011 on a full copy of the main database (throwaway database, dropped afterwards): 0010 → 0011
+  cleanly, with 277 incidents, 275 investigations, 7,464 evidence rows, 23 documents and the uploaded dataset unchanged.
+  The main database itself was not migrated (it is still at 0010); run `make migrate`.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:

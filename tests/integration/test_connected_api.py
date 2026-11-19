@@ -171,6 +171,13 @@ async def test_connected_incident_is_investigated_read_only_and_deleted(
     assert servers["search_runbooks"] == "opspilot-ops-read"  # runbook RAG stays separate
     report = (await client.get(f"/api/v1/investigations/{inv}/report")).json()["markdown"]
     assert "Connected telemetry — read-only analysis" in report and "Telemetry queries (provenance)" in report
+    assert "uncalibrated" in outcome["reason"] and "not calibrated probabilities" in report  # confidence labelled
+    # the connector credential never reaches a browser-facing response or the downloadable report
+    for path in (f"/api/v1/incidents/{inc['id']}/dataset", f"/api/v1/investigations/{inv}"):
+        assert SECRET_TOKEN not in (await client.get(path)).text, path
+    for path in ("tool-calls", "evidence", "events", "report"):
+        assert SECRET_TOKEN not in (await client.get(f"/api/v1/investigations/{inv}/{path}")).text, path
+    assert SECRET_TOKEN not in report
     assert (await client.get(f"/api/v1/incidents/{inc['id']}")).json()["status"] == "open"
     async with session_factory() as s:
         assert (

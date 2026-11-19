@@ -196,11 +196,11 @@ Confirm 5xx error ratio returns below baseline 0.1%.`,
       "Every point keeps its Unix timestamp, unit, series labels and the query that returned it",
     ],
     prerequisites: [
-      "Prometheus HTTP API reachable from the OpsPilot API (tested with prom/prometheus:v3.5.0)",
+      "Prometheus HTTP API reachable from the OpsPilot API (tested only with a local prom/prometheus:v3.5.0; remote, cloud and Mimir/Thanos endpoints not verified)",
       "Read-only access; a bearer token or basic auth if the API is protected (https unless loopback)",
       "A service label on your series (PROMETHEUS_SERVICE_LABEL, default service)",
     ],
-    configuration: "Set PROMETHEUS_URL (and optionally PROMETHEUS_BEARER_TOKEN or PROMETHEUS_USERNAME/PROMETHEUS_PASSWORD, PROMETHEUS_SERVICE_LABEL, TELEMETRY_TEMPLATES_FILE) in the API environment and restart it. Then Incidents → Use Loki / Prometheus. Local test setup with synthetic data: make telemetry-up.",
+    configuration: "Apply migration 0011 (make migrate). Set PROMETHEUS_URL (and optionally PROMETHEUS_BEARER_TOKEN or PROMETHEUS_USERNAME/PROMETHEUS_PASSWORD, PROMETHEUS_SERVICE_LABEL, TELEMETRY_TEMPLATES_FILE) in the API environment and restart it. Then Incidents → Use Loki / Prometheus. Local test setup with synthetic data: make telemetry-up (stop with make telemetry-down).",
     exampleQuery: {
       language: "promql",
       code: `# Built-in template http_5xx_ratio, rendered for one service ($selector, $rate):
@@ -229,11 +229,11 @@ sum(rate(http_requests_total{service="checkout-api",status=~"5.."}[5m]))
       "Every line keeps its nanosecond timestamp, stream labels, level and key=value attributes",
     ],
     prerequisites: [
-      "Loki query API reachable from the OpsPilot API (tested with grafana/loki:3.5.0)",
+      "Loki query API reachable from the OpsPilot API (tested only with a local grafana/loki:3.5.0; Grafana Cloud and remote endpoints not verified)",
       "LOKI_TENANT_ID (X-Scope-OrgID) for a multi-tenant Loki; read-only credentials if protected",
       "A service label on your streams (LOKI_SERVICE_LABEL, default service_name)",
     ],
-    configuration: "Set LOKI_URL (and optionally LOKI_TENANT_ID, LOKI_BEARER_TOKEN or LOKI_USERNAME/LOKI_PASSWORD, LOKI_SERVICE_LABEL) in the API environment and restart it. Lines per query: TELEMETRY_MAX_LOG_LINES (default 2000).",
+    configuration: "Apply migration 0011 (make migrate). Set LOKI_URL (and optionally LOKI_TENANT_ID, LOKI_BEARER_TOKEN or LOKI_USERNAME/LOKI_PASSWORD, LOKI_SERVICE_LABEL) in the API environment and restart it. Lines per query: TELEMETRY_MAX_LOG_LINES (default 2000). Local test setup: make telemetry-up / make telemetry-down.",
     exampleQuery: {
       language: "text",
       code: `// Built-in template errors_warnings, rendered for one service:

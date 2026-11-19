@@ -73,6 +73,22 @@ export function ConnectorsPanel() {
               );
             })}
           </div>
+          <details className="rounded-lg border border-border bg-panel-2/30 p-3 text-xs text-text-muted">
+            <summary className="cursor-pointer font-semibold text-text">Set up and try the connectors (first run)</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-4">
+              <li>Apply migration 0011 with the normal workflow: <code className="font-mono">make infra-up &amp;&amp; make migrate</code> (additive; existing incidents are kept).</li>
+              <li>Start the local demo stack: <code className="font-mono">make telemetry-up</code> (Loki 127.0.0.1:3310, tenant <code className="font-mono">opspilot-demo</code>; Prometheus 127.0.0.1:9390; synthetic incident).</li>
+              <li>In <code className="font-mono">.env</code>: <code className="font-mono">LOKI_URL=http://127.0.0.1:3310</code>, <code className="font-mono">LOKI_TENANT_ID=opspilot-demo</code>, <code className="font-mono">PROMETHEUS_URL=http://127.0.0.1:9390</code>, <code className="font-mono">TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json</code>. For your own backends add read-only credentials (<code className="font-mono">*_BEARER_TOKEN</code>, or <code className="font-mono">*_USERNAME</code> + <code className="font-mono">*_PASSWORD</code>; https unless loopback).</li>
+              <li>Restart the API (<code className="font-mono">make stop &amp;&amp; make dev</code>); settings are read at start-up.</li>
+              <li>Click <strong className="text-text">Test connection</strong> above, then <strong className="text-text">Investigate with telemetry</strong>: use the demo incident, choose templates, preview, create and start the analysis.</li>
+              <li>Different applications: set <code className="font-mono">LOKI_SERVICE_LABEL</code> / <code className="font-mono">PROMETHEUS_SERVICE_LABEL</code> to the label holding service names, and describe your metric names in the templates file; restart the API.</li>
+              <li>Stop the demo stack with <code className="font-mono">make telemetry-down</code> and remove the connector lines from <code className="font-mono">.env</code>.</li>
+            </ol>
+            <p className="mt-2">
+              <strong className="text-text">Verified:</strong> local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data.{" "}
+              <strong className="text-text">Not verified:</strong> remote or cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus); only bearer and basic auth are supported. Details: docs/integrations/CONNECTORS.md.
+            </p>
+          </details>
           {!!q.data?.template_problems.length && (
             <ul className="list-disc pl-4 text-xs text-warn">{q.data.template_problems.map((p) => <li key={p}>{p}</li>)}</ul>
           )}

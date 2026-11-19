@@ -109,14 +109,39 @@ connection, give the affected service and an incident window, choose approved qu
 back, then start the read-only investigation. Azure Monitor, Datadog, CloudWatch and custom adapters are **planned,
 not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has the interface contract for adding one.
 
+First run with the local demo stack (tested):
+
 ```bash
-make telemetry-up   # local Loki (127.0.0.1:3310, tenant opspilot-demo) + Prometheus (127.0.0.1:9390), synthetic incident
-# then in .env (or the API's environment) and restart the API:
-LOKI_URL=http://127.0.0.1:3310
-LOKI_TENANT_ID=opspilot-demo
-PROMETHEUS_URL=http://127.0.0.1:9390
-TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+make infra-up && make migrate   # 1. database up, migration 0011 applied (additive; existing incidents are kept)
+make telemetry-up               # 2. local Loki 127.0.0.1:3310 (tenant opspilot-demo) + Prometheus 127.0.0.1:9390
 ```
+
+3. Add the connectors to `.env` (the demo needs no credentials):
+   ```bash
+   LOKI_URL=http://127.0.0.1:3310
+   LOKI_TENANT_ID=opspilot-demo
+   PROMETHEUS_URL=http://127.0.0.1:9390
+   TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+   ```
+4. Restart the API so it reads them: `make stop && make dev`.
+5. **Integrations** → **Test connection** on each connector.
+6. **Incidents → Use Loki / Prometheus** → **Use the local demo incident** → keep or change the query templates →
+   **Preview returned evidence** → **Create incident & start analysis** → **Download Markdown**.
+7. When done: `make telemetry-down`, then remove the connector lines from `.env` and restart the API.
+
+For your own backends:
+
+- use read-only credentials in `LOKI_BEARER_TOKEN` (or `LOKI_USERNAME`/`LOKI_PASSWORD`) and the `PROMETHEUS_`
+  equivalents; https is required except on loopback;
+- set `LOKI_SERVICE_LABEL` / `PROMETHEUS_SERVICE_LABEL` to the label that holds your service names;
+- describe your metric names in a templates file (`TELEMETRY_TEMPLATES_FILE`);
+- restart the API after each change.
+
+See [Adapting to your application](docs/integrations/CONNECTORS.md#adapting-to-your-application).
+
+**Tested vs not verified.** Only local `grafana/loki:3.5.0` and `prom/prometheus:v3.5.0` containers with synthetic
+data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were
+not verified, and only bearer or basic authentication is supported.
 
 - **Only configured destinations.** Requests carry template IDs, service names and a window — never a URL or query
   text. The client sends only `GET`s to the official query endpoints (`/loki/api/v1/query_range`,
