@@ -489,7 +489,7 @@ export default function OverviewPage() {
         >
           {deps.isLoading ? (
             <div className="py-6 text-center font-mono text-xs text-muted">Checking runtime seams…</div>
-          ) : deps.data ? (
+          ) : deps.data?.checks ? (
             <div className="space-y-3 font-mono text-xs">
               <ul className="space-y-2">
                 {Object.entries(deps.data.checks).map(([name, c]) => (

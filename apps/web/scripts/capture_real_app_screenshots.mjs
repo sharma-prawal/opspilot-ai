@@ -526,11 +526,20 @@ async function main() {
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            status: "ready",
-            database: { status: "ok", latency_ms: 1.2 },
-            mcp_read: { status: "ok", tools: 13 },
-            mcp_actions: { status: "ok", tools: 2 },
-            ollama: { status: "ok", latency_ms: 45.0, model: "qwen3.5:9b-q4_K_M" },
+            checks: {
+              postgres: { ok: true, pgvector: "0.8.0", migration: "head", latency_ms: 1.2 },
+              ollama: { ok: true, version: "0.1.24", llm: { model: "qwen3.5:9b-q4_K_M" } },
+              execution_owner: { ok: true, owner: "opspilot-owner", database: "opspilot_test" },
+              mcp_read: { ok: true, server: "opspilot-read", tools: 13 },
+              mcp_actions: { ok: true, server: "opspilot-actions", tools: 2 },
+            },
+            config: {
+              llm_model: "qwen3.5:9b-q4_K_M",
+              embedding_model: "qwen3-embedding:0.6b",
+              embedding_dimensions: 1024,
+              mcp_transport: "stdio",
+              max_concurrent_investigations: 4,
+            },
           }),
         });
       });
@@ -591,6 +600,16 @@ async function main() {
       await page.goto(`${BASE_URL}${c.url}`, { waitUntil: "networkidle" });
       await page.waitForTimeout(600);
       console.log(`Page URL after navigation: ${page.url()}`);
+
+      // Smoke check: Ensure page did not crash into an error boundary
+      const errorBoundaryCount = await page.locator("text=/This page couldn['’]t load|Application error/i").count();
+      if (errorBoundaryCount > 0) {
+        throw new Error(`Page at ${c.url} rendered an error boundary!`);
+      }
+      if (c.url === "/") {
+        const heading = page.getByRole("heading", { name: "System overview" });
+        await heading.waitFor({ state: "visible", timeout: 5000 });
+      }
 
       const outPath = path.join(OUT_DIR, c.name);
       await page.screenshot({ path: outPath, fullPage: false });
