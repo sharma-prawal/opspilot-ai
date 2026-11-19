@@ -15,7 +15,11 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.7.1, experimental, local-first.** v0.7.1 is a maintenance release: the web server now gets only an allowlisted environment (no backend credentials), starts reliably detached, and shows unavailable values as unavailable ([release notes](docs/releases/V0.7.1_NOTES.md)). v0.7 introduced the **Incident Forensics Lab** interface redesign: warm archival visual identity, synchronized time ribbon, interactive causal graph exploration, responsive investigation layouts, and rigorous truth-in-UI separation between stored telemetry and independently verified recovery ([release notes](docs/releases/V0.7.0_NOTES.md)). v0.6 added read-only Grafana Loki and Prometheus connectors; v0.5 added analysis of uploaded files. Remediation acts only on a deterministic simulator with human-in-the-loop approvals. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.8.0, experimental, local-first.** **Visual Experience 2.0** adds original vector branding, an action-first investigation workbench, source-linked evidence visualizations, compact connector rows and progressive safety details ([release notes](docs/releases/V0.8.0_NOTES.md)). The v0.7.1 environment allowlist, detached startup and accurate unavailable states are preserved. Uploaded files and Loki/Prometheus snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+
+Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
+[mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
+[brand guide](docs/design/BRAND.md).
 
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
@@ -46,7 +50,8 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Single execution owner per database (advisory lock, runtime lifecycle) with epoch fencing of checkpoint writes, runner writes and remediation claims | ✅ (v0.2.1) |
 | Workflow survives API restart; MCP child crash recovered transparently | ✅ |
 | FastAPI (26 endpoints) and Next.js 16 operator UI (outcome, plan, blocked proposals, evidence, timeline, report) | ✅ |
-| Tests: 304 deterministic + 30 web unit + 3 live-model + isolated Playwright e2e (own API on `opspilot_test`, identity-checked); ruff, mypy `--strict`, import-linter; CI on every push | ✅ |
+| Python and frontend tests, isolated Playwright e2e (own API on `opspilot_test`, identity-checked), ruff, mypy `--strict`, import-linter, production frontend build; Python and web CI jobs on every main push | ✅ |
+| Visual Experience 2.0: original logo/icon exports, three-mode intake, filtered roster, direct approval focus, metric comparisons, source chronology and evidence associations; responsive connector and safety disclosures | ✅ (v0.8) |
 | Held-out retrieval set and incident-level evaluation across all scenarios with retained traces | ✅ |
 
 Headline measurements come from the v0.2.1 evaluation: `qwen3:8b`, temperature 0, 13 live runs over six
@@ -256,15 +261,26 @@ Measured results are only in [`docs/evaluation/BASELINE.md`](docs/evaluation/BAS
 `make evaluate`, never hand-edited), including the caveats: one author wrote the scenarios and labels, and the
 safety gates were designed after observing failures on these scenarios.
 
-## Screenshots (real running app, synthetic fixtures & live verification)
+## Screenshots: Visual Experience 2.0
 
-> *Screenshots capture the real Next.js application. Telemetry, event traces and incident entries illustrate synthetic simulator scenarios and demo data; verified recovery is claimed strictly when verified by local Ollama execution.*
+These are authentic captures of the implemented Next.js application, using **explicitly
+labeled synthetic browser fixtures**. They show the UI, not live telemetry or measured
+model performance. Approval/recovery journeys are verified separately against the isolated
+test stack with local Ollama. The UI distinguishes model associations, observed dependencies,
+read-only findings and verified simulator recovery.
 
-| Overview & Case Intake | Incident Forensics Workbench & Timeline |
+| Homepage and investigation intake | Action-first investigation workbench |
 |---|---|
-| ![Overview & Intake](docs/images/redesign/redesign-intake-home-desktop.png) | ![Investigation Workbench](docs/images/redesign/redesign-investigation-workbench-desktop.png) |
-| **Interactive Architecture Explorer** | **Read-Only Evidence Dossier** |
-| ![Architecture Explorer](docs/images/redesign/redesign-architecture-desktop.png) | ![Incident Evidence Dossier](docs/images/redesign/redesign-incident-dossier-readonly-desktop.png) |
+| ![Implemented homepage with labeled synthetic fixtures](docs/images/visual-experience-2/refinement/home-desktop.png) | ![Implemented investigation workbench with labeled synthetic fixtures](docs/images/visual-experience-2/refinement/workbench-desktop.png) |
+
+[Mobile investigation](docs/images/visual-experience-2/refinement/workbench-mobile.png) ·
+[Integrations](docs/images/visual-experience-2/refinement/integrations-desktop.png) ·
+[Safety center](docs/images/visual-experience-2/refinement/safety-desktop.png) ·
+[All current captures and reproduction steps](docs/images/visual-experience-2/refinement/README.md)
+
+Original vector [light wordmark](apps/web/public/brand/logo-light.svg),
+[dark wordmark](apps/web/public/brand/logo-dark.svg), and
+[application icon](apps/web/public/brand/app-icon.svg) are checked in with PNG exports.
 
 ## Quick start
 

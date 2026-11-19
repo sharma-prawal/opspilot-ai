@@ -573,3 +573,31 @@ Not done (next session, in order):
   changes. Existing running services were not interrupted; only this pass's temporary
   test servers were started/stopped. No agent behavior change or evaluation rerun.
 - Local commit only; stop for acceptance review. No push, merge, tag or publication.
+
+## Status — 2026-11-19, v0.8.0 release preparation (authorized)
+
+- User approved `31aea99320e13931a2e8f36baaf3f3e4c1dc9d9a` for publication as v0.8.0.
+  Verified `origin/main` = published v0.7.1 (`1ee1b70`), with maintenance commit
+  `c1514b2` in its ancestry; v0.8.0 tag and GitHub release were absent.
+- Integrated both approved UI commits (`0a734f3`, `31aea99`) with a non-rewriting
+  merge on `codex/release-v0.8.0` in the existing isolated worktree. No conflicts.
+  Local `main` is checked out in another worktree, which remains untouched; the
+  verified integration is advanced normally to remote `main` at publication.
+- Application, backend, auth, environment builder and launcher code match the
+  approved candidate. Only release documentation was added after integration:
+  README status/logo/current screenshots and `docs/releases/V0.8.0_NOTES.md`.
+  Screenshots are authentic implementation captures with visible synthetic labels.
+- Integrated verification: `make lint` and production build passed; `make test`
+  passed (396 Python, 3 opt-in live-model skips; 68 frontend); production browser
+  suite passed all 16 checks with zero page errors, including desktop/mobile approval
+  focus, source chronology, metric labels, evidence navigation and connector disclosures.
+- Affected live Playwright journeys: all 7 passed (authentication x3, connected
+  telemetry, simulator approval/recovery, overview and uploaded evidence). The real
+  local model ran only through the isolated test stack. Temporary test servers stopped.
+- Publication gate: both Python and web jobs on the final main commit must pass
+  before creating/pushing an annotated v0.8.0 tag and publishing the GitHub release.
+  Publication must verify remote main, the peeled annotated tag and the GitHub release target.
+- No feature, connector, agent, safety-policy, schema, model or credential changes;
+  no migration/data reset. Existing data/uploads/private Phase C1 files and other
+  worktrees are not modified. Tests use only `opspilot_test` and isolated test ports;
+  existing runtime on 3000/8000 is preserved. No evaluation rerun: agent behavior unchanged.
