@@ -1,4 +1,4 @@
-"""Connected observability (v0.6): connector status, preview and incident creation from Loki/Prometheus.
+"""Connected observability (v0.6; Datadog v0.9): connector status, preview and incident creation.
 
 A connected incident is backed by a read-only *snapshot*: the selected query templates are run for the incident's
 services over one bounded window, normalized into the same evidence records as an upload and stored in
@@ -66,6 +66,37 @@ def coverage_warnings(snap: Snapshot, req: Any) -> list[str]:
     return warnings
 
 
+MAX_CHART_SERIES = 12
+MAX_CHART_POINTS = 400
+
+
+def chart_series(snap: Snapshot) -> list[dict[str, Any]]:
+    """v0.9: the metric points exactly as returned, per (service, metric), for preview charts. Nothing is resampled
+    or filled in: a series with more points than a chart can show is listed without points."""
+    steps = {q.id: q.step_seconds for q in snap.queries}
+    groups: dict[tuple[str, str], list[Any]] = {}
+    for m in snap.dataset.metrics:
+        groups.setdefault((m.service, m.metric), []).append(m)
+    out: list[dict[str, Any]] = []
+    for (service, metric), rows in sorted(groups.items())[:MAX_CHART_SERIES]:
+        rows.sort(key=lambda r: r.ts)
+        query = rows[0].source.rsplit(":", 1)[0]
+        too_many = len(rows) > MAX_CHART_POINTS or len({tuple(sorted(r.labels.items())) for r in rows}) > 1
+        out.append(
+            {
+                "service": service,
+                "metric": metric,
+                "unit": rows[0].unit,
+                "query": query,
+                "step_seconds": steps.get(query),
+                "count": len(rows),
+                "points": [] if too_many else [[r.ts.isoformat(), r.value] for r in rows],
+                "omitted": "more than one series or too many points to chart" if too_many else None,
+            }
+        )
+    return out
+
+
 class ConnectedService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession], registry: ConnectorRegistry) -> None:
         self._sf = session_factory
@@ -87,14 +118,20 @@ class ConnectedService:
         return status.model_dump(mode="json")
 
     async def services(self, connector_id: str, start: datetime, end: datetime) -> dict[str, Any]:
+        notes: list[str] = []
         try:
             connector = self.registry.get(connector_id)
-            values = await connector.services(FetchWindow(start=start, end=end))
+            window = FetchWindow(start=start, end=end)
+            discover = getattr(connector, "discover", None)  # v0.9: discovery that also reports what it left out
+            if discover is not None:
+                values, notes = await discover(window)
+            else:
+                values = await connector.services(window)
         except ConnectorError as exc:
             if exc.kind in ("not_configured", "invalid_request"):
                 _raise(exc)
-            return {"connector": connector_id, "services": [], "error": exc.as_dict()}
-        return {"connector": connector_id, "services": values, "error": None}
+            return {"connector": connector_id, "services": [], "error": exc.as_dict(), "notes": []}
+        return {"connector": connector_id, "services": values, "error": None, "notes": notes}
 
     # -- snapshot -----------------------------------------------------------------------------------------------
     async def _collect(self, req: Any) -> Snapshot:
@@ -116,6 +153,7 @@ class ConnectedService:
             "collected": d.collected,
             "warnings": coverage_warnings(snap, req),
             "samples": samples(d),
+            "series": chart_series(snap),
         }
 
     async def preview(self, req: Any) -> dict[str, Any]:
@@ -129,10 +167,10 @@ class ConnectedService:
         if not snap.usable:
             reasons = "; ".join(f"{q.id}: {(q.error or {}).get('kind', 'no data')}" for q in failed) or "no data"
             raise ValidationFailure(f"the selected queries returned no usable records ({reasons})")
-        if not any(r.service == req.service for r in (*d.logs, *d.metrics)):
+        if not any(r.service == req.service for r in (*d.logs, *d.metrics, *d.spans)):
             raise ValidationFailure(
-                f"no log or metric for the affected service {req.service!r} was returned; check the service name "
-                "and the window"
+                f"no log, metric or span for the affected service {req.service!r} was returned; check the service "
+                "name and the window"
             )
         view = self._view(snap, req)
         incident_id, dataset_id = uuid.uuid4(), uuid.uuid4()

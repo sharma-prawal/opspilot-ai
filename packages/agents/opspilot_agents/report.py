@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from opspilot_agents.prompts import is_connected, is_read_only
+from opspilot_agents.prompts import connected_sources, is_connected, is_read_only
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
 
@@ -193,7 +193,20 @@ def render_report(state: dict[str, Any]) -> str:
     hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
     uploaded = is_read_only(inc)
-    if is_connected(inc):
+    if is_connected(inc) and "datadog" in connected_sources(inc)[0]:  # v0.9
+        kinds, signals = connected_sources(inc)
+        held = ", ".join({"log": "logs", "metric": "metrics", "span": "APM spans"}[s] for s in signals) or "no data"
+        names = " and ".join(
+            {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}.get(k, k) for k in kinds
+        )
+        lines += [
+            f"> **Connected telemetry — read-only analysis.** Findings come only from a snapshot of {names} telemetry "
+            f"({held}) queried for the incident window (taken {_ts(inc.get('snapshot_at'))}). No action was executed "
+            "through Datadog or anywhere else and recovery was not verified; the historical data does not show the "
+            "current state.",
+            "",
+        ]
+    elif is_connected(inc):
         lines += [
             "> **Connected telemetry — read-only analysis.** Findings come only from a snapshot of Loki logs and "
             f"Prometheus metrics queried for the incident window (taken {_ts(inc.get('snapshot_at'))}). No action "
@@ -367,7 +380,7 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
     lines = [
         "## Telemetry queries (provenance)",
         "",
-        "Evidence citations of the form `<connector>/<template>/<service>:entry|point N` refer to these queries.",
+        "Evidence citations of the form `<connector>/<template>/<service>:entry|point|span N` refer to these queries.",
         "",
         "| Query | Source | Window (UTC) | Result | Query text |",
         "|---|---|---|---|---|",
@@ -375,16 +388,55 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
     for q in queries:
         res = f"{q.get('status')}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
         step = f", step {q['step_seconds']} s" if q.get("step_seconds") else ""
+        source = str(q.get("connector_name"))
+        if q.get("site"):  # v0.9 Datadog: site and signal; a Log Explorer link when one was built
+            source += f" ({q['site']}, {q.get('signal')})"
+        link = f" [open]({q['link']})" if str(q.get("link") or "").startswith("https://") else ""
         lines.append(
-            f"| `{q.get('id')}` | {q.get('connector_name')} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
-            f"{res} | `{_one_line(str(q.get('query')), 160).replace('`', chr(39))}` |"
+            f"| `{q.get('id')}` | {source} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
+            f"{res} | `{_one_line(str(q.get('query')), 160).replace('`', chr(39))}`{link} |"
         )
     lines.append("")
     return lines
 
 
+def _datadog_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
+    """v0.9: follow-ups for a snapshot that includes Datadog, phrased for what it did and did not hold."""
+    inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    steps: list[str] = []
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Add or select Datadog metric templates that measure errors and latency for {svc} (APM trace metrics "
+            "use the span name of its integration); without them impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Check that Datadog indexes {svc} logs under the service tag for this window.")
+    steps.append(
+        "Review deployment and configuration-change history in your CD and config systems (or Datadog events and "
+        "change tracking, which this snapshot does not collect): change correlation was not possible."
+    )
+    if "span" in signals:
+        steps.append(
+            "Open the failing traces in Datadog APM: the snapshot holds only indexed spans, so traces may be partial."
+        )
+    else:
+        steps.append("Inspect traces for the failing requests in Datadog APM; no spans were collected.")
+    steps.append(
+        f"Check the current health of {svc} in Datadog: this analysis used a historical snapshot, not live state."
+    )
+    return steps
+
+
 def _connected_next_steps(state: dict[str, Any]) -> list[str]:
     inc = state.get("incident") or {}
+    kinds_, signals_ = connected_sources(inc)
+    if "datadog" in kinds_:
+        return _datadog_next_steps(state, signals_)
     svc = inc.get("service") or "the affected service"
     ev = list((state.get("evidence") or {}).values())
     kinds = {e["kind"] for e in ev}

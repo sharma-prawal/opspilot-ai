@@ -31,6 +31,7 @@ export interface NormalizedRecord {
   ts: string; ts_original: string; tz: string; service: string; service_source: "record" | "file_default" | "query";
   source: string; level?: string; level_inferred?: boolean; message?: string; metric?: string; value?: number;
   unit?: string; name?: string; status?: string; duration_ms?: number | null; trace_id?: string | null;
+  span_id?: string; parent_span_id?: string | null; status_message?: string | null; kind?: string | null;
   event_type?: string; summary?: string; attributes?: Record<string, unknown>;
 }
 
@@ -61,34 +62,53 @@ export interface UploadedDataset {
   created_at: string; retention_days: number;
 }
 
-// ---- v0.6 connected observability ----------------------------------------------------------------------------
-export type ConnectorId = "loki" | "prometheus";
+// ---- v0.6 connected observability (Datadog: v0.9) -----------------------------------------------------------
+export type ConnectorId = "loki" | "prometheus" | "datadog";
+export type TelemetrySignal = "log" | "metric" | "span";
 
 export interface QueryTemplate {
   id: string; connector: ConnectorId; label: string; description: string; query: string; metric: string | null;
-  unit: string; default: boolean; source: "built-in" | "file";
+  unit: string; default: boolean; source: "built-in" | "file"; signal?: TelemetrySignal | null; expand_traces?: number;
 }
 
 export interface ConnectorInfo {
-  id: ConnectorId; kind: ConnectorId; name: string; signal: "log" | "metric"; configured: boolean;
+  id: ConnectorId; kind: ConnectorId; name: string; signal: TelemetrySignal; signals?: TelemetrySignal[];
+  configured: boolean;
   endpoint?: string; auth?: string; service_label?: string; tenant?: string | null; templates?: QueryTemplate[];
   limits?: { timeout_seconds: number; max_window_hours: number; max_log_lines_per_query: number;
     max_series_per_query: number; max_response_kib: number };
   problem?: string | null; hint?: string;
+  // v0.9 Datadog
+  site?: string; fixture?: boolean; env?: string | null; log_indexes?: string[];
+  permissions?: Partial<Record<TelemetrySignal, string>>; read_only_endpoints?: string[];
+  limits_extra?: { max_spans_per_query: number; max_pages_per_query: number };
 }
 
 export interface ConnectorList { connectors: ConnectorInfo[]; template_problems: string[]; planned: string[]; max_queries: number }
 
-export type ConnectionState = "ok" | "not_configured" | "auth_error" | "unavailable" | "error";
+export type ConnectionState =
+  "ok" | "partial" | "not_configured" | "auth_error" | "rate_limited" | "unavailable" | "error";
+export type SignalState = "ok" | "permission_denied" | "unsupported" | "rate_limited" | "unavailable" | "error";
 export interface ConnectionStatus { connector: string; status: ConnectionState; message: string; version?: string | null;
-  latency_ms?: number | null; checked_at?: string }
+  latency_ms?: number | null; checked_at?: string;
+  signals?: Partial<Record<TelemetrySignal, { status: SignalState; message: string }>> | null }
+
+export interface DiscoveredServices {
+  connector: string; services: string[]; error: { kind: string; message: string } | null; notes?: string[];
+}
 
 export interface QueryProvenance {
   id: string; connector: ConnectorId; connector_name: string; endpoint: string; template: string; template_label: string;
   service: string; query: string; start: string; end: string; step_seconds: number | null; limit: number | null;
   status: "ok" | "empty" | "error"; error: { kind: string; message: string } | null; returned: number; rejected: number;
   redactions: number; truncated: boolean; series: number | null; unit: string; fetched_at: string; duration_ms: number;
-  issues: string[];
+  issues: string[]; signal?: TelemetrySignal | null; site?: string | null; link?: string | null; pages?: number | null;
+}
+
+/** v0.9: metric points exactly as returned (never resampled); empty `points` when they cannot be charted. */
+export interface ChartSeries {
+  service: string; metric: string; unit: string; query: string; step_seconds: number | null; count: number;
+  points: [string, number][]; omitted: string | null;
 }
 
 export interface ConnectedRequest {
@@ -101,8 +121,9 @@ export interface ConnectedIncidentRequest extends ConnectedRequest {
 }
 
 export interface ConnectedPreview {
-  usable: boolean; summary: UploadSummary; queries: QueryProvenance[]; collected: Record<"log" | "metric", string[]>;
-  warnings: string[]; samples: Record<SignalType, NormalizedRecord[]>;
+  usable: boolean; summary: UploadSummary; queries: QueryProvenance[];
+  collected: Record<"log" | "metric", string[]> & { span?: string[] };
+  warnings: string[]; samples: Record<SignalType, NormalizedRecord[]>; series?: ChartSeries[];
 }
 
 export interface Hypothesis {

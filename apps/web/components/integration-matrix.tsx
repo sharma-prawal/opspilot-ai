@@ -39,10 +39,10 @@ export function IntegrationMatrix() {
     {
       name: "Datadog",
       icon: "connector",
-      signals: "No adapter yet",
-      state: "Planned",
-      access: "Unavailable",
-      auth: "Not implemented",
+      signals: "Logs · metrics · APM spans",
+      state: "Implemented",
+      access: "Read-only (allowlisted query POSTs)",
+      auth: "API key + application key",
     },
     {
       name: "Azure Monitor",

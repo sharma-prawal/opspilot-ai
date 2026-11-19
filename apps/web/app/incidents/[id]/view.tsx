@@ -45,7 +45,7 @@ export function IncidentView() {
   });
 
   const i = incident.data;
-  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus snapshot
+  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus, v0.9 Datadog snapshot
   const uploaded = i?.evidence_source === "upload" || connected; // read-only, stored evidence
   const active = invs.data?.some((v) =>
     ["queued", "running", "awaiting_approval"].includes(v.status)
@@ -128,8 +128,8 @@ export function IncidentView() {
 
       {connected && (
         <div className="rounded-xl border border-info/30 bg-info-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
-          <strong>Connected telemetry — read-only analysis.</strong> The agent investigates only the Loki/Prometheus
-          snapshot stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
+          <strong>Connected telemetry — read-only analysis.</strong> The agent investigates only the telemetry
+          snapshot (Loki, Prometheus or Datadog) stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
           execute it, and it never claims verified recovery from historical data.
         </div>
       )}
@@ -242,6 +242,11 @@ export function IncidentView() {
                           </span>
                         </div>
                         <code className="block break-all font-mono text-[10px] text-muted">{q.query}</code>
+                        {q.link?.startsWith("https://") && (
+                          <a href={q.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent hover:underline">
+                            Open in Datadog ({q.site}) ↗
+                          </a>
+                        )}
                       </li>
                     ))}
                   </ul>

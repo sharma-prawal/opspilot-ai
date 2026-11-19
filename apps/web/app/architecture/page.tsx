@@ -435,7 +435,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     id: "src-ext-adapters",
     name: "Further Observability Adapters (planned)",
     category: "Adapter Seam",
-    role: "Planned, not implemented: Datadog, CloudWatch, Azure Monitor, tracing backends, CI/CD change history and custom stores. Each would implement the TelemetryConnector contract already used by Loki and Prometheus (docs/integrations/CONNECTORS.md).",
+    role: "Planned, not implemented: CloudWatch, Azure Monitor, tracing backends, CI/CD change history and custom stores. Each would implement the TelemetryConnector contract already used by Loki, Prometheus and Datadog (docs/integrations/CONNECTORS.md).",
     sourcePath: "packages/shared/opspilot_shared/connectors/contract.py (contract)",
     inputs: ["PromQL queries", "LogQL streams", "KQL exceptions", "OTLP trace spans"],
     outputs: ["Standardized MetricSeries", "Error signature clusters", "Call graph edges"],

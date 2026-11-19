@@ -253,6 +253,15 @@ uploads (`is_read_only`, D113):
 - The report adds a connected banner, a "Telemetry queries (provenance)" table and connector-specific next steps.
   Outcomes are `analysis_complete` / `analysis_inconclusive`.
 
+**Datadog snapshots (v0.9, D119–D124)** take the same path, with these differences:
+
+- `get_service_dependencies` answers from the returned APM span parent/child pairs (`observed_call`). It reports
+  "not available" for a service whose span queries failed, and "not observed" when they returned nothing.
+- `search_logs` also returns error spans as derived entries, as it does for uploaded traces.
+- The prompt note names the signals actually collected and warns that indexed traces may be partial.
+- The report banner, provenance table (site, signal, Log Explorer link) and next steps name Datadog.
+- Loki/Prometheus prompts and reports are unchanged.
+
 ## Outcomes
 
 `report` classifies every run deterministically: `mitigated`, `not_recovered`, `verification_incomplete`,

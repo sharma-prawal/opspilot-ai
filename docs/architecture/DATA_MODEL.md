@@ -103,6 +103,11 @@ erDiagram
     `ts_original` as returned, `tz` = `epoch`, `service_source` `record` or `query`, metric `unit` and `labels`) and
     `collected` (services per signal whose queries succeeded);
   - `summary` adds `window`, `connectors`, `redactions` and `collected`.
+- v0.9 Datadog snapshots use the same row and columns (no migration):
+  - each query adds `signal`, `site`, `link` and `pages`;
+  - `records.spans` holds `SpanRecord`s (`source` = `datadog/<template>/<service>:span N`, trace/span/parent IDs,
+    `parent_missing` for partial traces);
+  - `collected` gains a `span` entry when a span-capable connector was selected.
 - Deleted with the incident, like uploads.
 
 ## Status enumerations

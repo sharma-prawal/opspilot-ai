@@ -77,9 +77,12 @@ class HttpConnector:
         username: str = "",
         password: str = "",
         transport: httpx.AsyncBaseTransport | None = None,
+        header_credentials: bool = False,
+        max_retries: int = 0,
+        max_retry_wait: float = 0.0,
     ) -> None:
         self._auth_mode = "bearer token" if bearer_token else "basic auth" if username else "none"
-        has_credentials = bool(bearer_token or username or password)
+        has_credentials = bool(bearer_token or username or password or header_credentials)
         self.base_url = validate_base_url(url, has_credentials=has_credentials)
         self.service_label = service_label
         self._templates = [t for t in templates if t.connector == self.KIND]
@@ -90,17 +93,24 @@ class HttpConnector:
         self.http = ReadOnlyHttp(
             self.base_url,
             allowed_paths=self.allowed_paths(),
+            allowed_post_paths=self.allowed_post_paths(),
             headers=hdrs,
             auth=(username, password) if username and not bearer_token else None,
             secrets=[bearer_token, password, *(hdrs.values() if headers else [])],
             timeout=limits.timeout,
             max_bytes=limits.max_response_bytes,
             transport=transport,
+            max_retries=max_retries,
+            max_retry_wait=max_retry_wait,
         )
 
     # -- subclass hooks -----------------------------------------------------------------------------------------
     def allowed_paths(self) -> list[str]:
         raise NotImplementedError
+
+    def allowed_post_paths(self) -> list[str]:
+        """Read-only query endpoints that the provider serves as POST (v0.9). None for Loki and Prometheus."""
+        return []
 
     def extra_info(self) -> dict[str, Any]:
         return {}
@@ -118,6 +128,10 @@ class HttpConnector:
     def signal(self) -> Signal:
         return self.SIGNAL
 
+    @property
+    def signals(self) -> tuple[Signal, ...]:
+        return (self.SIGNAL,)
+
     def templates(self) -> list[QueryTemplate]:
         return list(self._templates)
 
@@ -133,6 +147,7 @@ class HttpConnector:
             "kind": self.kind,
             "name": self.NAME,
             "signal": self.signal,
+            "signals": list(self.signals),
             "configured": True,
             "endpoint": self.base_url,
             "auth": self._auth_mode,
@@ -207,6 +222,7 @@ class HttpConnector:
             id=f"{self.id}/{t.id}/{service}",
             connector=self.KIND,
             connector_name=self.NAME,
+            signal=t.returns,
             endpoint=endpoint,
             template=t.id,
             template_label=t.label,

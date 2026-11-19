@@ -225,7 +225,7 @@ export default function OverviewPage() {
               </>
             ) : (
               <>
-                <h3>Use Loki / Prometheus</h3>
+                <h3>Use connected telemetry</h3>
                 <p>
                   Choose configured connectors, preview the snapshot, then
                   investigate. Connection health is checked in the intake flow.
@@ -234,7 +234,7 @@ export default function OverviewPage() {
                   href="/incidents/new?source=connected"
                   className="action-link"
                 >
-                  Use Loki / Prometheus →
+                  Use Loki / Prometheus / Datadog →
                 </Link>
                 <Badge tone="info">Read-only · no execution</Badge>
               </>

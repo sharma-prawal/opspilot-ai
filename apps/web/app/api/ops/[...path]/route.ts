@@ -24,8 +24,8 @@ const MUTATIONS: Rule[] = [
   { pattern: /^api\/v1\/incidents\/upload$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/discard$/, role: "operator" },
   // v0.6 connected observability: connection tests, service discovery and snapshots contact the configured
-  // Loki/Prometheus, so they are operator-only. The request carries IDs and a time window, never a URL or query.
-  { pattern: /^api\/v1\/connectors\/(loki|prometheus)\/(test|services)$/, role: "operator" },
+  // Loki/Prometheus/Datadog, so they are operator-only. The request carries IDs and a time window, never a URL or query.
+  { pattern: /^api\/v1\/connectors\/(loki|prometheus|datadog)\/(test|services)$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/connected\/preview$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/connected$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/investigations$/, role: "operator" },

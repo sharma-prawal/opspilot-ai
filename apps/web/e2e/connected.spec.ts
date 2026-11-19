@@ -16,7 +16,8 @@ test("operator connects Loki and Prometheus, previews telemetry and gets a cited
   await signIn(page);
   assertIsolated(await (await page.request.get("/api/ops/api/v1/system/identity")).json(), "browser session");
   const list = await (await page.request.get("/api/ops/api/v1/connectors")).json();
-  test.skip(!list.connectors.every((c: { configured: boolean }) => c.configured), "run with E2E_TELEMETRY=1 after make telemetry-up");
+  const v06 = list.connectors.filter((c: { id: string }) => c.id === "loki" || c.id === "prometheus");
+  test.skip(!v06.every((c: { configured: boolean }) => c.configured), "run with E2E_TELEMETRY=1 after make telemetry-up");
 
   await page.goto("/incidents/new?source=connected");
   await expect(page.getByRole("heading", { name: "Investigate with connected telemetry" })).toBeVisible();
@@ -27,6 +28,8 @@ test("operator connects Loki and Prometheus, previews telemetry and gets a cited
     await expect(card.getByText(/answered \(version 3\.5\.0\)/)).toBeVisible();
   }
 
+  const datadog = page.getByRole("checkbox", { name: "Use Datadog" });
+  if (await datadog.isEnabled()) await datadog.uncheck(); // v0.9: this journey covers Loki/Prometheus only
   await page.getByRole("button", { name: "Use the local demo incident" }).click();
   await expect(page.getByLabel("Window start (UTC)")).toHaveValue("2026-11-12T06:16");
   await page.getByRole("button", { name: "Find services in this window" }).click();

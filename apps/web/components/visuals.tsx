@@ -8,8 +8,10 @@ import {
   metricValues,
   sourceChronology,
 } from "@/lib/visuals";
+import { seriesRuns } from "@/lib/connectors";
 import type {
   ActionRequest,
+  ChartSeries,
   Evidence,
   Hypothesis,
   InvestigationResult,
@@ -512,5 +514,61 @@ export function DecisionFlow({
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * v0.9: metric points exactly as the provider returned them (preview of a connected snapshot). Native SVG, one
+ * independent scale per series; a missing interval is drawn as a break, never bridged or filled in.
+ */
+export function SeriesChart({ series }: { series: ChartSeries }) {
+  const runs = seriesRuns(series);
+  const pts = runs.flat();
+  const label = `${series.metric}, ${series.service}`;
+  if (!pts.length)
+    return (
+      <figure className="metric-row" aria-label={label}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-sm font-semibold">{series.metric}</span>
+          <span className="font-mono text-xs text-muted">{series.service}</span>
+        </div>
+        <p className="text-xs text-muted">
+          {series.count} point(s) · not charted: {series.omitted ?? "no finite values"}.
+        </p>
+      </figure>
+    );
+  const W = 320, H = 72, pad = 4;
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+  const lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+  const x = (t: number) => pad + ((t - t0) / (t1 - t0 || 1)) * (W - 2 * pad);
+  const y = (v: number) => H - pad - ((v - lo) / (hi - lo || 1)) * (H - 2 * pad);
+  const gaps = runs.length - 1;
+  return (
+    <figure className="metric-row" aria-label={label}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-sm font-semibold">{series.metric}</span>
+        <span className="font-mono text-xs text-muted">{series.service}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-[72px] w-full" role="img"
+        aria-label={`${label}: ${series.count} returned points from ${metricLabel(lo, series.unit)} to ${metricLabel(hi, series.unit)}`}>
+        <line x1={pad} x2={W - pad} y1={H - pad} y2={H - pad} stroke="var(--border)" strokeWidth={1} />
+        {runs.map((run, i) =>
+          run.length === 1 ? (
+            <circle key={i} cx={x(run[0][0])} cy={y(run[0][1])} r={1.6} fill="var(--accent)" />
+          ) : (
+            <polyline key={i} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeLinejoin="round"
+              points={run.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ")} />
+          ),
+        )}
+      </svg>
+      <figcaption>
+        {series.count} returned point(s){series.step_seconds ? ` · ${series.step_seconds} s rollups` : ""} ·{" "}
+        {metricLabel(lo, series.unit)} – {metricLabel(hi, series.unit)}
+        {series.unit ? "" : " · unit unavailable"} · {utcTime(new Date(t0).toISOString())} →{" "}
+        {utcTime(new Date(t1).toISOString())}
+        {gaps > 0 ? ` · ${gaps} gap(s) with no returned value, not filled in` : ""} ·{" "}
+        <span className="font-mono">{series.query}</span>
+      </figcaption>
+    </figure>
   );
 }

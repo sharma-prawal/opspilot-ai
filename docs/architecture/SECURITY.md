@@ -46,8 +46,8 @@ calls to the action tool without approval fail, (d) replayed approvals are rejec
 ## Data
 
 All datasets are synthetic and generated in this repository. No customer or production data. Since v0.5 an
-operator can upload their own sanitized files, and since v0.6 query their own Loki/Prometheus (see below). Both
-stay local.
+operator can upload their own sanitized files, since v0.6 query their own Loki/Prometheus, and since v0.9 their
+own Datadog organization (see below). All of it stays local.
 
 ## Uploaded evidence (v0.5)
 
@@ -91,6 +91,38 @@ Full detail: [CONNECTORS.md](../integrations/CONNECTORS.md#security). Decisions 
   - OpsPilot cannot verify that a token is read-only: use read-only credentials.
   - A configured URL may point at an internal host by design (that is the operator's choice), but only that host.
   - Tested only against local containers with synthetic data.
+
+## Datadog connector (v0.9)
+
+Full detail: [DATADOG.md](../integrations/DATADOG.md#security-controls). Decisions D119–D124.
+
+- **Destination.** Only `https://api.<DATADOG_SITE>`, for a site in the documented allowlist (`SITES`). Any other
+  value is refused at start-up: hosts, URLs, look-alike domains, link-local addresses. Requests cannot name a host,
+  path, method, query or site; such fields are 422. `DATADOG_LOCAL_API_URL` (synthetic fixture) is refused unless it
+  is a loopback address.
+- **Read-only surface.** `ReadOnlyHttp.post_json` accepts only paths in the connector's fixed POST allowlist: logs
+  search, logs aggregate, metrics timeseries query, spans search. These are documented *read* query endpoints that
+  happen to use POST. `GET` is limited to `/api/v1/validate`. The client has no PUT/PATCH/DELETE method. Loki and
+  Prometheus have an empty POST allowlist and cannot POST at all. Redirects and ambient proxy settings are refused as
+  for v0.6.
+- **Credentials.** `DATADOG_API_KEY` / `DATADOG_APP_KEY`:
+  - are read from the API environment only, never through `NEXT_PUBLIC_*`; `DATADOG_` and `DD_` are on the web
+    process denylist;
+  - are sent only as headers to the site's https API host;
+  - are never in connector info, test results, provenance, snapshots, reports or the audit log;
+  - are scrubbed from error messages, including backend echoes (tested).
+- **Bounds and rate limits.**
+  - Pagination is capped: ≤ 1000 records per page, ≤ 5 pages per query, the line limit and `DATADOG_MAX_SPANS`.
+  - Trace expansion is capped at 10 traces per span query.
+  - At most 2 Datadog requests are in flight per connector.
+  - On 429/503, at most 2 retries, and only when the provider's reset is ≤ 10 s; otherwise the query fails
+    `rate_limited`. Never a loop.
+- **Model isolation.** No Datadog tool exists in LangGraph or MCP. The investigation reads the frozen snapshot, and
+  the model's text never reaches a Datadog request.
+- **Residual risk.**
+  - OpsPilot cannot verify that the application key is read-only: scope it to the three read permissions.
+  - Log Explorer links contain the rendered query text (service, env, filters), never a key.
+  - Not verified against a live Datadog organization.
 
 ## Safety gates on model proposals (Phase B)
 

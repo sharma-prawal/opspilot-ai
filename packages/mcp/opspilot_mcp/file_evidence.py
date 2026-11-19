@@ -65,6 +65,40 @@ NO_CHANGE_HISTORY = (
     "not_available: deployment and configuration-change history is not part of the connected telemetry "
     "(Loki logs and Prometheus metrics); whether a change happened is unknown"
 )
+# v0.9: wording for snapshots that include Datadog. Loki/Prometheus-only snapshots keep the v0.6 messages verbatim.
+_BACKEND = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}
+_SIGNAL_OF = {"loki": ("log",), "prometheus": ("metric",), "datadog": ("log", "metric", "span")}
+_DD_SIGNALS = "Datadog logs, metrics and APM spans; Datadog events are not collected"
+
+
+def _v06(connectors: tuple[str, ...]) -> bool:
+    return set(connectors) <= {"loki", "prometheus"}
+
+
+def _backends(connectors: tuple[str, ...], signal: str) -> str:
+    names = [_BACKEND.get(c, c) for c in connectors if signal in _SIGNAL_OF.get(c, ())]
+    return " or ".join(names) or "connector"
+
+
+def _not_in_snapshot(tool: str, connectors: tuple[str, ...]) -> str:
+    if _v06(connectors):
+        return NOT_IN_SNAPSHOT[tool]
+    if tool == "get_service_health":
+        names = "/".join(_BACKEND.get(c, c) for c in connectors)
+        return (
+            f"live service health is not observed: this is a historical snapshot of {names} telemetry; impact is "
+            "judged only from its metrics, logs and spans"
+        )
+    return NOT_IN_SNAPSHOT[tool]
+
+
+def _no_change_history(connectors: tuple[str, ...]) -> str:
+    if _v06(connectors):
+        return NO_CHANGE_HISTORY
+    return (
+        "not_available: deployment and configuration-change history is not part of the connected telemetry "
+        f"({_DD_SIGNALS}); whether a change happened is unknown"
+    )
 
 
 class ToolInputError(ValueError):
@@ -93,13 +127,21 @@ def _short(*parts: str) -> str:
 
 
 class LoadedUpload:
-    __slots__ = ("data", "dataset_id", "incident", "source")
+    __slots__ = ("connectors", "data", "dataset_id", "incident", "source")
 
-    def __init__(self, dataset_id: uuid.UUID, incident: dict[str, Any], data: Dataset, source: str = "upload") -> None:
+    def __init__(
+        self,
+        dataset_id: uuid.UUID,
+        incident: dict[str, Any],
+        data: Dataset,
+        source: str = "upload",
+        connectors: tuple[str, ...] = (),
+    ) -> None:
         self.dataset_id = dataset_id
         self.incident = incident
         self.data = data
         self.source = source
+        self.connectors = connectors  # v0.9: connector kinds behind a snapshot, in query order
 
     @property
     def server(self) -> str:
@@ -108,7 +150,11 @@ class LoadedUpload:
 
 def _query_view(q: dict[str, Any]) -> dict[str, Any]:
     keys = ("id", "connector", "connector_name", "template_label", "service", "query", "start", "end", "step_seconds")
-    return {k: q.get(k) for k in (*keys, "limit", "status", "returned", "truncated", "unit")}
+    view = {k: q.get(k) for k in (*keys, "limit", "status", "returned", "truncated", "unit")}
+    for k in ("signal", "site", "link"):  # v0.9 (absent from v0.6 snapshots)
+        if q.get(k) is not None:
+            view[k] = q[k]
+    return view
 
 
 def incident_view(row: OpsIncident, ds: OpsUploadedDataset) -> dict[str, Any]:
@@ -208,7 +254,10 @@ class UploadedEvidenceProvider:
         if row is None:
             raise ToolInputError("not_found: uploaded evidence for this incident no longer exists")
         ds, inc = row
-        loaded = LoadedUpload(ds.id, incident_view(inc, ds), Dataset.model_validate(ds.records), inc.evidence_source)
+        connectors = tuple(dict.fromkeys(str(q.get("connector")) for q in ds.queries or [] if isinstance(q, dict)))
+        loaded = LoadedUpload(
+            ds.id, incident_view(inc, ds), Dataset.model_validate(ds.records), inc.evidence_source, connectors
+        )
         for k in (str(ds.id), f"incident:{inc.id}"):
             self._cache[k] = loaded
             self._cache.move_to_end(k)
@@ -236,10 +285,10 @@ class UploadedEvidenceProvider:
                 up = await self._load(scope=str(arguments["environment_id"]))
                 server = up.server
                 if tool in NOT_IN_UPLOAD:
-                    missing = NOT_IN_SNAPSHOT if up.source == "connector" else NOT_IN_UPLOAD
-                    status, error = ToolCallStatus.ERROR, f"not_available: {missing[tool]}"
+                    why = _not_in_snapshot(tool, up.connectors) if up.source == "connector" else NOT_IN_UPLOAD[tool]
+                    status, error = ToolCallStatus.ERROR, f"not_available: {why}"
                 else:
-                    data = self._dispatch(tool, arguments, up.data)
+                    data = self._dispatch(tool, arguments, up.data, up.connectors)
         except (ToolInputError, KeyError, ValueError) as exc:
             status, error = ToolCallStatus.ERROR, f"invalid_input: {exc}"
         except Exception as exc:  # storage failure: reported like any tool failure, never raised into the graph
@@ -276,9 +325,11 @@ class UploadedEvidenceProvider:
         )
         return ToolResult(tool=tool, ok=status is ToolCallStatus.OK, data=data, error=error, record=record)
 
-    def _dispatch(self, tool: str, a: dict[str, Any], d: Dataset) -> dict[str, Any]:
+    def _dispatch(
+        self, tool: str, a: dict[str, Any], d: Dataset, connectors: tuple[str, ...] = ("loki", "prometheus")
+    ) -> dict[str, Any]:
         if d.collected is not None:  # v0.6 snapshot: what was not collected is unknown, never "nothing found"
-            gap = _snapshot_gap(tool, a, d)
+            gap = _snapshot_gap(tool, a, d, connectors)
             if gap:
                 return {"_error": gap}
         handlers: dict[str, Callable[[dict[str, Any], Dataset], dict[str, Any]]] = {
@@ -292,17 +343,30 @@ class UploadedEvidenceProvider:
         return handlers[tool](a, d)
 
 
-def _snapshot_gap(tool: str, a: dict[str, Any], d: Dataset) -> str | None:
+def _snapshot_gap(
+    tool: str, a: dict[str, Any], d: Dataset, connectors: tuple[str, ...] = ("loki", "prometheus")
+) -> str | None:
     collected = d.collected or {}
     svc = str(a.get("service") or "")
+    v06 = _v06(connectors)
     if tool in ("list_recent_deployments", "get_config_changes") and not d.events:
-        return NO_CHANGE_HISTORY
+        return _no_change_history(connectors)
     if tool == "search_logs" and svc not in collected.get("log", []):
-        return f"not_available: no logs were collected for {svc} (no Loki query for it succeeded); its logs are unknown"
-    if tool in ("query_metrics", "list_service_metrics") and svc not in collected.get("metric", []):
+        backend = "Loki" if v06 else f"{_backends(connectors, 'log')} log"
         return (
-            f"not_available: no metrics were collected for {svc} (no Prometheus query for it succeeded); "
+            f"not_available: no logs were collected for {svc} (no {backend} query for it succeeded); "
+            "its logs are unknown"
+        )
+    if tool in ("query_metrics", "list_service_metrics") and svc not in collected.get("metric", []):
+        backend = "Prometheus" if v06 else f"{_backends(connectors, 'metric')} metric"
+        return (
+            f"not_available: no metrics were collected for {svc} (no {backend} query for it succeeded); "
             "its metrics are unknown"
+        )
+    if tool == "get_service_dependencies" and "span" in collected and svc not in collected["span"]:
+        return (
+            f"not_available: no traces/spans were collected for {svc} (no {_backends(connectors, 'span')} span "
+            "query for it succeeded); its dependencies are unknown"
         )
     return None
 
@@ -518,6 +582,11 @@ def get_config_changes(a: dict[str, Any], d: Dataset) -> dict[str, Any]:
 def get_service_dependencies(a: dict[str, Any], d: Dataset) -> dict[str, Any]:
     svc = str(a["service"])
     if not any(s.service == svc for s in d.spans):
+        if d.collected is not None and "span" in d.collected:  # v0.9 snapshot: the span query ran, found nothing
+            return {
+                "_error": f"not_available: the span queries for {svc} returned no spans in the window, so its "
+                "dependencies were not observed (unknown, not absent)"
+            }
         return {"_error": f"not_available: no traces were uploaded for {svc}, so its dependencies are unknown"}
     by_id, _ = _span_index(d)
     edges: set[tuple[str, str]] = set()

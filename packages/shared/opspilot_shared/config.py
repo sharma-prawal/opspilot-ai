@@ -86,6 +86,15 @@ class Settings(BaseSettings):
     prometheus_username: str = ""
     prometheus_password: SecretStr = SecretStr("")
     prometheus_service_label: str = "service"
+    # v0.9 Datadog (read-only). Keys stay backend-only (never NEXT_PUBLIC_*, never in API responses or snapshots).
+    datadog_enabled: bool = False
+    datadog_site: str = "datadoghq.com"  # one of opspilot_shared.connectors.datadog.SITES
+    datadog_api_key: SecretStr = SecretStr("")
+    datadog_app_key: SecretStr = SecretStr("")  # application key with logs_read_data, timeseries_query, apm_read
+    datadog_env: str = ""  # optional env tag added to every query (e.g. prod)
+    datadog_log_indexes: str = ""  # optional comma-separated log indexes (default: all)
+    datadog_max_spans: int = Field(default=500, ge=10, le=2000)  # per span query
+    datadog_local_api_url: str = ""  # synthetic fixture only; loopback addresses only
     telemetry_templates_file: Path | None = None  # extra/overriding query templates (JSON), see docs
     telemetry_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     telemetry_max_window_hours: float = Field(default=6.0, gt=0, le=24)

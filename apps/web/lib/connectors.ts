@@ -1,5 +1,5 @@
-// Client helpers for connected observability (v0.6). The API validates everything again.
-import type { ConnectionState, QueryProvenance } from "./types";
+// Client helpers for connected observability (v0.6; Datadog v0.9). The API validates everything again.
+import type { ChartSeries, ConnectionState, ConnectorInfo, QueryProvenance, QueryTemplate, SignalState, TelemetrySignal } from "./types";
 
 /** The synthetic incident served by `make telemetry-up` (scripts/generate_telemetry.py). */
 export const DEMO_CONNECTED = {
@@ -11,6 +11,56 @@ export const DEMO_CONNECTED = {
   severity: "SEV2",
   time: "2026-11-12T09:16",
 };
+
+/** The incident of the synthetic Datadog fixture (scripts/datadog_fixture.py, `make datadog-fixture`). */
+export const DEMO_DATADOG = {
+  title: "Orders failing with 504s",
+  description:
+    "orders-api 5xx alert fired at 14:05 UTC; customers cannot place orders. (Synthetic Datadog fixture data, not a real organization.)",
+  service: "orders-api",
+  affected: "inventory-service",
+  severity: "SEV2",
+  time: "2026-11-15T14:05",
+};
+
+export const SIGNAL_LABEL: Record<TelemetrySignal, string> = { log: "Logs", metric: "Metrics", span: "APM spans" };
+
+/** Signals a connector can return (v0.6 connectors have exactly one). */
+export function signalsOf(c: ConnectorInfo): TelemetrySignal[] {
+  return c.signals?.length ? c.signals : [c.signal];
+}
+
+/** The signal a template returns. */
+export function templateSignal(t: QueryTemplate): TelemetrySignal {
+  return t.signal ?? (t.connector === "loki" ? "log" : "metric");
+}
+
+export const SIGNAL_STATE: Record<SignalState, { label: string; tone: "success" | "danger" | "warn" | "neutral" }> = {
+  ok: { label: "readable", tone: "success" },
+  permission_denied: { label: "permission missing", tone: "danger" },
+  unsupported: { label: "not available", tone: "neutral" },
+  rate_limited: { label: "rate-limited", tone: "warn" },
+  unavailable: { label: "unavailable", tone: "warn" },
+  error: { label: "error", tone: "danger" },
+};
+
+/**
+ * Splits a series into runs of consecutive points: a gap longer than 1.5 steps (a missing value the provider did not
+ * return) ends a run, so a chart draws a break there instead of a line across missing data.
+ */
+export function seriesRuns(s: ChartSeries): [number, number][][] {
+  const step = (s.step_seconds ?? 60) * 1000;
+  const runs: [number, number][][] = [];
+  let last = -Infinity;
+  for (const [ts, v] of s.points) {
+    const t = Date.parse(ts);
+    if (!Number.isFinite(t) || !Number.isFinite(v)) continue;
+    if (t - last > step * 1.5 || !runs.length) runs.push([]);
+    runs[runs.length - 1].push([t, v]);
+    last = t;
+  }
+  return runs;
+}
 
 /** A datetime-local value (read as UTC) as an ISO timestamp, or null. */
 export function utcIso(local: string): string | null {
@@ -42,7 +92,9 @@ export function windowProblem(start: string, end: string, maxHours: number): str
 
 export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "success" | "danger" | "warn" | "neutral" }> = {
   ok: { label: "Connected", tone: "success" },
+  partial: { label: "Partly readable", tone: "warn" },
   auth_error: { label: "Authentication failed", tone: "danger" },
+  rate_limited: { label: "Rate-limited", tone: "warn" },
   unavailable: { label: "Unavailable", tone: "warn" },
   error: { label: "Error", tone: "danger" },
   not_configured: { label: "Not configured", tone: "neutral" },
@@ -52,6 +104,9 @@ export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "succes
 export function queryErrorHint(q: QueryProvenance): string {
   switch (q.error?.kind) {
     case "auth_error": return "Authentication failed: check the read-only credentials or tenant in the API settings.";
+    case "permission_denied": return "The credentials were accepted but may not read this product: grant the read permission shown.";
+    case "unsupported": return "This product is not available for the account or site.";
+    case "rate_limited": return "The provider rate-limited the query; retry later or select fewer templates or services.";
     case "unavailable": case "timeout": return "The backend is unavailable or did not answer in time.";
     case "query_error": return "The backend rejected the template's query: it may not fit this backend's metric names.";
     case "redirect_refused": return "The backend redirected; point the URL at the API itself.";

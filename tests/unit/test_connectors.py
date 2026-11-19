@@ -56,8 +56,12 @@ def test_only_configured_connectors_exist_and_describe_holds_no_secret() -> None
     reg = ConnectorRegistry.from_settings(Settings(_env_file=None))  # type: ignore[call-arg]
     assert reg.configured == []
     desc = reg.describe()
-    assert {c["id"]: c["configured"] for c in desc["connectors"]} == {"loki": False, "prometheus": False}
-    assert "Datadog" in " ".join(desc["planned"])
+    assert {c["id"]: c["configured"] for c in desc["connectors"]} == {
+        "loki": False,
+        "prometheus": False,
+        "datadog": False,  # v0.9: implemented, so listed as a connector and no longer as planned
+    }
+    assert "Datadog" not in " ".join(desc["planned"]) and "Azure Monitor" in " ".join(desc["planned"])
     with pytest.raises(ConnectorError) as exc:
         reg.get("loki")
     assert exc.value.kind == "not_configured" and "LOKI_URL" in exc.value.message

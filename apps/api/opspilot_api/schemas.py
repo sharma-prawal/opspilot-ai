@@ -51,16 +51,17 @@ class UploadIncidentRequest(UploadPreviewRequest):
 
 
 class ConnectorSourceIn(BaseModel):
-    """One configured connector and the approved templates to run (v0.6). IDs only: no query text is accepted."""
+    """One configured connector and the approved templates to run (v0.6; Datadog v0.9). IDs only: no query text,
+    URL, host, path or HTTP method is accepted."""
 
     model_config = ConfigDict(extra="forbid")
-    connector: Literal["loki", "prometheus"]
-    templates: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")]] = Field(min_length=1, max_length=8)
+    connector: Literal["loki", "prometheus", "datadog"]
+    templates: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")]] = Field(min_length=1, max_length=12)
 
 
 class ConnectedPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")  # an unknown field (e.g. "query" or "url") is an error, not ignored
-    sources: list[ConnectorSourceIn] = Field(min_length=1, max_length=2)
+    sources: list[ConnectorSourceIn] = Field(min_length=1, max_length=3)
     service: ServiceName
     affected_services: list[ServiceName] = Field(default_factory=list, max_length=3)
     start: AwareDatetime
