@@ -8,7 +8,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.6.0-dev (feature/connected-observability-v06), experimental, local-first.** v0.6 adds read-only Grafana Loki and Prometheus connectors ([below](#connected-observability-v06)); v0.5 added analysis of uploaded files. v0.4 added configurable local models, agent reasoning improvements and two safety-gate fixes ([release notes](docs/releases/V0.4.0_NOTES.md)). v0.3.0: Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.7.0, experimental, local-first.** v0.7 introduces the **Incident Forensics Lab** interface redesign: warm archival visual identity, synchronized time ribbon, interactive causal graph exploration, responsive investigation layouts, and rigorous truth-in-UI separation between stored telemetry and independently verified recovery ([release notes](docs/releases/V0.7.0_NOTES.md)). v0.6 added read-only Grafana Loki and Prometheus connectors; v0.5 added analysis of uploaded files. Remediation acts only on a deterministic simulator with human-in-the-loop approvals. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
@@ -249,13 +249,15 @@ Measured results are only in [`docs/evaluation/BASELINE.md`](docs/evaluation/BAS
 `make evaluate`, never hand-edited), including the caveats: one author wrote the scenarios and labels, and the
 safety gates were designed after observing failures on these scenarios.
 
-## Screenshots (real running app, synthetic data)
+## Screenshots (real running app, synthetic fixtures & live verification)
 
-| Overview Command Center & Scenarios | Incident Command Center & Human Approval |
+> *Screenshots capture the real Next.js application. Telemetry, event traces and incident entries illustrate synthetic simulator scenarios and demo data; verified recovery is claimed strictly when verified by local Ollama execution.*
+
+| Overview & Case Intake | Incident Forensics Workbench & Timeline |
 |---|---|
-| ![Overview Dashboard](docs/images/after/overview-desktop.png) | ![Incident Command Center](docs/images/after/incident-workspace-approval-desktop.png) |
-| **Interactive Architecture Explorer** | **Data Sources & Extensibility Catalog** |
-| ![Architecture Explorer](docs/images/after/architecture-system-desktop.png) | ![Integrations Catalog](docs/images/after/integrations-demo-desktop.png) |
+| ![Overview & Intake](docs/images/redesign/redesign-intake-home-desktop.png) | ![Investigation Workbench](docs/images/redesign/redesign-investigation-workbench-desktop.png) |
+| **Interactive Architecture Explorer** | **Read-Only Evidence Dossier** |
+| ![Architecture Explorer](docs/images/redesign/redesign-architecture-desktop.png) | ![Incident Evidence Dossier](docs/images/redesign/redesign-incident-dossier-readonly-desktop.png) |
 
 ## Quick start
 

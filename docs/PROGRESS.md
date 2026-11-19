@@ -446,6 +446,23 @@ Phase C1 is not started.
   cleanly, with 277 incidents, 275 investigations, 7,464 evidence rows, 23 documents and the uploaded dataset unchanged.
   The main database itself was not migrated (it is still at 0010); run `make migrate`.
 
+## Status — 2026-11-19, v0.7.0 Incident Forensics Lab Visual Identity Redesign
+
+- **Redesign Implementation (Concept A — Incident Forensics Lab):**
+  - Replaced generic AI SaaS dashboard styling with an archival, editorial scientific investigation workspace (warm ivory `#FBFBF8`, serif headings, crisp mono metrics, stamped exhibits).
+  - Implemented synchronized horizontal incident time ribbon with horizontal scrolling and right padding preventing event clipping.
+  - Interactive causal graph: selecting hypotheses highlights connected supporting/contradicting evidence; clicking evidence jumps to citations.
+  - Responsive layout verified across desktop (1440px) and mobile (390px).
+- **Truth-in-UI Corrections:**
+  - Clear presentation-layer distinction between external telemetry status (`External: {status} (unverified)`), analysis completion (`Analysis complete (read-only)`), and verified recovery.
+  - Dynamic runtime model attribution (`qwen3.5:9b-q4_K_M` and `qwen3-embedding:0.6b`) with explicit uncalibrated confidence labeling.
+  - INC-002 screenshot fixtures aligned with documented scenario (Safety Gate D25 capacity ceiling blocking connection pool expansion; rollback of `dep-ls-0291` executed and recovery verified).
+  - Automated smoke test (`e2e/overview-smoke.spec.ts`) asserting zero error boundaries and verifying 3 operating modes.
+- **Verification:**
+  - `pnpm lint`, `pnpm typecheck`, `pnpm test` (50 unit tests), `pnpm build` (27 routes).
+  - Playwright E2E: `auth.spec.ts` (3/3), `overview-smoke.spec.ts` (1/1), `investigation.spec.ts` (1/1), `upload.spec.ts` (1/1), `connected.spec.ts` (1/1).
+  - All 10 screenshots refreshed in `docs/images/redesign/`.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:
