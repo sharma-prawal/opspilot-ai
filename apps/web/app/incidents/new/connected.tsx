@@ -8,7 +8,7 @@ import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/
 import { api } from "@/lib/api";
 import { DEMO_CONNECTED, STATE_LABEL, defaultWindow, queryErrorHint, utcIso, windowProblem } from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
-import { useActiveModels } from "@/lib/models";
+import { ModelName } from "@/lib/models";
 import type {
   ConnectedPreview, ConnectedRequest, ConnectionStatus, ConnectorId, ConnectorInfo, NormalizedRecord,
 } from "@/lib/types";
@@ -104,7 +104,6 @@ function ConnectorCard({
 export function ConnectedView() {
   const router = useRouter();
   const qc = useQueryClient();
-  const models = useActiveModels();
   const connectors = useQuery({ queryKey: ["connectors"], queryFn: api.connectors });
 
   const [title, setTitle] = useState("");
@@ -227,7 +226,7 @@ export function ConnectedView() {
           <span>
             Query your configured Grafana Loki and Prometheus for one incident window with approved templates, check
             what came back, then investigate with the local model{" "}
-            {models.llm && <code className="font-mono text-xs text-text">{models.llm}</code>} — read-only: it suggests
+            <ModelName kind="llm" className="font-mono text-xs text-text" /> — read-only: it suggests
             remediation but never executes it.
           </span>
         }

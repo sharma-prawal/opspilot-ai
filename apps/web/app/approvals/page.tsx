@@ -20,7 +20,7 @@ export default function ApprovalsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Action approvals"
-        subtitle="Every state-changing action requires an explicit, cryptographic backend-verified decision."
+        subtitle="Every state-changing action requires an explicit, authenticated operator decision verified by the backend."
         actions={
           <div role="group" aria-label="Filter" className="flex items-center gap-1.5 rounded-lg border border-border bg-panel p-1">
             {FILTERS.map((f) => (

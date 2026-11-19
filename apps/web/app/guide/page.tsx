@@ -38,7 +38,7 @@ export default function GuidePage() {
               <strong className="text-text">Deterministic Safety Gates:</strong> Hard Python rules evaluate every AI remediation proposal against impact, correlation, ambiguity, and capacity constraints before any action can be presented to an operator.
             </li>
             <li>
-              <strong className="text-text">Human-in-the-Loop (HITL):</strong> Every state-changing action requires an authenticated operator decision. Approvals mint single-use, 60-second cryptographic tokens independently verified by the MCP action server.
+              <strong className="text-text">Human-in-the-Loop (HITL):</strong> Every state-changing action requires an authenticated operator decision. Approvals mint single-use, 60-second HMAC-signed tokens independently verified by the MCP action server.
             </li>
             <li>
               <strong className="text-text">Affirmative Recovery Verification:</strong> Incidents are never marked resolved or mitigated unless post-action telemetry confirms all recovery thresholds have returned to baseline.
@@ -578,24 +578,24 @@ make infra-down`}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Navigation Sidebar (4 cols) */}
         <div className="space-y-2 lg:col-span-4">
-          <div className="sticky top-20 rounded-xl border border-border bg-panel p-3">
-            <h3 className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">
-              Guide Table of Contents
+          <div className="dossier-paper sticky top-20 p-3">
+            <h3 className="px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider text-muted border-b border-border mb-1.5">
+              Field Guide Sections
             </h3>
-            <nav className="space-y-1" aria-label="Guide Steps">
+            <nav className="space-y-1 font-mono text-xs" aria-label="Guide Steps">
               {steps.map((s) => {
                 const isActive = activeStep === s.id;
                 return (
                   <button
                     key={s.id}
                     onClick={() => setActiveStep(s.id)}
-                    className={`flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all cursor-pointer ${
+                    className={`flex w-full items-start gap-2.5 rounded-[3px] px-3 py-2 text-left transition-all cursor-pointer ${
                       isActive
-                        ? "bg-accent-soft text-accent font-semibold shadow-xs"
+                        ? "bg-accent-soft text-accent font-bold shadow-2xs border border-accent/30"
                         : "text-muted hover:bg-panel-2 hover:text-text"
                     }`}
                   >
-                    <span className="font-mono text-[11px] opacity-75">{s.number}.</span>
+                    <span className="text-[11px] opacity-75">§{String(s.number).padStart(2, "0")}.</span>
                     <span className="line-clamp-1">{s.title.replace(/^\d+\.\s*/, "")}</span>
                   </button>
                 );
