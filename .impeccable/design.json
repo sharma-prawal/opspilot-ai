@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T15:33:03.527650+00:00",
+  "title": "Design System: OpsPilot AI",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Ivory Ground",
+        "tonalRamp": [
+          "oklch(15% 0.00395 106.47)",
+          "oklch(26% 0.00395 106.47)",
+          "oklch(38% 0.00395 106.47)",
+          "oklch(49% 0.00395 106.47)",
+          "oklch(61% 0.00395 106.47)",
+          "oklch(72% 0.00395 106.47)",
+          "oklch(84% 0.00395 106.47)",
+          "oklch(95% 0.00395 106.47)"
+        ],
+        "darkValue": "#121417"
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "White Paper",
+        "tonalRamp": [
+          "oklch(15% 0.00000 89.88)",
+          "oklch(26% 0.00000 89.88)",
+          "oklch(38% 0.00000 89.88)",
+          "oklch(49% 0.00000 89.88)",
+          "oklch(61% 0.00000 89.88)",
+          "oklch(72% 0.00000 89.88)",
+          "oklch(84% 0.00000 89.88)",
+          "oklch(95% 0.00000 89.88)"
+        ],
+        "darkValue": "#191c21",
+        "tonalRampNote": "All tonalRamp arrays are synthesized OKLCH preview scales; darkValue records the existing [data-theme=\"dark\"] / html.dark override. Neither creates extra runtime palette steps."
+      },
+      "panel-2": {
+        "role": "neutral",
+        "displayName": "Warm Stone",
+        "tonalRamp": [
+          "oklch(15% 0.00933 99.98)",
+          "oklch(26% 0.00933 99.98)",
+          "oklch(38% 0.00933 99.98)",
+          "oklch(49% 0.00933 99.98)",
+          "oklch(61% 0.00933 99.98)",
+          "oklch(72% 0.00933 99.98)",
+          "oklch(84% 0.00933 99.98)",
+          "oklch(95% 0.00933 99.98)"
+        ],
+        "darkValue": "#22262d"
+      },
+      "panel-3": {
+        "role": "neutral",
+        "displayName": "Layered Stone",
+        "tonalRamp": [
+          "oklch(15% 0.01219 96.43)",
+          "oklch(26% 0.01219 96.43)",
+          "oklch(38% 0.01219 96.43)",
+          "oklch(49% 0.01219 96.43)",
+          "oklch(61% 0.01219 96.43)",
+          "oklch(72% 0.01219 96.43)",
+          "oklch(84% 0.01219 96.43)",
+          "oklch(95% 0.01219 96.43)"
+        ],
+        "darkValue": "#2d323b"
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Fine Rule",
+        "tonalRamp": [
+          "oklch(15% 0.01384 92.99)",
+          "oklch(26% 0.01384 92.99)",
+          "oklch(38% 0.01384 92.99)",
+          "oklch(49% 0.01384 92.99)",
+          "oklch(61% 0.01384 92.99)",
+          "oklch(72% 0.01384 92.99)",
+          "oklch(84% 0.01384 92.99)",
+          "oklch(95% 0.01384 92.99)"
+        ],
+        "darkValue": "#2d323b"
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "tonalRamp": [
+          "oklch(15% 0.01840 92.72)",
+          "oklch(26% 0.01840 92.72)",
+          "oklch(38% 0.01840 92.72)",
+          "oklch(49% 0.01840 92.72)",
+          "oklch(61% 0.01840 92.72)",
+          "oklch(72% 0.01840 92.72)",
+          "oklch(84% 0.01840 92.72)",
+          "oklch(95% 0.01840 92.72)"
+        ],
+        "darkValue": "#424954"
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Deep Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01481 226.71)",
+          "oklch(26% 0.01481 226.71)",
+          "oklch(38% 0.01481 226.71)",
+          "oklch(49% 0.01481 226.71)",
+          "oklch(61% 0.01481 226.71)",
+          "oklch(72% 0.01481 226.71)",
+          "oklch(84% 0.01481 226.71)",
+          "oklch(95% 0.01481 226.71)"
+        ],
+        "darkValue": "#f4f5f6"
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "tonalRamp": [
+          "oklch(15% 0.02087 256.36)",
+          "oklch(26% 0.02087 256.36)",
+          "oklch(38% 0.02087 256.36)",
+          "oklch(49% 0.02087 256.36)",
+          "oklch(61% 0.02087 256.36)",
+          "oklch(72% 0.02087 256.36)",
+          "oklch(84% 0.02087 256.36)",
+          "oklch(95% 0.02087 256.36)"
+        ],
+        "darkValue": "#cbd0d8"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01797 248.17)",
+          "oklch(26% 0.01797 248.17)",
+          "oklch(38% 0.01797 248.17)",
+          "oklch(49% 0.01797 248.17)",
+          "oklch(61% 0.01797 248.17)",
+          "oklch(72% 0.01797 248.17)",
+          "oklch(84% 0.01797 248.17)",
+          "oklch(95% 0.01797 248.17)"
+        ],
+        "darkValue": "#8e98a5"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Burnt Amber",
+        "tonalRamp": [
+          "oklch(15% 0.13919 44.10)",
+          "oklch(26% 0.13919 44.10)",
+          "oklch(38% 0.13919 44.10)",
+          "oklch(49% 0.13919 44.10)",
+          "oklch(61% 0.13919 44.10)",
+          "oklch(72% 0.13919 44.10)",
+          "oklch(84% 0.13919 44.10)",
+          "oklch(95% 0.13919 44.10)"
+        ],
+        "darkValue": "#e07a3f"
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Deep Burnt Amber",
+        "tonalRamp": [
+          "oklch(15% 0.13162 42.80)",
+          "oklch(26% 0.13162 42.80)",
+          "oklch(38% 0.13162 42.80)",
+          "oklch(49% 0.13162 42.80)",
+          "oklch(61% 0.13162 42.80)",
+          "oklch(72% 0.13162 42.80)",
+          "oklch(84% 0.13162 42.80)",
+          "oklch(95% 0.13162 42.80)"
+        ],
+        "darkValue": "#f97316"
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Burnt Amber Tint",
+        "tonalRamp": [
+          "oklch(15% 0.15040 43.81 / 0.12)",
+          "oklch(26% 0.15040 43.81 / 0.12)",
+          "oklch(38% 0.15040 43.81 / 0.12)",
+          "oklch(49% 0.15040 43.81 / 0.12)",
+          "oklch(61% 0.15040 43.81 / 0.12)",
+          "oklch(72% 0.15040 43.81 / 0.12)",
+          "oklch(84% 0.15040 43.81 / 0.12)",
+          "oklch(95% 0.15040 43.81 / 0.12)"
+        ],
+        "darkValue": "rgba(224, 122, 63, 0.18)"
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Evidence Emerald",
+        "tonalRamp": [
+          "oklch(15% 0.10494 165.61)",
+          "oklch(26% 0.10494 165.61)",
+          "oklch(38% 0.10494 165.61)",
+          "oklch(49% 0.10494 165.61)",
+          "oklch(61% 0.10494 165.61)",
+          "oklch(72% 0.10494 165.61)",
+          "oklch(84% 0.10494 165.61)",
+          "oklch(95% 0.10494 165.61)"
+        ],
+        "darkValue": "#10b981"
+      },
+      "success-soft": {
+        "role": "secondary",
+        "displayName": "Evidence Emerald Tint",
+        "tonalRamp": [
+          "oklch(15% 0.10494 165.61 / 0.12)",
+          "oklch(26% 0.10494 165.61 / 0.12)",
+          "oklch(38% 0.10494 165.61 / 0.12)",
+          "oklch(49% 0.10494 165.61 / 0.12)",
+          "oklch(61% 0.10494 165.61 / 0.12)",
+          "oklch(72% 0.10494 165.61 / 0.12)",
+          "oklch(84% 0.10494 165.61 / 0.12)",
+          "oklch(95% 0.10494 165.61 / 0.12)"
+        ],
+        "darkValue": "rgba(16, 185, 129, 0.18)"
+      },
+      "warn": {
+        "role": "secondary",
+        "displayName": "Attention Ochre",
+        "tonalRamp": [
+          "oklch(15% 0.11747 58.66)",
+          "oklch(26% 0.11747 58.66)",
+          "oklch(38% 0.11747 58.66)",
+          "oklch(49% 0.11747 58.66)",
+          "oklch(61% 0.11747 58.66)",
+          "oklch(72% 0.11747 58.66)",
+          "oklch(84% 0.11747 58.66)",
+          "oklch(95% 0.11747 58.66)"
+        ],
+        "darkValue": "#f59e0b"
+      },
+      "warn-soft": {
+        "role": "secondary",
+        "displayName": "Attention Ochre Tint",
+        "tonalRamp": [
+          "oklch(15% 0.15742 58.32 / 0.12)",
+          "oklch(26% 0.15742 58.32 / 0.12)",
+          "oklch(38% 0.15742 58.32 / 0.12)",
+          "oklch(49% 0.15742 58.32 / 0.12)",
+          "oklch(61% 0.15742 58.32 / 0.12)",
+          "oklch(72% 0.15742 58.32 / 0.12)",
+          "oklch(84% 0.15742 58.32 / 0.12)",
+          "oklch(95% 0.15742 58.32 / 0.12)"
+        ],
+        "darkValue": "rgba(245, 158, 11, 0.18)"
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Contradiction Rose",
+        "tonalRamp": [
+          "oklch(15% 0.19049 27.52)",
+          "oklch(26% 0.19049 27.52)",
+          "oklch(38% 0.19049 27.52)",
+          "oklch(49% 0.19049 27.52)",
+          "oklch(61% 0.19049 27.52)",
+          "oklch(72% 0.19049 27.52)",
+          "oklch(84% 0.19049 27.52)",
+          "oklch(95% 0.19049 27.52)"
+        ],
+        "darkValue": "#ef4444"
+      },
+      "danger-soft": {
+        "role": "secondary",
+        "displayName": "Contradiction Rose Tint",
+        "tonalRamp": [
+          "oklch(15% 0.19049 27.52 / 0.12)",
+          "oklch(26% 0.19049 27.52 / 0.12)",
+          "oklch(38% 0.19049 27.52 / 0.12)",
+          "oklch(49% 0.19049 27.52 / 0.12)",
+          "oklch(61% 0.19049 27.52 / 0.12)",
+          "oklch(72% 0.19049 27.52 / 0.12)",
+          "oklch(84% 0.19049 27.52 / 0.12)",
+          "oklch(95% 0.19049 27.52 / 0.12)"
+        ],
+        "darkValue": "rgba(239, 68, 68, 0.18)"
+      },
+      "info": {
+        "role": "secondary",
+        "displayName": "Telemetry Indigo",
+        "tonalRamp": [
+          "oklch(15% 0.13776 265.52)",
+          "oklch(26% 0.13776 265.52)",
+          "oklch(38% 0.13776 265.52)",
+          "oklch(49% 0.13776 265.52)",
+          "oklch(61% 0.13776 265.52)",
+          "oklch(72% 0.13776 265.52)",
+          "oklch(84% 0.13776 265.52)",
+          "oklch(95% 0.13776 265.52)"
+        ],
+        "darkValue": "#38bdf8"
+      },
+      "info-soft": {
+        "role": "secondary",
+        "displayName": "Telemetry Indigo Tint",
+        "tonalRamp": [
+          "oklch(15% 0.13776 265.52 / 0.12)",
+          "oklch(26% 0.13776 265.52 / 0.12)",
+          "oklch(38% 0.13776 265.52 / 0.12)",
+          "oklch(49% 0.13776 265.52 / 0.12)",
+          "oklch(61% 0.13776 265.52 / 0.12)",
+          "oklch(72% 0.13776 265.52 / 0.12)",
+          "oklch(84% 0.13776 265.52 / 0.12)",
+          "oklch(95% 0.13776 265.52 / 0.12)"
+        ],
+        "darkValue": "rgba(56, 189, 248, 0.18)"
+      },
+      "purple": {
+        "role": "secondary",
+        "displayName": "Upload Violet",
+        "tonalRamp": [
+          "oklch(15% 0.24123 292.58)",
+          "oklch(26% 0.24123 292.58)",
+          "oklch(38% 0.24123 292.58)",
+          "oklch(49% 0.24123 292.58)",
+          "oklch(61% 0.24123 292.58)",
+          "oklch(72% 0.24123 292.58)",
+          "oklch(84% 0.24123 292.58)",
+          "oklch(95% 0.24123 292.58)"
+        ],
+        "darkValue": "#a855f7"
+      },
+      "purple-soft": {
+        "role": "secondary",
+        "displayName": "Upload Violet Tint",
+        "tonalRamp": [
+          "oklch(15% 0.24123 292.58 / 0.12)",
+          "oklch(26% 0.24123 292.58 / 0.12)",
+          "oklch(38% 0.24123 292.58 / 0.12)",
+          "oklch(49% 0.24123 292.58 / 0.12)",
+          "oklch(61% 0.24123 292.58 / 0.12)",
+          "oklch(72% 0.24123 292.58 / 0.12)",
+          "oklch(84% 0.24123 292.58 / 0.12)",
+          "oklch(95% 0.24123 292.58 / 0.12)"
+        ],
+        "darkValue": "rgba(168, 85, 247, 0.18)"
+      }
+    },
+    "typographyMeta": {
+      "page-heading": {
+        "displayName": "Page Heading",
+        "purpose": "Serif surface title; grows to 1.875rem at 640px."
+      },
+      "panel-heading": {
+        "displayName": "Panel Heading",
+        "purpose": "Editorial dossier heading."
+      },
+      "report-body": {
+        "displayName": "Report Body",
+        "purpose": "Reading prose with 1.65 line-height."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Compact operational labels."
+      },
+      "exhibit-label": {
+        "displayName": "Exhibit Label",
+        "purpose": "Uppercase record annotation."
+      }
+    },
+    "shadows": [
+      {
+        "name": "canvas-utility",
+        "value": "0 2px 8px rgba(0, 0, 0, 0.08)",
+        "purpose": "React Flow controls and minimap only; dossier panels have no shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "150ms",
+        "purpose": "Shared button state transition; reduced motion disables it."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none !important; transition: none !important; scroll-behavior: auto !important",
+        "purpose": "Global prefers-reduced-motion behavior."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "480px"
+      },
+      {
+        "name": "small",
+        "value": "640px"
+      },
+      {
+        "name": "stacked",
+        "value": "800px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Shared medium primary control.",
+      "html": "<button class=\"ds-button-primary\">Review action</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:1px solid var(--accent-hover,#9c4217);border-radius:4px;background:var(--accent,#ad4d1c);color:white;font: 600 12px/16px Geist,system-ui,sans-serif;cursor:pointer;transition:all 150ms} .ds-button-primary:hover{background:var(--accent-hover,#9c4217);color:white} .ds-button-primary:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} .ds-button-primary:disabled{opacity:.4;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Shared medium secondary control.",
+      "html": "<button class=\"ds-button-secondary\">Inspect evidence</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:0;border-radius:4px;background:var(--panel,#fff);color:var(--text,#1c2529);font: 500 12px/16px Geist,system-ui,sans-serif;cursor:pointer;transition:all 150ms} .ds-button-secondary:hover{background:var(--panel-2,#f4f3ec);color:var(--text,#1c2529)} .ds-button-secondary:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} .ds-button-secondary:disabled{opacity:.4;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none}}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Shared medium danger control.",
+      "html": "<button class=\"ds-button-danger\">Reject</button>",
+      "css": ".ds-button-danger{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:0;border-radius:4px;background:var(--danger-soft,rgba(185,28,28,.12));color:var(--danger,#b91c1c);font: 500 12px/16px Geist,system-ui,sans-serif;cursor:pointer;transition:all 150ms} .ds-button-danger:hover{background:var(--danger,#b91c1c);color:white} .ds-button-danger:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} .ds-button-danger:disabled{opacity:.4;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-danger{transition:none}}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Shared medium ghost control.",
+      "html": "<button class=\"ds-button-ghost\">Inspect evidence</button>",
+      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:0;border-radius:4px;background:transparent;color:var(--muted,#626b74);font: 500 12px/16px Geist,system-ui,sans-serif;cursor:pointer;transition:all 150ms} .ds-button-ghost:hover{background:var(--panel-2,#f4f3ec);color:var(--text,#1c2529)} .ds-button-ghost:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} .ds-button-ghost:disabled{opacity:.4;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-ghost{transition:none}}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Shared medium outline control.",
+      "html": "<button class=\"ds-button-outline\">Inspect evidence</button>",
+      "css": ".ds-button-outline{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 14px;border:1px solid var(--border,#e2dfd5);border-radius:4px;background:transparent;color:var(--text,#1c2529);font: 500 12px/16px Geist,system-ui,sans-serif;cursor:pointer;transition:all 150ms} .ds-button-outline:hover{background:var(--panel-2,#f4f3ec);color:var(--text,#1c2529)} .ds-button-outline:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} .ds-button-outline:disabled{opacity:.4;cursor:not-allowed} @media(prefers-reduced-motion:reduce){.ds-button-outline{transition:none}}"
+    },
+    {
+      "name": "Filter Field",
+      "kind": "input",
+      "refersTo": "filter-field",
+      "description": "Labeled search field from the incident roster.",
+      "html": "<label class=\"ds-field-label\">Search incidents<input class=\"ds-field\" type=\"search\" placeholder=\"Reference, service or title\"></label>",
+      "css": ".ds-field-label{display:grid;gap:8px;font:12px Geist,system-ui,sans-serif;color:var(--muted,#626b74)} .ds-field{min-width:0;border:1px solid var(--border-strong,#c8c4b7);border-radius:5px;background:var(--panel,#fff);padding:9px 10px;color:var(--text,#1c2529);font:12.8px Geist,system-ui,sans-serif} .ds-field:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} @media(max-width:480px){.ds-field{font-size:16px}}"
+    },
+    {
+      "name": "Neutral Badge",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "Compact labeled state or source.",
+      "html": "<span class=\"ds-badge\">Demo \u00b7 simulator</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border,#e2dfd5);border-radius:3px;background:var(--panel-2,#f4f3ec);color:var(--text-muted,#4a525d);padding:2px 8px;font:600 11px/16.5px \"Geist Mono\",ui-monospace,monospace;letter-spacing:-.025em;white-space:nowrap}"
+    },
+    {
+      "name": "Dossier Panel",
+      "kind": "card",
+      "refersTo": "dossier-panel",
+      "description": "Flat paper container with a ruled editorial heading.",
+      "html": "<section class=\"ds-panel\"><header><h2>Evidence records</h2></header><div>Inspect the source record before deciding.</div></section>",
+      "css": ".ds-panel{border:1px solid var(--border,#e2dfd5);border-radius:6px;background:var(--panel,#fff);box-shadow:none;color:var(--text,#1c2529)} .ds-panel header{border-bottom:1px solid var(--border,#e2dfd5);padding:14px 20px;border-radius:6px 6px 0 0} .ds-panel h2{margin:0;font:700 16px/24px Georgia,Cambria,serif;letter-spacing:-.025em} .ds-panel>div{padding:20px;font:14px/1.65 Geist,system-ui,sans-serif;color:var(--text-muted,#4a525d)} @media(max-width:480px){.ds-panel header,.ds-panel>div{padding-inline:16px}}"
+    },
+    {
+      "name": "Primary Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Sentence-case navigation with an explicit active page.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a href=\"#overview\" aria-current=\"page\">Overview</a><a href=\"#incidents\">Incidents</a><a href=\"#guide\">Guide</a></nav>",
+      "css": ".ds-nav{display:flex;gap:4px;overflow-x:auto} .ds-nav a{flex-shrink:0;border-radius:4px;padding:6px 10px;text-decoration:none;color:var(--text-muted,#4a525d);font:500 12px/16px Geist,system-ui,sans-serif;transition:all 150ms} .ds-nav a:hover{background:var(--panel-2,#f4f3ec);color:var(--text,#1c2529)} .ds-nav a[aria-current=\"page\"]{background:var(--text,#1c2529);color:var(--bg,#fbfbf8);font-weight:600} .ds-nav a:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px} @media(prefers-reduced-motion:reduce){.ds-nav a{transition:none}}"
+    },
+    {
+      "name": "Evidence Association",
+      "kind": "custom",
+      "description": "Selectable supporting or contradicting record links; association does not imply causality.",
+      "html": "<div class=\"ds-links\"><button class=\"ds-evidence ds-support\">E-001 \u00b7 supports</button><button class=\"ds-evidence ds-against\">E-002 \u00b7 contradicts</button></div>",
+      "css": ".ds-links{display:flex;flex-wrap:wrap;gap:8px} .ds-evidence{padding:4px 8px;border-radius:3px;font:10.4px \"Geist Mono\",ui-monospace,monospace;background:var(--panel,#fff);border:1px solid var(--border-strong,#c8c4b7);cursor:pointer} .ds-support{color:var(--success,#047857)} .ds-against{color:var(--danger,#b91c1c)} .ds-evidence:focus-visible{outline:2px solid var(--accent,#ad4d1c);outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Incident Forensics Lab",
+    "overview": "OpsPilot AI uses warm ivory paper, deep ink, editorial headings and compact operational controls. It feels like an organized investigation dossier: calm, exact and ready for inspection. Evidence IDs, source labels and measured values carry the detail; brand expression stays concentrated in the convergence mark and serif headings.\n\nThe world is evidence-first. Quiet rules and tonal paper layers organize dense information without making every item a card. Context, reports and audit detail can expand when needed. The guide favors reading; operational surfaces favor finding a case, inspecting records and making a decision. These are expressions of one visual system, not separate identities.",
+    "keyCharacteristics": [
+      "Warm paper and ink with restrained burnt amber selection.",
+      "Editorial serif headings, familiar sans controls and precise monospace data.",
+      "Flat bordered dossiers with compact, labeled evidence semantics.",
+      "Inspectable charts with explicit units, provenance and uncertainty."
+    ],
+    "rules": [
+      {
+        "name": "The Labeled Color Rule",
+        "body": "Color supplements visible state, source or relationship text. A green line alone never means proof or approval.",
+        "section": "colors"
+      },
+      {
+        "name": "The Exact Data Rule",
+        "body": "Use monospace for record identity and exact values; retain explanatory prose in sans so metadata does not compete with the conclusion.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Rule",
+        "body": "Organize dossier content with tone, rules and space before introducing elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the semantic CSS variables so light and dark themes preserve meaning.",
+      "Do pair semantic color with visible labels, exact values and source references.",
+      "Do preserve compact sans controls, serif section headings and monospace exact data.",
+      "Do use fine rules, quiet paper layers and progressive disclosure for dense evidence.",
+      "Do keep units, independent metric scales, source chronology and uncalibrated confidence explicit.",
+      "Do keep upload and connector analysis visibly read-only and planned providers visibly planned."
+    ],
+    "donts": [
+      "Don't turn persisted summary values into an invented trend or time series.",
+      "Don't present model evidence associations or temporal proximity as causal proof.",
+      "Don't turn missing data into zero or unknown provenance into simulator authorization.",
+      "Don't distort the convergence mark, add glow or imply provider implementation through an icon.",
+      "Don't add decorative chart effects or panel shadows that obscure evidence hierarchy."
+    ]
+  }
+}

@@ -1,12 +1,11 @@
 "use client";
-
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 import { SimulateButton } from "@/components/simulate-button";
 import { SourceBadge } from "@/components/source-badge";
 import {
   Badge,
-  Button,
   Card,
   Empty,
   ErrorNote,
@@ -23,72 +22,121 @@ export default function IncidentsPage() {
     queryFn: api.incidents,
     refetchInterval: 5000,
   });
-
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("all");
+  const [status, setStatus] = useState("all");
+  const shown = (q.data ?? []).filter(
+    (i) =>
+      (source === "all" || i.evidence_source === source) &&
+      (status === "all" || i.status === status) &&
+      `${i.reference} ${i.title} ${i.service}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
   return (
     <div className="space-y-6">
       <PageHeader
         title="Incidents"
-        subtitle="Simulated demo incidents, and read-only incidents from your own uploaded files or connected Loki/Prometheus telemetry."
+        subtitle="Find a case. Follow the evidence."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <SimulateButton picker />
-            <Link href="/incidents/new">
-              <Button variant="secondary" size="md">Analyze your files</Button>
-            </Link>
-            <Link href="/incidents/new?source=connected">
-              <Button variant="secondary" size="md">Use Loki / Prometheus</Button>
+            <Link className="action-link" href="/incidents/new">
+              Analyze data →
             </Link>
           </div>
         }
       />
       <ErrorNote error={q.error} />
-      <Card title={`All Recorded Incidents (${q.data?.length ?? 0})`}>
-        {q.data?.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="border-b border-border text-left uppercase tracking-wider text-[11px] text-muted">
+      <div className="filter-toolbar">
+        <label className="filter-search">
+          <span className="sr-only">Search incidents</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search reference, service or title"
+          />
+        </label>
+        <label>
+          Source
+          <select
+            aria-label="Source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
+            <option value="all">All sources</option>
+            <option value="simulator">Simulator</option>
+            <option value="upload">Uploaded files</option>
+            <option value="connector">Connected telemetry</option>
+          </select>
+        </label>
+        <label>
+          State
+          <select
+            aria-label="State"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="all">All states</option>
+            {[...new Set((q.data ?? []).map((i) => i.status))].map((s) => (
+              <option key={s} value={s}>
+                {humanize(s)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span aria-live="polite">
+          {q.data ? `${shown.length} / ${q.data.length} cases` : "— cases"}
+        </span>
+      </div>
+      <Card title="Incident roster">
+        {q.isLoading ? (
+          <Empty>Loading incidents…</Empty>
+        ) : shown.length ? (
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            aria-label="Scrollable incident roster"
+          >
+            <table className="incident-roster">
+              <thead>
                 <tr>
-                  <th className="py-2.5 pr-4 font-semibold">Reference</th>
-                  <th className="pr-4 font-semibold">Title</th>
-                  <th className="pr-4 font-semibold">Service</th>
-                  <th className="pr-4 font-semibold">Evidence</th>
-                  <th className="pr-4 font-semibold">Severity</th>
-                  <th className="pr-4 font-semibold">Detected (UTC)</th>
-                  <th className="font-semibold">Status</th>
+                  <th scope="col">Incident / service</th>
+                  <th scope="col">Source</th>
+                  <th scope="col">Severity</th>
+                  <th scope="col">Detected (UTC)</th>
+                  <th scope="col">State</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
-                {q.data.map((i) => (
-                  <tr
-                    key={i.id}
-                    className="hover:bg-panel-2/60 transition-colors"
-                  >
-                    <td className="py-3 pr-4 font-mono font-semibold text-accent">
-                      <Link
-                        className="hover:underline"
-                        href={`/incidents/${i.id}`}
-                      >
-                        {i.reference}
+              <tbody>
+                {shown.map((i) => (
+                  <tr key={i.id}>
+                    <td>
+                      <Link href={`/incidents/${i.id}`}>
+                        <code>{i.reference}</code>
+                        <strong>{i.title}</strong>
                       </Link>
-                    </td>
-                    <td className="pr-4 font-medium text-text">{i.title}</td>
-                    <td className="pr-4 font-mono text-muted">{i.service}</td>
-                    <td className="pr-4">
-                      <SourceBadge source={i.evidence_source} />
-                    </td>
-                    <td className="pr-4">
-                      <SeverityBadge severity={i.severity} />
-                    </td>
-                    <td className="pr-4 tabular-nums text-muted">
-                      {utcTime(i.detected_at)}
+                      <small>{i.service}</small>
                     </td>
                     <td>
-                      {i.evidence_source === "upload" || i.evidence_source === "connector" ? (
-                        <span title="External/stored telemetry status. Read-only audit; recovery not independently verified by OpsPilot.">
-                          <Badge tone="neutral">External: {humanize(i.status)}</Badge>
-                        </span>
-                      ) : (
+                      <SourceBadge source={i.evidence_source} />
+                    </td>
+                    <td>
+                      <SeverityBadge severity={i.severity} />
+                    </td>
+                    <td>
+                      <time dateTime={i.detected_at}>
+                        {utcTime(i.detected_at)}
+                      </time>
+                    </td>
+                    <td>
+                      {i.evidence_source === "simulator" ? (
                         <StatusBadge status={i.status} />
+                      ) : (
+                        <Badge>
+                          External: {humanize(i.status)} · unverified
+                        </Badge>
                       )}
                     </td>
                   </tr>
@@ -96,14 +144,31 @@ export default function IncidentsPage() {
               </tbody>
             </table>
           </div>
-        ) : q.isLoading ? (
-          <Empty>Loading incidents...</Empty>
         ) : (
-          <Empty
-            action={<SimulateButton scenario="INC-001" />}
-          >
-            No incidents recorded yet. Simulate a demo incident, or analyze your own files.
-          </Empty>
+          !q.error && (
+            <Empty
+              action={
+                search || source !== "all" || status !== "all" ? (
+                  <button
+                    className="text-link"
+                    onClick={() => {
+                      setSearch("");
+                      setSource("all");
+                      setStatus("all");
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                ) : (
+                  <SimulateButton scenario="INC-001" />
+                )
+              }
+            >
+              {q.data?.length
+                ? "No incidents match these filters."
+                : "No incidents yet. Simulate a scenario or analyze your own evidence."}
+            </Empty>
+          )
         )}
       </Card>
     </div>

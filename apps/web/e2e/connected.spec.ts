@@ -50,7 +50,8 @@ test("operator connects Loki and Prometheus, previews telemetry and gets a cited
   await expect(page.getByRole("heading", { name: "RCA Postmortem Report" })).toBeVisible({ timeout: 420_000 });
   await expect(page.getByText(/Analysis (complete|inconclusive)/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Approve/ })).toHaveCount(0);
-  await expect(page.getByText("model-estimated confidence, not a calibrated statistical probability")).toBeVisible();
+  await expect(page.getByText(/Model-estimated confidence, not a calibrated statistical probability/)).toBeVisible();
+  await page.getByRole("button", { name: "Expand Report" }).click();
   const report = page.locator(".prose-report");
   await expect(report).toContainText("Ranked hypotheses");
   await expect(report).toContainText(/source: (loki|prometheus)\//);

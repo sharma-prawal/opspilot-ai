@@ -1,0 +1,18 @@
+{
+  "initial_disposition": "fix",
+  "findings": [
+    {
+      "priority": "P2",
+      "issue": "Review action link did not reveal Analysis from other tabs",
+      "verdict": "resolved"
+    },
+    {
+      "priority": "P2",
+      "issue": "Evidence navigation did not transfer keyboard focus; workspace selection not announced",
+      "verdict": "resolved"
+    }
+  ],
+  "verdict_pass": "ship",
+  "scope": "Only the two listed findings; source, refreshed screenshots and browser assertions checked",
+  "detector": "One warning on pre-existing report blockquote border, not a new card treatment"
+}

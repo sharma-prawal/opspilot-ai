@@ -1,21 +1,38 @@
 import { Badge } from "./ui";
+import { SignalIcon } from "./brand";
 import type { EvidenceSource } from "@/lib/types";
-
-/** Demo (simulator), user-uploaded files (v0.5) or a connected-telemetry snapshot (v0.6), wherever an incident appears. */
-export function SourceBadge({ source }: { source: EvidenceSource | null | undefined }) {
-  if (source === "connector")
-    return (
-      <Badge tone="cyan" className="text-[10px]">
-        <span aria-hidden>⇄</span> Connected telemetry
-      </Badge>
-    );
-  return source === "upload" ? (
-    <Badge tone="purple" className="text-[10px]">
-      <span aria-hidden>⇪</span> Uploaded evidence
-    </Badge>
-  ) : (
-    <Badge tone="neutral" className="text-[10px]">
-      <span aria-hidden>◇</span> Demo · simulator
+export function SourceBadge({
+  source,
+}: {
+  source: EvidenceSource | null | undefined;
+}) {
+  if (!source) return <Badge>Source unavailable</Badge>;
+  return (
+    <Badge
+      tone={
+        source === "connector"
+          ? "info"
+          : source === "upload"
+            ? "purple"
+            : "neutral"
+      }
+      className="text-[10px]"
+    >
+      <SignalIcon
+        name={
+          source === "connector"
+            ? "connector"
+            : source === "upload"
+              ? "upload"
+              : "simulator"
+        }
+        className="size-3"
+      />
+      {source === "connector"
+        ? "Connected telemetry"
+        : source === "upload"
+          ? "Uploaded evidence"
+          : "Demo · simulator"}
     </Badge>
   );
 }

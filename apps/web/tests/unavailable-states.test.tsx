@@ -43,7 +43,7 @@ function wrap(ui: ReactNode) {
 }
 
 function counter(label: string): string | null {
-  return screen.getByText(label).nextElementSibling?.textContent ?? null;
+  return screen.getByText((_, el) => el?.textContent?.startsWith(label) === true && el?.tagName === (label === "Open cases" ? "SPAN" : "A")).querySelector("strong")?.textContent ?? null;
 }
 
 beforeEach(() => {
@@ -82,7 +82,7 @@ describe("overview counters", () => {
     wrap(<OverviewPage />);
     await waitFor(() => expect(overviewMock).toHaveBeenCalled());
     await waitFor(() => expect(screen.getAllByText("unavailable").length).toBeGreaterThan(0));
-    for (const label of ["OPEN CASES", "RUNNING THREADS", "PENDING APPROVALS", "KNOWLEDGE CHUNKS"]) {
+    for (const label of ["Open cases", "Awaiting approval"]) {
       expect(counter(label)).toBe("—");
     }
   });
@@ -90,9 +90,7 @@ describe("overview counters", () => {
   it("show the backend's numbers, including real zeros", async () => {
     overviewMock.mockResolvedValue({ ...OVERVIEW, actions: { pending: 0 } });
     wrap(<OverviewPage />);
-    await waitFor(() => expect(counter("KNOWLEDGE CHUNKS")).toBe("17"));
-    expect(counter("RUNNING THREADS")).toBe("3");
-    expect(counter("PENDING APPROVALS")).toBe("0");
-    expect(counter("OPEN CASES")).not.toBe("—");
+    await waitFor(() => expect(counter("Open cases")).toBe("3"));
+    expect(counter("Awaiting approval")).toBe("0");
   });
 });

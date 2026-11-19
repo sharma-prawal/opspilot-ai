@@ -11,7 +11,8 @@
     "test": "vitest run",
     "smoke:mock": "node scripts/smoke-test.mjs",
     "smoke:live": "node scripts/real-backend-smoke.mjs",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "test:visual2": "node scripts/visual-experience-2.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.3",

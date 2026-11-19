@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AuthRedirect } from "@/components/auth-redirect";
 import { Nav } from "@/components/nav";
-import { ModelName } from "@/lib/models";
+import { BrandMark } from "@/components/brand";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -28,20 +28,17 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans bg-bg text-text selection:bg-accent-soft selection:text-accent">
+        <a href="#main-content" className="skip-link">Skip to content</a>
         <Providers>
-          <header className="sticky top-0 z-40 border-b border-border bg-panel/95 backdrop-blur-md">
+          <header className="sticky top-0 z-40 border-b border-border bg-panel">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
               <div className="flex items-center gap-3">
                 <Link
                   href="/"
+                  aria-label="OpsPilot AI home"
                   className="group flex items-center gap-2.5 font-bold tracking-tight text-text hover:opacity-90 transition-opacity"
                 >
-                  <span
-                    aria-hidden
-                    className="grid size-7 place-items-center rounded-[3px] border border-border-strong bg-panel-2 font-serif-heading text-xs font-bold text-accent shadow-2xs"
-                  >
-                    OP
-                  </span>
+                  <BrandMark />
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-serif-heading text-lg font-bold tracking-tight text-text">
                       OpsPilot
@@ -52,12 +49,7 @@ export default function RootLayout({
                   </div>
                 </Link>
 
-                <div className="hidden items-center gap-1.5 rounded-[3px] border border-border bg-panel-2 px-2.5 py-0.5 font-mono text-[11px] text-muted md:flex">
-                  <span className="text-text-muted">Incident Forensics Workbench</span>
-                  <span className="text-border-strong">·</span>
-                  <span className="text-text-muted">Model:</span>
-                  <ModelName className="font-semibold text-text" />
-                </div>
+
               </div>
 
               <Suspense fallback={<div className="h-8" />}>
@@ -67,7 +59,7 @@ export default function RootLayout({
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+          <main id="main-content" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
             <Suspense>{children}</Suspense>
           </main>
 
@@ -76,7 +68,7 @@ export default function RootLayout({
               <div className="flex items-center gap-2">
                 <span className="font-serif-heading font-bold text-text">OpsPilot AI</span>
                 <span className="text-border-strong">|</span>
-                <span>Autonomous Incident Forensics &amp; Causal Verification</span>
+                <span>Incident forensics · local-first</span>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs">
                 <Link href="/architecture" className="hover:text-text transition-colors">
@@ -91,7 +83,7 @@ export default function RootLayout({
                 <Link href="/guide" className="hover:text-text transition-colors">
                   Field Guide
                 </Link>
-                <span className="text-text-muted">Local Ollama · Port 127.0.0.1</span>
+                <span className="text-text-muted">Evidence before action</span>
               </div>
             </div>
           </footer>

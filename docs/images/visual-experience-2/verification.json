@@ -1,0 +1,67 @@
+{
+  "data": "Explicitly synthetic fixtures",
+  "server": "Isolated production frontend :3199; no live API/database/LLM",
+  "results": [
+    {
+      "check": "home intake, runtime and three source modes",
+      "passed": true
+    },
+    {
+      "check": "roster search, source filter, clear and linked case",
+      "passed": true
+    },
+    {
+      "check": "hypothesis selection, contradiction and exact source payload",
+      "passed": true
+    },
+    {
+      "check": "review action link opens and focuses remediation from the evidence tab",
+      "passed": true
+    },
+    {
+      "check": "metric comparison and source chronology open their real record",
+      "passed": true
+    },
+    {
+      "check": "evidence composition filters actual source category",
+      "passed": true
+    },
+    {
+      "check": "approval submits exact action hash and completed recovery stays simulator-specific",
+      "passed": true
+    },
+    {
+      "check": "upload remains read-only with suggestions and no approval controls",
+      "passed": true
+    },
+    {
+      "check": "connector remains read-only with suggestions and no approval controls",
+      "passed": true
+    },
+    {
+      "check": "blocked-only result never indicates admitted plan or execution",
+      "passed": true
+    },
+    {
+      "check": "normal running and failure states remain inspectable",
+      "passed": true
+    },
+    {
+      "check": "integration implementation differs from configured and tested health",
+      "passed": true
+    },
+    {
+      "check": "architecture diagrams and accessible tree",
+      "passed": true
+    },
+    {
+      "check": "safety boundary and guide preserve technical detail on demand",
+      "passed": true
+    },
+    {
+      "check": "loading, empty and unavailable backend states",
+      "passed": true
+    }
+  ],
+  "pageErrors": []
+}

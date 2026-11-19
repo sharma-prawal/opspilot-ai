@@ -1,5 +1,12 @@
 # OpsPilot AI
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/brand/logo-dark.svg">
+  <img src="apps/web/public/brand/logo-light.svg" width="310" alt="OpsPilot AI">
+</picture>
+
+[Visual Experience 2 design and verification](docs/design/VISUAL_EXPERIENCE_2.md) · [Visual identity](docs/design/BRAND.md)
+
 **Local-first, agentic incident investigation.** OpsPilot correlates telemetry, change history,
 service dependencies and operational knowledge to produce evidence-cited root-cause hypotheses,
 proposes a remediation from a fixed catalogue, **waits for a human to approve it**, executes it in

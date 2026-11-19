@@ -140,3 +140,26 @@ See `RAG_PIPELINE.md`.
 - Swap the model via `LLM_MODEL` / provider; add a reranker behind the `Reranker` protocol.
 - Move the runner to a worker process (the checkpointer already makes runs resumable anywhere).
 - Add SSE for live timeline updates; OIDC for operator identity.
+
+
+## Visual Experience 2 presentation layer
+
+The Next.js client still reads the existing same-origin authenticated BFF with
+TanStack Query. No endpoint, database or workflow contract changes. Native SVG/CSS
+components (`apps/web/components/visuals.tsx`) render source counts, persisted
+metric summaries, hypothesis comparisons, evidence links and decision states;
+the existing React Flow dependency remains dedicated to architecture exploration.
+Metric values are not interpolated into time series. Source observation chronology
+and workflow execution chronology are separate. Dependency edges come from stored
+`data.edge`; hypothesis links are labeled model associations rather than proven causes.
+Controls require the explicit simulator source before displaying remediation;
+uploaded and connector sources expose advice only. Technical payloads, full reports
+and workflow depth remain available through disclosures/tabs. Runtime hooks remain
+inside the existing Suspense boundaries. See [design notes](../design/VISUAL_EXPERIENCE_2.md)
+and [brand usage](../design/BRAND.md).
+
+The final UX refinement changes only presentation order and disclosure: pending
+simulator approvals appear before forensic detail, review links focus the actual
+approval control, provider configuration is expanded per connector, and each safety
+gate retains its full criteria inside a native keyboard-accessible disclosure.
+No approval decision is submitted by navigation or focus.
