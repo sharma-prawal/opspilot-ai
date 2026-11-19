@@ -83,18 +83,18 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
 
   return (
     <div
-      className={`group relative min-w-[210px] max-w-[270px] rounded-xl border bg-panel p-3 text-left transition-all ${borderTone} ${glowTone}`}
+      className={`group relative min-w-[210px] max-w-[270px] rounded-[4px] border bg-panel p-3 text-left transition-all shadow-2xs ${borderTone} ${glowTone}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-border-strong !size-2" />
       <Handle type="target" position={Position.Left} className="!bg-border-strong !size-2" />
 
-      <div className="flex items-center justify-between gap-1.5 border-b border-border/60 pb-1.5">
+      <div className="flex items-center justify-between gap-1.5 border-b border-border pb-1.5 font-mono">
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
           {data.category}
         </span>
         {data.status ? (
           <span
-            className={`rounded px-1.5 py-0.2 font-mono text-[9px] font-semibold ${
+            className={`rounded-[2px] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
               data.status === "implemented"
                 ? "bg-success-soft text-success border border-success/30"
                 : data.status === "requires_adapter"
@@ -109,14 +109,14 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeType>) {
               : "Planned"}
           </span>
         ) : data.badge ? (
-          <span className="rounded bg-panel-2 px-1.5 py-0.2 font-mono text-[9px] text-text-muted">
+          <span className="rounded-[2px] border border-border bg-panel-2 px-1.5 py-0.2 text-[9px] font-semibold text-text-muted">
             {data.badge}
           </span>
         ) : null}
       </div>
 
-      <div className="mt-1.5">
-        <h4 className="text-xs font-bold text-text leading-snug">{data.label}</h4>
+      <div className="mt-2">
+        <h4 className="font-serif-heading text-xs font-bold text-text leading-snug">{data.label}</h4>
         {data.tech && (
           <p className="mt-1 font-mono text-[10px] text-muted truncate">{fillModels(data.tech, models)}</p>
         )}

@@ -507,7 +507,7 @@ async function runSmokeTests() {
     // Switch to Offline / File Mode - verify bug fix: inspector updates to first matching source
     await page.getByRole("tab", { name: /Offline \/ File Mode/i }).click();
     await page.waitForTimeout(300);
-    await page.waitForSelector("text=Offline Metric & Log Export Files");
+    await page.waitForSelector("text=Uploaded Log, Metric & Event Files");
     // Ensure Synthetic Incident Simulator is NOT displayed in the inspector
     const inspectorHasSimulatorInOffline = await page.locator("aside").locator("text=Synthetic Incident Simulator").count();
     if (inspectorHasSimulatorInOffline > 0) {
@@ -518,7 +518,7 @@ async function runSmokeTests() {
     // Switch to Connected Mode - verify inspector updates
     await page.getByRole("tab", { name: /Connected Mode/i }).click();
     await page.waitForTimeout(300);
-    await page.waitForSelector("text=Prometheus / Cortex / Thanos / Mimir");
+    await page.waitForSelector("text=Prometheus");
     await page.waitForSelector("text=AWS CloudWatch & Container Insights");
     const inspectorHasSimulatorInConnected = await page.locator("aside").locator("text=Synthetic Incident Simulator").count();
     if (inspectorHasSimulatorInConnected > 0) {

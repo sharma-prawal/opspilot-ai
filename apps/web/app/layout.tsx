@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AuthRedirect } from "@/components/auth-redirect";
 import { Nav } from "@/components/nav";
+import { ModelName } from "@/lib/models";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -11,9 +12,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OpsPilot AI — Autonomous Incident Response",
+  title: "OpsPilot AI — Incident Forensics Workbench",
   description:
-    "Local-first agentic incident investigation with deterministic safety gates, hybrid RAG, and cryptographic human-in-the-loop approvals.",
+    "Evidence-grounded autonomous incident investigation with deterministic safety gates, hybrid pgvector RAG, and cryptographic human-in-the-loop approvals.",
 };
 
 export default function RootLayout({
@@ -24,11 +25,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans bg-bg text-text selection:bg-accent/30 selection:text-white">
+      <body className="flex min-h-full flex-col font-sans bg-bg text-text selection:bg-accent-soft selection:text-accent">
         <Providers>
-          <header className="sticky top-0 z-40 border-b border-border bg-panel/90 backdrop-blur-md">
+          <header className="sticky top-0 z-40 border-b border-border bg-panel/95 backdrop-blur-md">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
               <div className="flex items-center gap-3">
                 <Link
@@ -37,24 +38,25 @@ export default function RootLayout({
                 >
                   <span
                     aria-hidden
-                    className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-blue-700 text-xs font-black text-white shadow-sm ring-1 ring-white/20"
+                    className="grid size-7 place-items-center rounded-[3px] border border-border-strong bg-panel-2 font-serif-heading text-xs font-bold text-accent shadow-2xs"
                   >
                     OP
                   </span>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-base font-bold tracking-tight text-text">
+                    <span className="font-serif-heading text-lg font-bold tracking-tight text-text">
                       OpsPilot
                     </span>
-                    <span className="text-xs font-semibold text-accent uppercase tracking-wider">
+                    <span className="font-mono text-xs font-bold text-accent tracking-wider">
                       AI
                     </span>
                   </div>
                 </Link>
-                <div className="hidden items-center gap-1.5 rounded-full border border-border bg-panel-2 px-2.5 py-0.5 text-[11px] text-muted md:flex">
-                  <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-                  <span>Local Simulator</span>
+
+                <div className="hidden items-center gap-1.5 rounded-[3px] border border-border bg-panel-2 px-2.5 py-0.5 font-mono text-[11px] text-muted md:flex">
+                  <span className="text-text-muted">Incident Forensics Workbench</span>
                   <span className="text-border-strong">·</span>
-                  <span className="text-text-muted">Isolated Demo Mode</span>
+                  <span className="text-text-muted">Model:</span>
+                  <ModelName className="font-semibold text-text" />
                 </div>
               </div>
 
@@ -66,29 +68,30 @@ export default function RootLayout({
           </header>
 
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-            {children}
+            <Suspense>{children}</Suspense>
           </main>
 
-          <footer className="border-t border-border bg-panel/40 py-6 text-xs text-muted">
-            <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
+          <footer className="border-t border-border bg-panel/60 py-6 text-xs text-muted">
+            <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6 font-mono text-[11px]">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-text">OpsPilot AI</span>
-                <span>— Local-first agentic incident response simulator.</span>
+                <span className="font-serif-heading font-bold text-text">OpsPilot AI</span>
+                <span className="text-border-strong">|</span>
+                <span>Autonomous Incident Forensics &amp; Causal Verification</span>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs">
                 <Link href="/architecture" className="hover:text-text transition-colors">
-                  System Architecture
+                  System Anatomy
                 </Link>
                 <Link href="/integrations" className="hover:text-text transition-colors">
-                  Integrations &amp; Sources
+                  Telemetry Sources
                 </Link>
                 <Link href="/safety" className="hover:text-text transition-colors">
                   Safety Gates &amp; HITL
                 </Link>
                 <Link href="/guide" className="hover:text-text transition-colors">
-                  Developer Guide
+                  Field Guide
                 </Link>
-                <span className="text-text-muted">No cloud inference · Port 127.0.0.1</span>
+                <span className="text-text-muted">Local Ollama · Port 127.0.0.1</span>
               </div>
             </div>
           </footer>

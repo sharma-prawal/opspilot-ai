@@ -6,15 +6,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, clearSession, getSession } from "@/lib/api";
 
 const LINKS = [
-  { href: "/", label: "Overview" },
-  { href: "/incidents", label: "Incidents" },
-  { href: "/incidents/new", label: "Analyze data" },
-  { href: "/architecture", label: "Architecture" },
-  { href: "/integrations", label: "Integrations" },
-  { href: "/guide", label: "Guide" },
-  { href: "/safety", label: "Safety" },
-  { href: "/approvals", label: "Approvals" },
-  { href: "/knowledge", label: "Knowledge" },
+  { href: "/", label: "Overview", sec: "01" },
+  { href: "/incidents", label: "Incidents", sec: "02" },
+  { href: "/incidents/new", label: "Analyze data", sec: "03" },
+  { href: "/architecture", label: "Architecture", sec: "04" },
+  { href: "/integrations", label: "Integrations", sec: "05" },
+  { href: "/guide", label: "Guide", sec: "06" },
+  { href: "/safety", label: "Safety", sec: "07" },
+  { href: "/approvals", label: "Approvals", sec: "08" },
+  { href: "/knowledge", label: "Knowledge", sec: "09" },
 ];
 
 export function Nav() {
@@ -62,29 +62,30 @@ export function Nav() {
             key={l.href}
             href={l.href}
             aria-current={active ? "page" : undefined}
-            className={`relative rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`group relative rounded-[4px] px-2.5 py-1.5 text-xs font-medium transition-all ${
               active
-                ? "bg-panel-2 text-text font-semibold shadow-xs"
-                : "text-muted hover:bg-panel-2/50 hover:text-text"
+                ? "bg-text text-bg font-semibold shadow-2xs"
+                : "text-text-muted hover:bg-panel-2 hover:text-text"
             }`}
           >
-            {l.label}
+            <span
+              className={`font-mono text-[10px] mr-1.5 ${
+                active ? "text-accent" : "text-muted"
+              }`}
+            >
+              §{l.sec}
+            </span>
+            <span>{l.label}</span>
             {l.href === "/approvals" && count > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-warn px-1.5 py-0.2 text-[10px] font-bold text-black tabular-nums">
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-warn px-1.5 py-0.2 font-mono text-[10px] font-bold text-white tabular-nums">
                 {count}
               </span>
-            )}
-            {active && (
-              <span
-                aria-hidden
-                className="absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-accent"
-              />
             )}
           </Link>
         );
       })}
       {signedIn && (
-        <span className="ml-2 flex items-center gap-2.5 border-l border-border pl-3 text-xs text-muted">
+        <span className="ml-2 flex items-center gap-2 border-l border-border pl-3 font-mono text-xs text-text-muted">
           <span className="flex items-center gap-1.5 font-medium text-text">
             <span aria-hidden className="size-2 rounded-full bg-success" />
             {session.data?.sub} · {session.data?.role}

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { confidenceLabel, humanize, statusTone, type Tone } from "@/lib/format";
 
-export type ExtendedTone = Tone | "cyan" | "purple";
+export type ExtendedTone = Tone | "cyan" | "purple" | "amber" | "cobalt";
 
 const TONES: Record<ExtendedTone, string> = {
   neutral: "bg-panel-2 text-text-muted border-border",
@@ -17,6 +17,8 @@ const TONES: Record<ExtendedTone, string> = {
   success: "bg-success-soft text-success border-success/30",
   cyan: "bg-info-soft text-info border-info/30",
   purple: "bg-purple-soft text-purple border-purple/30",
+  amber: "bg-accent-soft text-accent border-accent/30",
+  cobalt: "bg-info-soft text-info border-info/30",
 };
 
 export function Badge({
@@ -30,7 +32,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium tracking-tight whitespace-nowrap ${TONES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold tracking-tight whitespace-nowrap ${TONES[tone]} ${className}`}
     >
       {children}
     </span>
@@ -86,7 +88,7 @@ export function SeverityBadge({ severity }: { severity: string | null | undefine
       : "info";
 
   return (
-    <Badge tone={tone} className="font-semibold uppercase tracking-wider text-[10px]">
+    <Badge tone={tone} className="font-mono font-bold uppercase tracking-wider text-[10px]">
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
       {severity}
     </Badge>
@@ -111,11 +113,11 @@ export function Card({
   headerClassName?: string;
 }) {
   return (
-    <section id={id} className={`rounded-xl border border-border bg-panel shadow-sm transition-all ${className}`}>
+    <section id={id} className={`dossier-paper ${className}`}>
       {(title || actions || subtitle) && (
-        <header className={`flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5 ${headerClassName}`}>
+        <header className={`flex flex-wrap items-center justify-between gap-3 border-b border-border bg-panel px-5 py-3.5 ${headerClassName}`}>
           <div>
-            {title && <h2 className="text-sm font-semibold tracking-tight text-text">{title}</h2>}
+            {title && <h2 className="font-serif-heading text-base font-bold tracking-tight text-text">{title}</h2>}
             {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -150,16 +152,16 @@ export function StatCard({
   }[tone];
 
   return (
-    <div className="group relative rounded-xl border border-border bg-panel p-4 shadow-sm transition-all hover:border-border-strong hover:bg-panel/80">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted">{label}</span>
+    <div className="dossier-paper group relative p-4 transition-all hover:border-border-strong">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted">{label}</span>
         {icon && <span className="text-muted group-hover:text-text">{icon}</span>}
         {badge}
       </div>
-      <div className={`mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${toneColors}`}>
+      <div className={`mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${toneColors}`}>
         {value}
       </div>
-      {subtitle && <p className="mt-1 text-xs text-muted">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-xs text-muted leading-relaxed">{subtitle}</p>}
     </div>
   );
 }
@@ -176,27 +178,27 @@ export function Button({
 }) {
   const variantStyles = {
     primary:
-      "bg-accent text-white shadow-sm hover:bg-accent-hover hover:shadow border-transparent focus:ring-2 focus:ring-accent/40",
+      "bg-accent text-white shadow-xs hover:bg-accent-hover border border-accent-hover font-semibold focus:ring-2 focus:ring-accent/40",
     secondary:
-      "bg-panel text-text hover:bg-panel-2 border-border hover:border-border-strong focus:ring-2 focus:ring-accent/20",
+      "bg-panel text-text hover:bg-panel-2 border-border hover:border-border-strong shadow-2xs font-medium focus:ring-2 focus:ring-accent/20",
     danger:
-      "bg-danger-soft text-danger hover:bg-danger hover:text-white border-danger/40 transition-colors focus:ring-2 focus:ring-danger/20",
+      "bg-danger-soft text-danger hover:bg-danger hover:text-white border-danger/40 transition-colors font-medium focus:ring-2 focus:ring-danger/20",
     ghost:
-      "bg-transparent text-muted hover:text-text hover:bg-panel-2 border-transparent",
+      "bg-transparent text-muted hover:text-text hover:bg-panel-2 border-transparent font-medium",
     outline:
-      "bg-transparent text-text hover:bg-panel-2 border-border hover:border-border-strong",
+      "bg-transparent text-text hover:bg-panel-2 border border-border hover:border-border-strong font-medium",
   }[variant];
 
   const sizeStyles = {
-    sm: "h-7 px-2.5 text-xs rounded-md gap-1",
-    md: "h-8.5 px-3.5 text-sm rounded-lg gap-2",
-    lg: "h-10 px-4 text-base rounded-lg gap-2.5",
+    sm: "h-7 px-2.5 text-xs rounded-[3px] gap-1",
+    md: "h-8.5 px-3.5 text-xs rounded-[4px] gap-2",
+    lg: "h-10 px-4 text-sm rounded-[4px] gap-2.5",
   }[size];
 
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer ${variantStyles} ${sizeStyles} ${className}`}
+      className={`inline-flex items-center justify-center transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer ${variantStyles} ${sizeStyles} ${className}`}
     >
       {children}
     </button>
@@ -215,21 +217,21 @@ export function ConfidenceBar({ value }: { value: number }) {
 
   return (
     <div
-      className="flex items-center gap-2.5"
+      className="flex items-center gap-2.5 font-mono"
       aria-label={`confidence ${percentage} percent (${label})`}
-      title="Model-estimated confidence, not a calibrated probability"
+      title="Model-estimated confidence, uncalibrated probability"
     >
-      <div className="h-2 w-28 overflow-hidden rounded-full bg-panel-2 border border-border">
+      <div className="h-2 w-28 overflow-hidden rounded-[2px] bg-panel-2 border border-border">
         <div
           className={`h-full ${color} transition-all duration-500`}
           style={{ width: `${Math.max(4, Math.min(100, percentage))}%` }}
         />
       </div>
-      <span className="text-xs font-mono font-medium tabular-nums text-text-muted">
+      <span className="text-xs font-semibold tabular-nums text-text">
         {percentage}%
       </span>
       <span
-        className={`text-[11px] font-semibold uppercase tracking-wider ${
+        className={`text-[10px] font-bold uppercase tracking-wider ${
           label === "high"
             ? "text-success"
             : label === "medium"
@@ -237,7 +239,8 @@ export function ConfidenceBar({ value }: { value: number }) {
             : "text-muted"
         }`}
       >
-        {label}
+        <span>{label}</span>
+        <span className="text-muted font-normal lowercase"> (uncalibrated)</span>
       </span>
     </div>
   );
@@ -253,15 +256,15 @@ export function Empty({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
+    <div className="flex flex-col items-center justify-center py-10 text-center font-mono text-xs">
       {icon ? (
-        <div className="mb-3 grid size-10 place-items-center rounded-full bg-panel-2 text-muted">
+        <div className="mb-3 grid size-10 place-items-center rounded-sm border border-border bg-panel-2 text-muted">
           {icon}
         </div>
       ) : (
         <div className="mb-2 text-2xl text-muted">∅</div>
       )}
-      <p className="max-w-md text-sm text-muted">{children}</p>
+      <p className="max-w-md text-muted leading-relaxed">{children}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -273,7 +276,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <div
       role="alert"
-      className="mb-4 flex items-start gap-2.5 rounded-lg border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
+      className="mb-4 flex items-start gap-2.5 rounded-[4px] border border-danger/40 bg-danger-soft px-3.5 py-2.5 text-xs text-danger font-mono"
     >
       <span className="font-bold">✕</span>
       <div className="min-w-0 flex-1 break-words">{msg}</div>
@@ -295,9 +298,9 @@ export function KV({
       }`}
     >
       {items.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-muted font-medium select-none">{k}</dt>
-          <dd className="min-w-0 break-words text-text font-normal">{v}</dd>
+        <div key={k} className="contents font-mono">
+          <dt className="text-muted font-medium select-none text-xs">{k}</dt>
+          <dd className="min-w-0 break-words text-text font-normal text-xs">{v}</dd>
         </div>
       ))}
     </dl>
@@ -319,12 +322,12 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5">
       <div>
         <div className="flex items-center gap-2.5">
-          <h1 className="text-xl font-bold tracking-tight text-text sm:text-2xl">
+          <h1 className="font-serif-heading text-2xl font-bold tracking-tight text-text sm:text-3xl">
             {title}
           </h1>
           {badge}
         </div>
-        {subtitle && <div className="mt-1 text-sm text-muted">{subtitle}</div>}
+        {subtitle && <div className="mt-1 text-xs text-muted max-w-3xl leading-relaxed">{subtitle}</div>}
       </div>
       {actions && (
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>
@@ -353,9 +356,9 @@ export function CodeBlock({
   };
 
   return (
-    <div className="group relative my-3 overflow-hidden rounded-lg border border-border bg-panel-2 font-mono text-xs">
-      <div className="flex items-center justify-between border-b border-border/60 bg-panel px-3 py-1.5 text-[11px] text-muted">
-        <span className="uppercase tracking-wider">{language}</span>
+    <div className="group relative my-3 overflow-hidden rounded-[4px] border border-border bg-panel-2 font-mono text-xs">
+      <div className="flex items-center justify-between border-b border-border bg-panel px-3 py-1.5 text-[11px] text-muted">
+        <span className="font-bold uppercase tracking-wider">{language}</span>
         <button
           onClick={copy}
           className="rounded px-2 py-0.5 text-muted hover:text-text hover:bg-panel-2 transition-colors cursor-pointer"
