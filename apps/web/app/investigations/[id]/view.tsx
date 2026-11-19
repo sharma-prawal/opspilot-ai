@@ -54,13 +54,18 @@ function Stepper({
     events.filter((e) => e.node).map((e) => stageIndex(e.node))
   );
   const activeIdx = TERMINAL.has(status) ? -1 : stageIndex(current);
+  const isCompleted = status === "completed";
 
   return (
     <ol className="flex flex-wrap items-center gap-2" aria-label="Workflow progress">
       {STAGES.map((s, i) => {
         const isActive = i === activeIdx;
-        const isDone = visited.has(i);
         const disabled = readOnly && s.key === "remediate";
+        const isDone =
+          !disabled &&
+          (visited.has(i) ||
+            (activeIdx >= 0 && i < activeIdx) ||
+            (isCompleted && (readOnly ? s.key !== "remediate" : true)));
         const label = readOnly && s.key === "approval" ? "Suggestions" : disabled ? "Remediate (read-only: off)" : s.label;
 
         let style = "border border-dashed border-border bg-panel-2 text-muted";
@@ -129,7 +134,7 @@ function SynchronizedTimeRibbon({
   );
 
   return (
-    <div className="dossier-paper p-3.5 space-y-2">
+    <div className="dossier-paper p-3.5 space-y-2 min-w-0 overflow-hidden">
       <div className="flex items-center justify-between font-mono text-[11px] text-muted border-b border-border pb-1.5">
         <div className="flex items-center gap-2">
           <span className="font-bold text-accent">SYNCHRONIZED INCIDENT TIMELINE</span>
@@ -139,16 +144,16 @@ function SynchronizedTimeRibbon({
         <span className="text-text-muted">Real Agent Events ({events.length})</span>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-thin">
+      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-thin min-w-0 pr-4">
         {keyEvents.length === 0 ? (
           <span className="text-muted text-xs italic py-1 font-mono">
             Awaiting agent execution events…
           </span>
         ) : (
-          keyEvents.slice(-7).map((ev) => {
+          keyEvents.map((ev) => {
             const isSelected = selectedEventId === ev.id;
-            const isApproval = ev.event_type === "approval_requested";
-            const isDone = ev.node === "verify_recovery" || ev.event_type === "workflow_completed";
+            const isApproval = ev.event_type === "approval_requested" || ev.node === "human_approval" || ev.node === "await_approval";
+            const isDone = ev.node === "verify_recovery" || ev.event_type === "workflow_completed" || ev.node === "report";
             const offset = getOffset(ev.created_at);
 
             return (
@@ -166,7 +171,7 @@ function SynchronizedTimeRibbon({
                 }`}
               >
                 <span className="font-bold tabular-nums text-[11px] text-muted">{offset}</span>
-                <span className="font-semibold text-text truncate max-w-[140px]">
+                <span className="font-semibold text-text truncate max-w-[150px]">
                   {ev.node ? humanize(ev.node) : humanize(ev.event_type)}
                 </span>
               </button>

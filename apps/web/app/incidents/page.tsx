@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SimulateButton } from "@/components/simulate-button";
 import { SourceBadge } from "@/components/source-badge";
 import {
+  Badge,
   Button,
   Card,
   Empty,
@@ -14,7 +15,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { utcTime } from "@/lib/format";
+import { humanize, utcTime } from "@/lib/format";
 
 export default function IncidentsPage() {
   const q = useQuery({
@@ -82,7 +83,13 @@ export default function IncidentsPage() {
                       {utcTime(i.detected_at)}
                     </td>
                     <td>
-                      <StatusBadge status={i.status} />
+                      {i.evidence_source === "upload" || i.evidence_source === "connector" ? (
+                        <span title="External/stored telemetry status. Read-only audit; recovery not independently verified by OpsPilot.">
+                          <Badge tone="neutral">External: {humanize(i.status)}</Badge>
+                        </span>
+                      ) : (
+                        <StatusBadge status={i.status} />
+                      )}
                     </td>
                   </tr>
                 ))}

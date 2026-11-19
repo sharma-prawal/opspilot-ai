@@ -41,13 +41,13 @@ export const ACTIVE_STATUSES = new Set(["queued", "running"]);
 
 /** Ordered stages shown in the workflow stepper. */
 export const STAGES = [
-  { key: "intake", label: "Intake" },
-  { key: "plan", label: "Plan" },
-  { key: "evidence", label: "Gather evidence", nodes: ["dispatch", "telemetry", "dependencies", "changes", "knowledge", "followup"] },
-  { key: "rca", label: "Root cause" },
-  { key: "approval", label: "Approval", nodes: ["propose", "await_approval"] },
-  { key: "remediate", label: "Remediate", nodes: ["execute", "verify"] },
-  { key: "report", label: "Report", nodes: ["report", "failed"] },
+  { key: "intake", label: "Intake", nodes: ["intake", "alert_triggered"] },
+  { key: "plan", label: "Plan", nodes: ["plan", "plan_created"] },
+  { key: "evidence", label: "Gather evidence", nodes: ["dispatch", "telemetry", "dependencies", "changes", "knowledge", "followup", "gather_evidence", "evidence", "retrieve_runbooks"] },
+  { key: "rca", label: "Root cause", nodes: ["rca", "formulate_hypotheses", "hypotheses", "safety_check"] },
+  { key: "approval", label: "Approval", nodes: ["propose", "await_approval", "human_approval", "approval"] },
+  { key: "remediate", label: "Remediate", nodes: ["execute", "verify", "remediate", "verify_recovery", "action_executed"] },
+  { key: "report", label: "Report", nodes: ["report", "failed", "workflow_completed", "rca_ready"] },
 ] as const;
 
 export function stageIndex(node: string | null | undefined): number {

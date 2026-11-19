@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, type DragEvent } from "react";
 import { Badge, Button, Card, ErrorNote, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
-import { useActiveModels } from "@/lib/models";
+import { ModelName } from "@/lib/models";
 import { utcTime } from "@/lib/format";
 import type { NormalizedRecord, SignalType, UploadPreview, UploadRequest } from "@/lib/types";
 import {
@@ -66,7 +66,6 @@ function recordText(r: NormalizedRecord): string {
 export function UploadView() {
   const router = useRouter();
   const qc = useQueryClient();
-  const models = useActiveModels();
   const zones = useMemo(() => timezoneOptions(), []);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -237,7 +236,7 @@ export function UploadView() {
           <span>
             Upload sanitized logs, metrics, traces or change events. OpsPilot normalizes them, shows you what it
             extracted, then investigates with the local model{" "}
-            {models.llm && <code className="font-mono text-xs text-text">{models.llm}</code>} — read-only: it suggests
+            <ModelName kind="llm" className="font-mono text-xs text-text" /> — read-only: it suggests
             remediation but never executes it.
           </span>
         }

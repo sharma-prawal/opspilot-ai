@@ -103,6 +103,7 @@ export function Card({
   children,
   className = "",
   headerClassName = "",
+  suppressHydrationWarning = false,
 }: {
   id?: string;
   title?: ReactNode;
@@ -111,6 +112,7 @@ export function Card({
   children: ReactNode;
   className?: string;
   headerClassName?: string;
+  suppressHydrationWarning?: boolean;
 }) {
   return (
     <section id={id} className={`dossier-paper ${className}`}>
@@ -123,7 +125,7 @@ export function Card({
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className="p-5">{children}</div>
+      <div className="p-5" suppressHydrationWarning={suppressHydrationWarning}>{children}</div>
     </section>
   );
 }

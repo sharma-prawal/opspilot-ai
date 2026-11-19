@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SourceBadge } from "@/components/source-badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   Badge,
   Button,
@@ -80,9 +80,12 @@ const SCENARIO_CATALOG: ScenarioMeta[] = [
   },
 ];
 
+const emptySubscribe = () => () => {};
+
 export default function OverviewPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [selectedScenario, setSelectedScenario] = useState("INC-001");
   const [activePathwayTab, setActivePathwayTab] = useState<"simulator" | "uploaded" | "connected">("simulator");
 
@@ -482,6 +485,7 @@ export default function OverviewPage() {
         <Card
           title="Runtime Seams & Health"
           subtitle="Verification of local inference and MCP tools"
+          suppressHydrationWarning
         >
           {deps.isLoading ? (
             <div className="py-6 text-center font-mono text-xs text-muted">Checking runtime seams…</div>
@@ -507,7 +511,7 @@ export default function OverviewPage() {
             </div>
           )}
 
-          {o && (
+          {mounted && o && (
             <div className="mt-5 border-t border-border pt-4">
               <h4 className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-muted">
                 Runtime Contracts

@@ -17,7 +17,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { utcTime } from "@/lib/format";
+import { humanize, utcTime } from "@/lib/format";
 import { formatBytes } from "@/lib/uploads";
 
 export function IncidentView() {
@@ -91,7 +91,21 @@ export function IncidentView() {
         actions={
           <div className="flex items-center gap-2">
             {i && <SeverityBadge severity={i.severity} />}
-            {i && <StatusBadge status={i.status} />}
+            {i &&
+              (uploaded ? (
+                <div className="flex items-center gap-1.5">
+                  {invs.data?.some((v) => v.status === "completed") ? (
+                    <Badge tone="info">Analysis complete (read-only)</Badge>
+                  ) : active ? (
+                    <Badge tone="info">Investigating (read-only)</Badge>
+                  ) : null}
+                  <span title="Historical status recorded in external telemetry; not independently verified by OpsPilot">
+                    <Badge tone="neutral">External: {humanize(i.status)}</Badge>
+                  </span>
+                </div>
+              ) : (
+                <StatusBadge status={i.status} />
+              ))}
             <Button
               variant="primary"
               size="md"
@@ -139,13 +153,21 @@ export function IncidentView() {
                 <KV
                   items={[
                     ["Reference", <code key="r" className="font-mono font-bold text-accent">{i.reference}</code>],
-                    ["Status", <StatusBadge key="s" status={i.status} />],
+                    uploaded
+                      ? [
+                          "Status",
+                          <span key="s" className="flex items-center gap-1.5 font-mono text-xs">
+                            <Badge tone="neutral">External: {humanize(i.status)}</Badge>
+                            <span className="text-[11px] text-muted">(unverified by OpsPilot)</span>
+                          </span>,
+                        ]
+                      : ["Status", <StatusBadge key="s" status={i.status} />],
                     ["Severity", <SeverityBadge key="v" severity={i.severity} />],
                     ["Service", <code key="c" className="font-mono text-xs">{i.service}</code>],
                     ["Detected At", utcTime(i.detected_at)],
                     ["Created At", utcTime(i.created_at)],
                     uploaded
-                      ? ["Evidence", <SourceBadge key="e" source={i.evidence_source} />]
+                      ? ["Evidence Scope", <span key="e" className="flex items-center gap-1.5"><SourceBadge source={i.evidence_source} /><span className="text-[11px] text-muted">Read-only audit</span></span>]
                       : ["Environment", <code key="e" className="font-mono text-xs">{i.environment_id}</code>],
                   ]}
                 />
