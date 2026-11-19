@@ -31,28 +31,36 @@ export function activeModelsFrom(overview: Overview | undefined): ActiveModels {
   };
 }
 
-/** Replace model tokens; unknown values fall back to the setting name so nothing is ever guessed. */
+/** Replace model tokens; unknown values are marked unavailable (never guessed, never shown as a model name). */
 export function fillModels(text: string, m: Pick<ActiveModels, "llm" | "embedding">): string {
   return text
-    .replaceAll(LLM_TOKEN, m.llm ?? "LLM_MODEL")
-    .replaceAll(EMBEDDING_TOKEN, m.embedding ?? "EMBEDDING_MODEL");
+    .replaceAll(LLM_TOKEN, m.llm ?? "LLM_MODEL (unavailable)")
+    .replaceAll(EMBEDDING_TOKEN, m.embedding ?? "EMBEDDING_MODEL (unavailable)");
+}
+
+function useOverviewForModels() {
+  return useQuery({ queryKey: ["overview"], queryFn: api.overview, staleTime: 30_000 });
 }
 
 export function useActiveModels(): ActiveModels {
-  const overview = useQuery({ queryKey: ["overview"], queryFn: api.overview, staleTime: 30_000 });
-  return activeModelsFrom(overview.data);
+  return activeModelsFrom(useOverviewForModels().data);
 }
 
 export function ModelName({ kind = "llm", className }: { kind?: "llm" | "embedding"; className?: string }) {
-  const m = useActiveModels();
+  const overview = useOverviewForModels();
+  const m = activeModelsFrom(overview.data);
   const value = kind === "llm" ? m.llm : m.embedding;
+  const setting = kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL";
+  // While loading show an ellipsis; if the backend did not report the model (e.g. the BFF call failed), say so
+  // rather than rendering the setting name where a model name is expected.
+  const fallback = overview.isPending && !overview.isError ? "…" : "unavailable";
   return (
     <code
       suppressHydrationWarning
       className={className ?? "font-mono text-accent"}
-      title={kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL"}
+      title={value ? setting : `${setting} not reported by the backend`}
     >
-      {value ?? (kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL")}
+      {value ?? fallback}
     </code>
   );
 }
