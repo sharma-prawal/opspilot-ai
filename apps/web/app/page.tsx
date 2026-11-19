@@ -163,6 +163,11 @@ export default function OverviewPage() {
                 Analyze your files
               </Button>
             </Link>
+            <Link href="/incidents/new?source=connected">
+              <Button variant="secondary" size="md">
+                Use Loki / Prometheus
+              </Button>
+            </Link>
           </div>
         }
       />

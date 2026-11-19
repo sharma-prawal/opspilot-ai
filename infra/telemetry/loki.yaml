@@ -1,0 +1,51 @@
+# Local, single-process Loki for the OpsPilot connector test setup (v0.6). Synthetic data only.
+# Multi-tenant mode: every request needs the X-Scope-OrgID header (LOKI_TENANT_ID), so a missing or wrong tenant
+# can be seen as an authentication error. Storage is a tmpfs: `make telemetry-up` re-seeds it on every start.
+auth_enabled: true
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # The synthetic incident has a fixed date in the past; accept it.
+  reject_old_samples: false
+  max_entries_limit_per_query: 5000
+  allow_structured_metadata: true
+  discover_log_levels: false
+
+ingester:
+  # Keep the seeded chunks in memory. With the defaults, chunks whose first entry is older than max_chunk_age (2h)
+  # are flushed at once and are not queryable until the index is shipped, which hides an old synthetic incident.
+  max_chunk_age: 720h
+  chunk_idle_period: 720h
+
+querier:
+  # Always ask the ingester (the seeded data is days old but lives only in its memory).
+  query_ingesters_within: 0
+
+analytics:
+  reporting_enabled: false

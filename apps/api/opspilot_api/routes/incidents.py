@@ -7,6 +7,8 @@ from fastapi import APIRouter, status
 
 from opspilot_api.deps import Operator, Runtime
 from opspilot_api.schemas import (
+    ConnectedIncidentRequest,
+    ConnectedPreviewRequest,
     InvestigationOut,
     OperationAccepted,
     SimulateRequest,
@@ -45,6 +47,18 @@ async def upload_incident(rt: Runtime, body: UploadIncidentRequest) -> Incident:
     return await rt.uploads.create(body)
 
 
+@router.post("/connected/preview", dependencies=[Operator])
+async def connected_preview(rt: Runtime, body: ConnectedPreviewRequest) -> dict[str, Any]:
+    """Run the selected connector templates for the window and return normalized evidence; stores nothing (v0.6)."""
+    return await rt.connected.preview(body)
+
+
+@router.post("/connected", status_code=status.HTTP_201_CREATED, dependencies=[Operator])
+async def connected_incident(rt: Runtime, body: ConnectedIncidentRequest) -> Incident:
+    """Create an incident backed by a read-only Loki/Prometheus snapshot; investigate it like an upload (v0.6)."""
+    return await rt.connected.create(body)
+
+
 @router.get("/{incident_id}/dataset")
 async def incident_dataset(rt: Runtime, incident_id: uuid.UUID) -> dict[str, Any]:
     return await rt.uploads.dataset(incident_id)
@@ -52,7 +66,7 @@ async def incident_dataset(rt: Runtime, incident_id: uuid.UUID) -> dict[str, Any
 
 @router.post("/{incident_id}/discard", dependencies=[Operator])
 async def discard_upload(rt: Runtime, incident_id: uuid.UUID) -> dict[str, Any]:
-    """Delete an uploaded incident: its files, normalized records, investigations and checkpoints."""
+    """Delete an uploaded or connected incident: its files or snapshot, records, investigations and checkpoints."""
     return await rt.uploads.discard(incident_id)
 
 

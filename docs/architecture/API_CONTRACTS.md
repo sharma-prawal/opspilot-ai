@@ -67,11 +67,21 @@ FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema a
 | POST 🔒 | `/api/v1/incidents/simulate` | `{"scenario": "INC-001"}` → `201` new environment + incident |
 | POST 🔒 | `/api/v1/incidents/upload/preview` | v0.5. `{"files": [{"name", "content", "service"?}], "timezone", "incident_time"?, "service"?, "affected_services"}` → per-file reports (format, records by signal, rejected, issues), summary, coverage warnings, sample records. Stores nothing. `422` for unsupported types or exceeded limits |
 | POST 🔒 | `/api/v1/incidents/upload` | v0.5. Preview body plus `title`, `description`, `service`, `severity`, `incident_time` → `201` incident with `evidence_source: "upload"` and `environment_id: null`. `422` if no file is usable or no log/metric/trace belongs to `service` |
-| GET | `/api/v1/incidents/{id}/dataset` | v0.5. Uploaded files, summary, samples and warnings of an uploaded incident (`404` for simulator incidents) |
-| POST 🔒 | `/api/v1/incidents/{id}/discard` | v0.5. Deletes an uploaded incident with its files, records, investigations and checkpoints; `409` for simulator incidents or while an investigation is active |
+| POST 🔒 | `/api/v1/incidents/connected/preview` | v0.6. `{"sources": [{"connector": "loki"\|"prometheus", "templates": [ids]}], "service", "affected_services" (≤ 3), "start", "end" (timezone-aware, ≤ 6 h), "incident_time"?}` → `usable`, `summary` (records, services, time range, redactions), `queries` (provenance per query: id, connector, endpoint, rendered query, window, step/limit, status `ok`/`empty`/`error`, error kind, counts, truncated), `collected`, `warnings`, `samples`. Stores nothing. Unknown fields → `422`; unknown template, window over the limit or in the future → `422`; connector not configured → `409`. Backend failures are per-query errors, never an HTTP 401 |
+| POST 🔒 | `/api/v1/incidents/connected` | v0.6. Preview body plus `title`, `description`, `severity`, `incident_time` (required) → `201` incident with `evidence_source: "connector"`, `environment_id: null`; the queries run again and their results are stored as the snapshot. `422` if nothing usable or nothing for `service` |
+| GET | `/api/v1/incidents/{id}/dataset` | v0.5/v0.6. Files (uploads) or `queries` (connector snapshot), summary, samples and warnings of a read-only incident (`404` for simulator incidents) |
+| POST 🔒 | `/api/v1/incidents/{id}/discard` | v0.5/v0.6. Deletes an uploaded or connected incident with its files, records, investigations and checkpoints; `409` for simulator incidents or while an investigation is active |
 | GET | `/api/v1/incidents/{id}` | incident (v0.5: includes `evidence_source`; `environment_id` is null for uploads) |
 | GET | `/api/v1/incidents/{id}/investigations` | investigations for the incident |
 | POST 🔒 | `/api/v1/incidents/{id}/investigations` | start → `202 {"investigation_id", "status", "status_url"}`; `409` if one is already active (DB-enforced; concurrent duplicates answer 409 even at the admission limit); `429` at the admission limit, with nothing written. A `202` row is durable: if dispatch fails it is re-dispatched by the maintenance sweep |
+
+## Connectors (v0.6)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/connectors` | `connectors` (Loki, Prometheus: `configured`, `endpoint` without credentials, `auth` mode, `tenant`, `service_label`, `templates`, `limits`; or `problem`/`hint` when not configured), `template_problems`, `planned` (not implemented), `max_queries`. No secrets |
+| POST 🔒 | `/api/v1/connectors/{id}/test` | one build-info + auth probe → `{"status": "ok"\|"auth_error"\|"unavailable"\|"error"\|"not_configured", "message", "version", "latency_ms"}`; `422` for an unknown connector |
+| POST 🔒 | `/api/v1/connectors/{id}/services` | `{"start", "end"}` → `{"services": [values of the service label in the window], "error"}` |
 
 ## Investigations
 

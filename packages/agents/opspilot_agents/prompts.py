@@ -206,9 +206,33 @@ UPLOADED_EVIDENCE_NOTE = (
 )
 
 
-def is_uploaded(incident: dict[str, Any] | None) -> bool:
-    """v0.5: the incident is backed by user-uploaded files (read-only analysis)."""
-    return bool(incident) and (incident or {}).get("evidence_source") == "upload"
+CONNECTED_TELEMETRY_NOTE = (
+    "Evidence source: a historical, read-only snapshot of telemetry queried from the user's observability backends "
+    "(Loki logs, Prometheus metrics) for the incident window, not a live environment. Deployment and configuration "
+    "change history, traces, live service health, runtime configuration, datastore and queue state are NOT "
+    "available; treat their absence as a gap, never as a sign of health or as proof that nothing changed. Version or "
+    "start-up lines in logs are observations, not a complete change history. Your remediation_plan is only a "
+    "recommendation for a human reviewer: nothing will be executed. Use evidence_gaps to name the data that would "
+    "confirm or rule out the top hypothesis.\n"
+)
+READ_ONLY_SOURCES = frozenset({"upload", "connector"})
+
+
+def is_read_only(incident: dict[str, Any] | None) -> bool:
+    """v0.5/v0.6: the incident is backed by stored evidence (uploaded files or a connector snapshot), not by an
+    environment OpsPilot can act on: analysis only, never approval, execution or verified recovery."""
+    return bool(incident) and (incident or {}).get("evidence_source") in READ_ONLY_SOURCES
+
+
+def is_connected(incident: dict[str, Any] | None) -> bool:
+    """v0.6: the incident is backed by a Loki/Prometheus telemetry snapshot."""
+    return bool(incident) and (incident or {}).get("evidence_source") == "connector"
+
+
+def read_only_note(incident: dict[str, Any] | None) -> str:
+    if is_connected(incident):
+        return CONNECTED_TELEMETRY_NOTE
+    return UPLOADED_EVIDENCE_NOTE if is_read_only(incident) else ""
 
 
 def rca_messages(
@@ -278,10 +302,7 @@ def rca_messages(
         "and fixes, never as proof of what changed or failed now. Only use identifiers that appear in "
         "investigation_facts or the evidence: change ids from changes_by_correlation, queue names, consumers and "
         "error codes from queues; pause only a service listed as a queue consumer. Documents marked superseded must "
-        "not be followed.\n"
-        + (UPLOADED_EVIDENCE_NOTE if is_uploaded(incident) else "")
-        + UNTRUSTED_RULES
-        + "\nReturn JSON only."
+        "not be followed.\n" + read_only_note(incident) + UNTRUSTED_RULES + "\nReturn JSON only."
     )
     user = f"Investigation round {round_no}. Incident and analysis window:\n" + _evidence_block(
         {

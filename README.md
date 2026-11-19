@@ -8,7 +8,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.4.0-dev (feature/ai-reasoning-v04), experimental, local-first.** v0.4 adds configurable local models, agent reasoning improvements and two safety-gate fixes ([release notes](docs/releases/V0.4.0_NOTES.md)). v0.3.0: Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.6.0-dev (feature/connected-observability-v06), experimental, local-first.** v0.6 adds read-only Grafana Loki and Prometheus connectors ([below](#connected-observability-v06)); v0.5 added analysis of uploaded files. v0.4 added configurable local models, agent reasoning improvements and two safety-gate fixes ([release notes](docs/releases/V0.4.0_NOTES.md)). v0.3.0: Redesigned operator console, interactive architecture explorer, source-agnostic integration catalog, and in-app developer guide. Remediation acts only on a deterministic simulator. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 ```
 Alert ─► LangGraph investigation ──► MCP tools ──► simulated payment platform
@@ -24,7 +24,8 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Area | State |
 |---|---|
 | Native Ollama; investigation model selected by `LLM_MODEL` (preferred `qwen3.5:9b-q4_K_M`, fallback `qwen3:8b`), embeddings `qwen3-embedding:0.6b` (dim verified = 1024); `opspilot models --probe` checks a model before use; models are downloaded only on explicit opt-in (`make models`) | ✅ (v0.4) |
-| PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0008), LangGraph Postgres checkpoints | ✅ |
+| PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
+| Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
@@ -100,6 +101,75 @@ safety net, but it cannot recognize every kind of sensitive data.
 OTLP traces; regenerate with `scripts/generate_upload_examples.py`). Download them from the upload page, or use
 **Load example into the form**. Design: D103–D108 in [DECISIONS.md](docs/DECISIONS.md).
 
+### Connected observability (v0.6)
+
+Investigate real telemetry from **Grafana Loki** (logs) and **Prometheus** (metrics) with the same workflow: on
+**Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`) pick the configured sources, test the
+connection, give the affected service and an incident window, choose approved query templates, preview what came
+back, then start the read-only investigation. Azure Monitor, Datadog, CloudWatch and custom adapters are **planned,
+not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has the interface contract for adding one.
+
+First run with the local demo stack (tested):
+
+```bash
+make infra-up && make migrate   # 1. database up, migration 0011 applied (additive; existing incidents are kept)
+make telemetry-up               # 2. local Loki 127.0.0.1:3310 (tenant opspilot-demo) + Prometheus 127.0.0.1:9390
+```
+
+3. Add the connectors to `.env` (the demo needs no credentials):
+   ```bash
+   LOKI_URL=http://127.0.0.1:3310
+   LOKI_TENANT_ID=opspilot-demo
+   PROMETHEUS_URL=http://127.0.0.1:9390
+   TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+   ```
+4. Restart the API so it reads them: `make stop && make dev`.
+5. **Integrations** → **Test connection** on each connector.
+6. **Incidents → Use Loki / Prometheus** → **Use the local demo incident** → keep or change the query templates →
+   **Preview returned evidence** → **Create incident & start analysis** → **Download Markdown**.
+7. When done: `make telemetry-down`, then remove the connector lines from `.env` and restart the API.
+
+For your own backends:
+
+- use read-only credentials in `LOKI_BEARER_TOKEN` (or `LOKI_USERNAME`/`LOKI_PASSWORD`) and the `PROMETHEUS_`
+  equivalents; https is required except on loopback;
+- set `LOKI_SERVICE_LABEL` / `PROMETHEUS_SERVICE_LABEL` to the label that holds your service names;
+- describe your metric names in a templates file (`TELEMETRY_TEMPLATES_FILE`);
+- restart the API after each change.
+
+See [Adapting to your application](docs/integrations/CONNECTORS.md#adapting-to-your-application).
+
+**Tested vs not verified.** Only local `grafana/loki:3.5.0` and `prom/prometheus:v3.5.0` containers with synthetic
+data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were
+not verified, and only bearer or basic authentication is supported.
+
+- **Only configured destinations.** Requests carry template IDs, service names and a window — never a URL or query
+  text. The client sends only `GET`s to the official query endpoints (`/loki/api/v1/query_range`,
+  `/api/v1/query_range`, label and build-info endpoints), follows no redirects, ignores proxy/netrc settings, and
+  enforces timeouts, a 6 h window, line/series limits and a response-size cap.
+- **Credentials** live in the API environment only (`*_BEARER_TOKEN` or basic auth, plus `LOKI_TENANT_ID`), are never
+  returned to the browser, are sent only over https or to loopback, and are scrubbed from error messages.
+- **Provenance.** Every log line and metric point keeps its original timestamp, unit, labels and the query that
+  returned it (`loki/errors_warnings/payment-service:entry 37`, `prometheus/http_5xx_ratio/checkout-api:point 12`).
+  The report lists every query in a provenance table.
+- **Snapshot, read-only.** Creating the incident stores the query results with it; the investigation reads only that
+  snapshot (`opspilot-connected-telemetry`), never the backends, and runbook RAG stays separate. Nothing is approved
+  or executed and recovery is never claimed from historical data. Change history, traces and live state are not part
+  of Loki/Prometheus telemetry and stay **unknown**, as does any signal whose queries failed.
+- **States** shown in the UI: loading, not configured, connected, authentication failed, unavailable, query rejected,
+  no data, truncated.
+
+Demonstrated on the synthetic incident through the UI (one run per model, development testing — not an accuracy
+evaluation; confidences are model-estimated and uncalibrated). Both runs ended `analysis_complete`, with nothing
+executed:
+- **`qwen3:8b`** named payment-service database-pool exhaustion (90%). It attributed it to a slow query from the
+  runbooks rather than to the pool shrinking from 50 to 10, which the telemetry shows. A deployment or config change
+  came second (70%).
+- **`qwen3.5:9b-q4_K_M`** cited the `db_pool_max` drop to 10 and the pool-timeout logs (95%), listed an unobserved
+  change as a second hypothesis, and escalated to the database team.
+
+Design: D109–D115 in [DECISIONS.md](docs/DECISIONS.md).
+
 ### v0.4 reasoning and model comparison
 
 [MODEL_COMPARISON_V0.4.md](docs/evaluation/MODEL_COMPARISON_V0.4.md) diagnoses the qwen3:8b traces (rollbacks
@@ -157,7 +227,9 @@ v0.2.1 received a **conditional** sign-off from the final independent verificati
 ([report](docs/audits/PHASE_C0_H_INDEPENDENT_VERIFICATION.md)). These limits apply:
 
 1. **Experimental, local-first only.** One machine, local models, services bound to `127.0.0.1`. Uploaded-file
-   analysis (v0.5) is read-only and understands common log, JSON and CSV shapes, not every format.
+   analysis (v0.5) is read-only and understands common log, JSON and CSV shapes, not every format. The Loki and
+   Prometheus connectors (v0.6) were tested only against local containers with synthetic data, and their built-in
+   templates assume common metric names.
 2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
 3. **One execution owner per database.** A second API worker, CLI demo or evaluation run on the same database is
    refused. Multi-worker operation is unsupported.
@@ -220,7 +292,8 @@ Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. W
 | `make test` | deterministic Python + web unit tests (no model needed) |
 | `make test-live` / `make e2e` | live-model tests / Playwright UI tests on an isolated stack (API :8100 on `opspilot_test`, web :3100; safe beside `make dev`) |
 | `make db-roles` | create/refresh least-privilege DB roles for the MCP servers |
-| `make uploads-purge` / `uv run opspilot uploads list` | delete uploaded incidents older than `UPLOAD_RETENTION_DAYS` (files, records, checkpoints; stop the API first) / list uploads |
+| `make uploads-purge` / `uv run opspilot uploads list` | delete uploaded and connected incidents older than `UPLOAD_RETENTION_DAYS` (files or snapshots, records, checkpoints; stop the API first) / list uploads |
+| `make telemetry-up` / `make telemetry-down` | start / remove the local Loki + Prometheus test setup with synthetic telemetry (127.0.0.1, tmpfs, no volumes) |
 | `make lint` | ruff, mypy --strict, import-linter, ESLint, tsc |
 | `make evaluate` | retrieval (development + held-out) and agent evaluation over all scenarios → `docs/evaluation/BASELINE.md` |
 
@@ -245,6 +318,7 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 
 ## Documentation
 
+- Connected observability: [connectors, configuration, security and the provider contract](docs/integrations/CONNECTORS.md)
 - Architecture: [system design](docs/architecture/SYSTEM_DESIGN.md) · [components](docs/architecture/COMPONENT_DIAGRAM.md) ·
   [agent workflows](docs/architecture/AGENT_WORKFLOWS.md) · [RAG](docs/architecture/RAG_PIPELINE.md) ·
   [data model](docs/architecture/DATA_MODEL.md) · [API](docs/architecture/API_CONTRACTS.md) ·

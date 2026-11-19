@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 
 from opspilot_api.ownership import validate_worker_config
 from opspilot_api.routes import approvals, health, incidents, investigations, knowledge, system
+from opspilot_api.routes import connectors as connector_routes
 from opspilot_api.runtime import AppRuntime
 from opspilot_shared.config import Settings, get_settings
 from opspilot_shared.errors import (
@@ -57,6 +58,7 @@ def create_app(
     chat: Any | None = None,
     gateways: Any | None = None,
     embedder: Any | None = None,
+    connectors: Any | None = None,
     exit_on_owner_loss: bool = False,
 ) -> FastAPI:
     """``exit_on_owner_loss``: the served application terminates its own process if it ever loses the execution-owner
@@ -75,7 +77,7 @@ def create_app(
                 os.kill(os.getpid(), signal.SIGTERM)
 
         async with AppRuntime.open(
-            settings, chat=chat, gateways=gateways, embedder=embedder, on_owner_lost=owner_lost
+            settings, chat=chat, gateways=gateways, embedder=embedder, on_owner_lost=owner_lost, connectors=connectors
         ) as rt:
             # Reconcile checkpoints, decisions and application rows left by a previous process (audit H3).
             reconciled = await rt.investigations.reconcile()
@@ -168,6 +170,7 @@ def create_app(
         system.router,
         knowledge.router,
         incidents.router,
+        connector_routes.router,
         investigations.router,
         approvals.router,
     ):

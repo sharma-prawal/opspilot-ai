@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field
 
 from opspilot_shared.domain.actions import ApprovalDecisionKind
 from opspilot_shared.domain.common import ServiceName, Severity
@@ -48,6 +48,31 @@ class UploadIncidentRequest(UploadPreviewRequest):
     service: ServiceName
     severity: Severity = Severity.SEV2
     incident_time: str = Field(min_length=10, max_length=64)
+
+
+class ConnectorSourceIn(BaseModel):
+    """One configured connector and the approved templates to run (v0.6). IDs only: no query text is accepted."""
+
+    model_config = ConfigDict(extra="forbid")
+    connector: Literal["loki", "prometheus"]
+    templates: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")]] = Field(min_length=1, max_length=8)
+
+
+class ConnectedPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # an unknown field (e.g. "query" or "url") is an error, not ignored
+    sources: list[ConnectorSourceIn] = Field(min_length=1, max_length=2)
+    service: ServiceName
+    affected_services: list[ServiceName] = Field(default_factory=list, max_length=3)
+    start: AwareDatetime
+    end: AwareDatetime
+    incident_time: AwareDatetime | None = None
+
+
+class ConnectedIncidentRequest(ConnectedPreviewRequest):
+    title: str = Field(min_length=3, max_length=300)
+    description: str = Field(default="", max_length=4000)
+    severity: Severity = Severity.SEV2
+    incident_time: AwareDatetime
 
 
 class InvestigationOut(Dto):

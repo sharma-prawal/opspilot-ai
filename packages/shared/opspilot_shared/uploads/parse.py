@@ -989,3 +989,51 @@ def parse_upload(files: list[UploadFile], *, timezone: str | None = "UTC") -> Da
                 f"{report.name}: {report.redactions} value(s) that looked like credentials were redacted"
             )
     return dataset
+
+
+# --------------------------------------------------------------------------------------------- shared line fields
+def log_line_fields(line: str) -> dict[str, Any]:
+    """Level, attributes and correlation IDs read from one log line whose timestamp is known separately (v0.6:
+    lines returned by a log backend such as Loki). Works for ``key=value`` lines, JSON objects and plain text.
+
+    Returns ``message`` (credential-like values redacted), ``redactions``, ``level`` (or None), ``trace_id``,
+    ``span_id``, ``upstream`` and up to 20 scalar ``attributes``. Nothing is invented: a level that the line does not
+    state is left None for the caller to infer and flag.
+    """
+    text, redactions = scrub(line.strip())
+    text = text[:MAX_MESSAGE_CHARS] or "(empty message)"
+    level: str | None = None
+    values: dict[str, str] = {}
+    obj: Any = None
+    if text.startswith("{"):
+        try:
+            obj = json.loads(text)
+        except json.JSONDecodeError:
+            obj = None
+    if isinstance(obj, dict):
+        flat = _flatten(obj)
+        values = {k.lower(): str(v) for k, v in flat.items() if isinstance(v, str | int | float | bool)}
+        level = next((map_level(flat[k]) for k in _LEVEL_KEYS if flat.get(k) is not None and map_level(flat[k])), None)
+    else:
+        lm = _LEVEL_TOKEN.match(text)
+        if lm:
+            level = _LEVELS[lm.group(1).upper()]
+        values = {k.lower(): v.strip('"') for k, v in _KV.findall(text)}
+        level = level or map_level(values.get("level") or values.get("lvl") or values.get("severity"))
+    skip = {*_KV_TRACE, *_KV_SPAN, "level", "lvl", "severity", *_TS_KEYS}
+    attrs: dict[str, Any] = {}
+    for k, v in values.items():
+        if k in skip or k in _MESSAGE_KEYS or len(attrs) >= 20:
+            continue
+        attrs[k] = v[:300]
+    upstream = next((normalize_service(values[k]) for k in _UPSTREAM_KEYS if values.get(k)), None)
+    if upstream:
+        attrs["upstream"] = upstream
+    return {
+        "message": text,
+        "redactions": redactions,
+        "level": level,
+        "trace_id": next((values[k][:64] for k in _KV_TRACE if values.get(k)), None),
+        "span_id": next((values[k][:64] for k in _KV_SPAN if values.get(k)), None),
+        "attributes": attrs,
+    }

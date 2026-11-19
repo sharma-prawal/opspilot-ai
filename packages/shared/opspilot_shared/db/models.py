@@ -302,7 +302,8 @@ class OpsIncident(Base):
     status: Mapped[str] = mapped_column(String(32), index=True)
     service: Mapped[str] = mapped_column(String(63))
     # v0.5: 'simulator' incidents have a sandbox environment; 'upload' incidents are backed by user-uploaded files
-    # (ops.uploaded_datasets) and have none (enforced by ck_ops_incidents_evidence_source_env).
+    # (ops.uploaded_datasets) and have none (enforced by ck_ops_incidents_evidence_source_env). v0.6: 'connector'
+    # incidents are backed by a read-only Loki/Prometheus snapshot stored the same way (no environment either).
     evidence_source: Mapped[str] = mapped_column(String(16), server_default=text("'simulator'"), default="simulator")
     environment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sim.environments.id"), nullable=True)
     detected_at: Mapped[datetime] = mapped_column(TZ)
@@ -320,7 +321,8 @@ class OpsIncidentReferenceCounter(Base):
 
 
 class OpsUploadedDataset(Base):
-    """Normalized evidence uploaded for one incident (v0.5). The raw files are kept under ``storage_dir``."""
+    """Normalized evidence of one read-only incident: uploaded files (v0.5; raw copies under ``storage_dir``) or a
+    connector snapshot (v0.6; ``queries`` holds each query's provenance, no files)."""
 
     __tablename__ = "uploaded_datasets"
     __table_args__ = {"schema": "ops"}
@@ -332,6 +334,7 @@ class OpsUploadedDataset(Base):
     summary: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     records: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     storage_dir: Mapped[str | None] = mapped_column(Text)
+    queries: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, server_default="[]")
     created_at: Mapped[datetime] = _now()
 
 

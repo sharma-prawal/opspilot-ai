@@ -40,6 +40,12 @@ simulate: ## Create a simulated INC-001 incident
 investigate: ## End-to-end CLI run: simulate, investigate, approve, print RCA report
 	uv run opspilot investigate --scenario INC-001 --decision approve
 
+telemetry-up: ## Start local Loki + Prometheus with synthetic telemetry for the v0.6 connectors (127.0.0.1, tmpfs)
+	./scripts/telemetry-up.sh
+
+telemetry-down: ## Remove the local Loki + Prometheus test containers (no volumes exist)
+	./scripts/telemetry-down.sh
+
 uploads-purge: ## Delete uploaded incidents older than UPLOAD_RETENTION_DAYS (files, records, checkpoints; stop the API first)
 	uv run opspilot uploads purge $(ARGS)
 
@@ -76,4 +82,4 @@ evaluate: ## Retrieval benchmark + agent evaluation (TRIALS=3); renders docs/eva
 build-web: ## Production build of the web app
 	cd apps/web && pnpm build
 
-.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web uploads-purge
+.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web uploads-purge telemetry-up telemetry-down

@@ -12,7 +12,7 @@ import {
 import { redact } from "@/lib/server/redact";
 
 const API = process.env.OPSPILOT_API_URL ?? "http://127.0.0.1:8000";
-const READABLE = /^(api\/v1\/(system|knowledge|incidents|investigations|approvals)(\/[\w\-./]*)?|health\/(live|ready|dependencies))$/;
+const READABLE = /^(api\/v1\/(system|knowledge|incidents|investigations|approvals|connectors)(\/[\w\-./]*)?|health\/(live|ready|dependencies))$/;
 
 interface Rule { pattern: RegExp; role: Role; identity?: "decided_by" | "actor" }
 const MUTATIONS: Rule[] = [
@@ -23,6 +23,11 @@ const MUTATIONS: Rule[] = [
   { pattern: /^api\/v1\/incidents\/upload\/preview$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/upload$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/discard$/, role: "operator" },
+  // v0.6 connected observability: connection tests, service discovery and snapshots contact the configured
+  // Loki/Prometheus, so they are operator-only. The request carries IDs and a time window, never a URL or query.
+  { pattern: /^api\/v1\/connectors\/(loki|prometheus)\/(test|services)$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/connected\/preview$/, role: "operator" },
+  { pattern: /^api\/v1\/incidents\/connected$/, role: "operator" },
   { pattern: /^api\/v1\/incidents\/[0-9a-f-]{36}\/investigations$/, role: "operator" },
   { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/resume$/, role: "operator" },
   { pattern: /^api\/v1\/investigations\/[0-9a-f-]{36}\/cancel$/, role: "operator", identity: "actor" },

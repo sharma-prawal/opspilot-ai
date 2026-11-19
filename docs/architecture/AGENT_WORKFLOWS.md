@@ -237,6 +237,22 @@ server. Differences, all gated on `evidence_source` (D103–D107):
   `analysis_inconclusive`. The report adds "Suggested remediation (not executed)" and "Recommended next
   investigation steps" (model evidence gaps plus deterministic gaps: missing metrics, logs, change history, traces).
 
+## Connected-telemetry investigations (v0.6)
+
+Incidents created from a Loki/Prometheus snapshot (`evidence_source: "connector"`) take the same read-only path as
+uploads (`is_read_only`, D113):
+
+- The same provider answers from the stored snapshot, under the server name `opspilot-connected-telemetry`. It never
+  calls the backend.
+- `list_recent_deployments` and `get_config_changes` report "not available": change history is not part of
+  Loki/Prometheus.
+- `search_logs`, `query_metrics` and `list_service_metrics` report "not available" for a service whose queries
+  failed (D112).
+- Health, configuration, datastore and queue tools say the data is a historical snapshot.
+- The RCA prompt adds the connected-telemetry note.
+- The report adds a connected banner, a "Telemetry queries (provenance)" table and connector-specific next steps.
+  Outcomes are `analysis_complete` / `analysis_inconclusive`.
+
 ## Outcomes
 
 `report` classifies every run deterministically: `mitigated`, `not_recovered`, `verification_incomplete`,

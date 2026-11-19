@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { fillModels, useActiveModels } from "@/lib/models";
+import { ConnectorsPanel } from "@/components/connectors-panel";
 import { Badge, Button, Card, CodeBlock, PageHeader } from "@/components/ui";
 
 type UsageMode = "all" | "demo" | "offline" | "connected";
@@ -55,7 +56,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     prerequisites: [
       "PostgreSQL 17 + pgvector container running on port 5433",
       "Local Ollama running the configured {LLM_MODEL} and {EMBEDDING_MODEL}",
-      "Database migrations applied to head (0009)",
+      "Database migrations applied to head (0011)",
     ],
     configuration: "Built-in: POST /api/v1/incidents/simulate with scenario key (INC-001..003, NEG-001..003) or CLI uv run opspilot simulate.",
     exampleQuery: {
@@ -183,68 +184,75 @@ Confirm 5xx error ratio returns below baseline 0.1%.`,
 
   // Connected Mode
   {
-    id: "prometheus-adapter",
-    name: "Prometheus / Cortex / Thanos / Mimir",
+    id: "prometheus-connector",
+    name: "Prometheus",
     category: "metrics",
     mode: "connected",
-    status: "requires_adapter",
-    tagline: "Live PromQL time-series metrics over HTTP API or MCP protocol.",
+    status: "implemented",
+    tagline: "Read-only PromQL range queries from approved templates over the official HTTP API (v0.6).",
     evidenceContributed: [
-      "Request rates, error ratios, latency percentiles (p50, p95, p99), and satuation gauges",
-      "Kubernetes pod container restarts, CPU throttling, and memory limits",
+      "Error ratio, p95 latency and request rate per service (built-in templates for http_requests_total / http_request_duration_seconds)",
+      "Any gauge or rate an operator adds as a template (e.g. database pool in use)",
+      "Every point keeps its Unix timestamp, unit, series labels and the query that returned it",
     ],
     prerequisites: [
-      "Prometheus HTTP API endpoint reachable over local or VPN network",
-      "Read-only query permissions (no write or administrative access)",
+      "Prometheus HTTP API reachable from the OpsPilot API (tested only with a local prom/prometheus:v3.5.0; remote, cloud and Mimir/Thanos endpoints not verified)",
+      "Read-only access; a bearer token or basic auth if the API is protected (https unless loopback)",
+      "A service label on your series (PROMETHEUS_SERVICE_LABEL, default service)",
     ],
-    configuration: "Set PROMETHEUS_URL=http://prometheus:9090 and optional PROMETHEUS_TOKEN in .env. Plugs into McpToolGateway via PrometheusReadAdapter.",
+    configuration: "Apply migration 0011 (make migrate). Set PROMETHEUS_URL (and optionally PROMETHEUS_BEARER_TOKEN or PROMETHEUS_USERNAME/PROMETHEUS_PASSWORD, PROMETHEUS_SERVICE_LABEL, TELEMETRY_TEMPLATES_FILE) in the API environment and restart it. Then Incidents → Use Loki / Prometheus. Local test setup with synthetic data: make telemetry-up (stop with make telemetry-down).",
     exampleQuery: {
       language: "promql",
-      code: `# Executed by MCP read server during telemetry analysis:
-sum(rate(http_requests_total{service="transaction-api",status=~"5.."}[2m]))
-/
-sum(rate(http_requests_total{service="transaction-api"}[2m]))`,
+      code: `# Built-in template http_5xx_ratio, rendered for one service ($selector, $rate):
+sum(rate(http_requests_total{service="checkout-api",status=~"5.."}[5m]))
+  / sum(rate(http_requests_total{service="checkout-api"}[5m]))
+# GET /api/v1/query_range?query=...&start=<unix s>&end=<unix s>&step=45`,
     },
-    normalization: "Queries range api/v1/query_range across the incident analysis window. Normalizes metric matrix into standard points array; unit-aware shift detector verifies recovery post-action.",
+    normalization: "Each matrix point becomes a MetricRecord (metric name and unit from the template, ts_original as returned, labels kept) with source prometheus/<template>/<service>:point N. NaN/Inf points are skipped and counted, never filled in. The snapshot is stored with the incident and served by opspilot-connected-telemetry.",
     troubleshooting: [
-      "Test endpoint reachability with curl -s $PROMETHEUS_URL/-/healthy.",
-      "Check PromQL step interval alignment to prevent timeout on wide analysis windows.",
+      "Use Test connection on this page: it distinguishes authentication errors, unavailable backends and wrong URLs (404).",
+      "A template that returns no data stays 'no data' in the preview: your metric names may differ; add a template in TELEMETRY_TEMPLATES_FILE.",
+      "Redirects are refused: point PROMETHEUS_URL at the API itself (not a login page or a UI path).",
     ],
-    targetNode: "Telemetry Agent & Recovery Verification",
+    targetNode: "Telemetry Agent (connected-telemetry snapshot)",
   },
   {
-    id: "loki-adapter",
+    id: "loki-connector",
     name: "Grafana Loki",
     category: "logs",
     mode: "connected",
-    status: "requires_adapter",
-    tagline: "High-throughput LogQL search and stream clustering.",
+    status: "implemented",
+    tagline: "Read-only LogQL log queries from approved templates over the official HTTP API (v0.6).",
     evidenceContributed: [
-      "Application exception logs, stack traces, and database driver errors",
-      "Log volume spikes and log-derived error rates",
+      "Error, warning and exception lines of each service in the window",
+      "Start-up, shutdown, version and configuration lines (to spot changes)",
+      "Every line keeps its nanosecond timestamp, stream labels, level and key=value attributes",
     ],
     prerequisites: [
-      "Grafana Loki query API endpoint (e.g. http://loki:3100)",
-      "Optional X-Scope-OrgID tenant header for multi-tenant clusters",
+      "Loki query API reachable from the OpsPilot API (tested only with a local grafana/loki:3.5.0; Grafana Cloud and remote endpoints not verified)",
+      "LOKI_TENANT_ID (X-Scope-OrgID) for a multi-tenant Loki; read-only credentials if protected",
+      "A service label on your streams (LOKI_SERVICE_LABEL, default service_name)",
     ],
-    configuration: "Configure LOKI_URL=http://loki:3100. Implement LokiReadAdapter in packages/mcp/opspilot_mcp/adapters/loki.py.",
+    configuration: "Apply migration 0011 (make migrate). Set LOKI_URL (and optionally LOKI_TENANT_ID, LOKI_BEARER_TOKEN or LOKI_USERNAME/LOKI_PASSWORD, LOKI_SERVICE_LABEL) in the API environment and restart it. Lines per query: TELEMETRY_MAX_LOG_LINES (default 2000). Local test setup: make telemetry-up / make telemetry-down.",
     exampleQuery: {
       language: "text",
-      code: `// LogQL executed over Loki /loki/api/v1/query_range:
-{service="transaction-api", env="production"} |= "error" | json | __error__=""`,
+      code: `// Built-in template errors_warnings, rendered for one service:
+{service_name="payment-service"} |~ "(?i)(error|warn|exception|fail|timeout|refused|unavailable|panic|fatal)"
+// GET /loki/api/v1/query_range?query=...&start=<ns>&end=<ns>&limit=2000&direction=backward`,
     },
-    normalization: "Ingests raw log lines; strips transient variables (IP addresses, transaction IDs, timestamps) using drain/masking regex. Clusters unique signatures and counts frequencies.",
+    normalization: "Each line becomes a LogRecord (level from the line or stream labels, else inferred and flagged; credential-like values redacted) with source loki/<template>/<service>:entry N. When the line limit is reached the query is marked truncated.",
     troubleshooting: [
-      "Verify query limit bounds (max 500 lines per call) to avoid overwhelming model context window.",
+      "'no org id' (401) means the Loki is multi-tenant: set LOKI_TENANT_ID.",
+      "Use 'Find services in this window' on the incident form to see the values of the service label.",
     ],
-    targetNode: "Telemetry Agent",
+    targetNode: "Telemetry Agent (connected-telemetry snapshot)",
   },
   {
     id: "datadog-adapter",
     name: "Datadog Unified Platform",
     category: "metrics",
     mode: "connected",
-    status: "requires_adapter",
+    status: "planned",
     tagline: "APM traces, metric anomalies, monitor states, and deployment events.",
     evidenceContributed: [
       "Datadog Metric queries and monitor state transition events",
@@ -254,7 +262,7 @@ sum(rate(http_requests_total{service="transaction-api"}[2m]))`,
       "Datadog API Key and Application Key with read-only scopes",
       "Datadog site domain (e.g. datadoghq.com, datadoghq.eu)",
     ],
-    configuration: "Set DD_API_KEY, DD_APP_KEY, and DD_SITE in .env. Plugs into ToolGateway via DatadogApiClient.",
+    configuration: "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
     exampleQuery: {
       language: "bash",
       code: `# Executed against Datadog v2 API:
@@ -272,7 +280,7 @@ GET /api/v1/query?from=1700000000&to=1700001800&query=avg:trace.http.request.err
     name: "AWS CloudWatch & Container Insights",
     category: "metrics",
     mode: "connected",
-    status: "requires_adapter",
+    status: "planned",
     tagline: "CloudWatch Metrics, Log Insights, and ECS/EKS Container telemetry.",
     evidenceContributed: [
       "ALB 5xx counts, RDS CPU/connection saturation, ECS task stop reasons",
@@ -282,7 +290,7 @@ GET /api/v1/query?from=1700000000&to=1700001800&query=avg:trace.http.request.err
       "AWS IAM Read-Only credentials (cloudwatch:GetMetricData, logs:StartQuery, logs:GetQueryResults)",
       "Configured AWS region (e.g. eu-west-1)",
     ],
-    configuration: "Set AWS_REGION and standard AWS credentials (IAM role or AWS_ACCESS_KEY_ID). Implement CloudWatchReadAdapter.",
+    configuration: "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
     exampleQuery: {
       language: "sql",
       code: `// CloudWatch Logs Insights query:
@@ -302,7 +310,7 @@ fields @timestamp, @message, @logStream
     name: "Azure Monitor & Application Insights",
     category: "metrics",
     mode: "connected",
-    status: "requires_adapter",
+    status: "planned",
     tagline: "App Insights telemetry, Kusto (KQL) queries, and Azure Resource health.",
     evidenceContributed: [
       "Application Insights exception telemetry and failed dependency calls",
@@ -313,7 +321,7 @@ fields @timestamp, @message, @logStream
       "Azure Service Principal with 'Monitoring Reader' role",
       "AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, and Workspace ID",
     ],
-    configuration: "Implement AzureMonitorAdapter using azure-monitor-query Python SDK.",
+    configuration: "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
     exampleQuery: {
       language: "text",
       code: `// Kusto KQL query:
@@ -333,7 +341,7 @@ exceptions
     name: "Tempo, Jaeger & OpenTelemetry Collector",
     category: "traces",
     mode: "connected",
-    status: "requires_adapter",
+    status: "planned",
     tagline: "Live distributed tracing and causal call-chain dependency inspection.",
     evidenceContributed: [
       "End-to-end distributed trace spans across microservices",
@@ -343,7 +351,7 @@ exceptions
       "Grafana Tempo or Jaeger gRPC / HTTP query endpoint (e.g. http://tempo:3200)",
       "Standard W3C TraceContext propagation across instrumented services",
     ],
-    configuration: "Configure TEMPO_URL=http://tempo:3200. Implement TempoTraceAdapter.",
+    configuration: "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
     exampleQuery: {
       language: "text",
       code: `// TraceQL query executed against Tempo:
@@ -360,7 +368,7 @@ exceptions
     name: "GitHub Actions & Deployment Changelogs",
     category: "changes",
     mode: "connected",
-    status: "requires_adapter",
+    status: "planned",
     tagline: "Live CI/CD release tracking and git commit correlation.",
     evidenceContributed: [
       "Deployment timestamps, release tags, and environment target names",
@@ -370,7 +378,7 @@ exceptions
       "GitHub Personal Access Token or App Token with repo:status and actions:read scopes",
       "Repository name (owner/repo)",
     ],
-    configuration: "Set GITHUB_TOKEN in .env. Implement GitHubDeploymentsAdapter querying /repos/{owner}/{repo}/deployments.",
+    configuration: "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
     exampleQuery: {
       language: "bash",
       code: `# Executed against GitHub REST API:
@@ -382,6 +390,27 @@ GET /repos/sharma-prawal/opspilot-ai/commits/23c7ef2`,
       "Verify GitHub token rate limits with curl -H 'Authorization: Bearer $GITHUB_TOKEN' https://api.github.com/rate_limit.",
     ],
     targetNode: "Change Agent & Correlation Safety Gate",
+  },
+  {
+    id: "custom-adapter",
+    name: "Custom telemetry adapter",
+    category: "logs",
+    mode: "connected",
+    status: "planned",
+    tagline: "Your own log or metric store behind the same read-only connector contract.",
+    evidenceContributed: ["LogRecord / MetricRecord evidence with provenance, like the Loki and Prometheus connectors"],
+    prerequisites: ["A read-only HTTP API (or SDK) for the store", "A way to scope a query to one service and time window"],
+    configuration: "Planned — not implemented. Implement TelemetryConnector (opspilot_shared/connectors/contract.py) and register it in connectors/registry.py; see docs/integrations/CONNECTORS.md.",
+    exampleQuery: {
+      language: "python",
+      code: `class MyConnector(HttpConnector):  # opspilot_shared/connectors/base.py
+    KIND, SIGNAL, NAME = "mystore", "log", "My store"
+    def allowed_paths(self): return ["/api/search"]
+    async def fetch(self, template, service, window): ...  # -> FetchResult(records + provenance)`,
+    },
+    normalization: "Must return normalized records with source <connector>/<template>/<service>:entry|point N and a QueryProvenance per query; failures as typed ConnectorError kinds, never raised to the graph.",
+    troubleshooting: ["Keep GET-only, allowlisted paths and no redirects (ReadOnlyHttp does this for you)."],
+    targetNode: "Telemetry Agent (connected-telemetry snapshot)",
   },
   {
     id: "alertmanager-pagerduty",
@@ -473,10 +502,12 @@ export default function IntegrationsPage() {
             Decoupled Evidence Gathering Across Three Usage Modes
           </h2>
           <p className="text-xs text-muted leading-relaxed">
-            OpsPilot AI is not coupled to any single observability provider or logging tool. The agent core interacts exclusively with typed port interfaces (<code className="font-mono text-text">ToolGateway</code>, <code className="font-mono text-text">ChatModel</code>). Whether evidence arrives from our deterministic local simulator, offline export files on a disconnected laptop, or enterprise observability APIs, it is normalized into immutable, verifiable <code className="font-mono text-text">ops.evidence</code> items before reasoning occurs.
+            OpsPilot AI is not coupled to any single observability provider or logging tool. The agent core interacts exclusively with typed port interfaces (<code className="font-mono text-text">ToolGateway</code>, <code className="font-mono text-text">ChatModel</code>). Whether evidence arrives from our deterministic local simulator, uploaded export files, or a read-only snapshot from Grafana Loki and Prometheus (the connectors implemented in v0.6), it is normalized into immutable, verifiable <code className="font-mono text-text">ops.evidence</code> items before reasoning occurs.
           </p>
         </div>
       </div>
+
+      <ConnectorsPanel />
 
       {/* Mode Selector & Category Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border bg-panel p-3">

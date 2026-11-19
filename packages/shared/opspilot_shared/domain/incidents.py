@@ -36,7 +36,7 @@ class Incident(Contract):
     status: IncidentStatus
     service: ServiceName
     environment_id: uuid.UUID | None = Field(default=None, description="Sandbox environment (simulator incidents)")
-    evidence_source: Literal["simulator", "upload"] = "simulator"
+    evidence_source: Literal["simulator", "upload", "connector"] = "simulator"
     detected_at: UtcDatetime
     created_at: UtcDatetime
 

@@ -21,6 +21,7 @@ import {
   parseServices,
   timezoneOptions,
 } from "@/lib/uploads";
+import { SourceTabs } from "./tabs";
 
 interface Picked {
   key: string;
@@ -241,6 +242,7 @@ export function UploadView() {
           </span>
         }
       />
+      <SourceTabs active="upload" />
 
       <div role="note" className="rounded-xl border border-warn/30 bg-warn-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
         <strong>Sanitize your files before uploading.</strong> Remove customer data, personal data and secrets.

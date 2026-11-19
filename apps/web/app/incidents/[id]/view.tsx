@@ -45,7 +45,8 @@ export function IncidentView() {
   });
 
   const i = incident.data;
-  const uploaded = i?.evidence_source === "upload";
+  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus snapshot
+  const uploaded = i?.evidence_source === "upload" || connected; // read-only, stored evidence
   const active = invs.data?.some((v) =>
     ["queued", "running", "awaiting_approval"].includes(v.status)
   );
@@ -111,7 +112,14 @@ export function IncidentView() {
 
       <ErrorNote error={incident.error ?? start.error ?? discard.error} />
 
-      {uploaded && (
+      {connected && (
+        <div className="rounded-xl border border-info/30 bg-info-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
+          <strong>Connected telemetry — read-only analysis.</strong> The agent investigates only the Loki/Prometheus
+          snapshot stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
+          execute it, and it never claims verified recovery from historical data.
+        </div>
+      )}
+      {uploaded && !connected && (
         <div className="rounded-xl border border-purple/30 bg-purple-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
           <strong>Uploaded evidence — read-only analysis.</strong> The agent investigates only the files uploaded for this
           incident (plus the runbook knowledge base). It can suggest remediation but cannot execute it, and it never
@@ -137,7 +145,7 @@ export function IncidentView() {
                     ["Detected At", utcTime(i.detected_at)],
                     ["Created At", utcTime(i.created_at)],
                     uploaded
-                      ? ["Evidence", <SourceBadge key="e" source="upload" />]
+                      ? ["Evidence", <SourceBadge key="e" source={i.evidence_source} />]
                       : ["Environment", <code key="e" className="font-mono text-xs">{i.environment_id}</code>],
                   ]}
                 />
@@ -149,16 +157,18 @@ export function IncidentView() {
         {uploaded && (
           <Card
             className="lg:col-span-2 lg:order-3"
-            title="Uploaded evidence"
+            title={connected ? "Connected telemetry snapshot" : "Uploaded evidence"}
             subtitle={
               dataset.data
-                ? `Uploaded ${utcTime(dataset.data.created_at)} · timestamps without an offset read as ${dataset.data.timezone}`
+                ? connected
+                  ? `Snapshot taken ${utcTime(dataset.data.created_at)} · window ${utcTime(dataset.data.summary.window?.start)} → ${utcTime(dataset.data.summary.window?.end)}`
+                  : `Uploaded ${utcTime(dataset.data.created_at)} · timestamps without an offset read as ${dataset.data.timezone}`
                 : undefined
             }
             actions={
               confirmDelete ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-danger">Delete files, records and analyses?</span>
+                  <span className="text-xs text-danger">{connected ? "Delete the snapshot and analyses?" : "Delete files, records and analyses?"}</span>
                   <Button size="sm" variant="danger" disabled={discard.isPending} onClick={() => discard.mutate()}>
                     {discard.isPending ? "Deleting…" : "Delete"}
                   </Button>
@@ -168,7 +178,7 @@ export function IncidentView() {
                 </div>
               ) : (
                 <Button size="sm" variant="outline" disabled={active} onClick={() => setConfirmDelete(true)}>
-                  Delete uploaded data
+                  {connected ? "Delete snapshot" : "Delete uploaded data"}
                 </Button>
               )
             }
@@ -198,6 +208,22 @@ export function IncidentView() {
                     ["Retention", `purged by \`make uploads-purge\` after ${dataset.data.retention_days} days`],
                   ]}
                 />
+                {connected && (
+                  <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Telemetry queries">
+                    {dataset.data.queries.map((q) => (
+                      <li key={q.id} className="px-3 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-mono font-semibold text-text">{q.id}</span>
+                          <span className={q.status === "error" ? "text-danger" : "text-muted"}>
+                            {q.status === "error" ? `failed: ${q.error?.kind}` : q.status === "empty" ? "no data" : `${q.returned} records`}
+                            {q.truncated ? " · truncated" : ""}
+                          </span>
+                        </div>
+                        <code className="block break-all font-mono text-[10px] text-muted">{q.query}</code>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <ul className="divide-y divide-border rounded-lg border border-border">
                   {dataset.data.files.map((f) => (
                     <li key={f.index} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">

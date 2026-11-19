@@ -432,8 +432,62 @@ make uploads-purge`}
     },
     {
       number: 12,
+      id: "connected-telemetry",
+      title: "12. Investigate with Loki & Prometheus",
+      summary: "Connect read-only Grafana Loki and Prometheus, preview telemetry and run a read-only investigation.",
+      content: (
+        <div className="space-y-3 text-xs leading-relaxed text-text-muted">
+          <p>
+            v0.6 adds two optional, read-only connectors: <strong className="text-text">Grafana Loki</strong> for logs and{" "}
+            <strong className="text-text">Prometheus</strong> for metrics. They exist only when configured in the API
+            environment, and OpsPilot contacts no other address. Azure Monitor, Datadog, CloudWatch and custom adapters
+            are planned, not implemented.
+          </p>
+          <p>First run with the local demo stack (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
+          <CodeBlock
+            language="bash"
+            code={`# 1. database up and migration 0011 applied (additive; existing incidents are kept)
+make infra-up && make migrate
+
+# 2. local Loki :3310 (tenant opspilot-demo) + Prometheus :9390 with a synthetic incident
+make telemetry-up
+
+# 3. add to .env (demo needs no credentials)
+LOKI_URL=http://127.0.0.1:3310
+LOKI_TENANT_ID=opspilot-demo
+PROMETHEUS_URL=http://127.0.0.1:9390
+TELEMETRY_TEMPLATES_FILE=infra/telemetry/query-templates.json
+
+# 4. restart the API so it reads the settings
+make stop && make dev`}
+          />
+          <ol className="list-decimal space-y-1 pl-4" start={5}>
+            <li>On <Link href="/integrations" className="font-semibold text-accent hover:underline">Integrations</Link>, click <strong className="text-text">Test connection</strong> for each connector: connected, authentication failed, unavailable or not configured.</li>
+            <li>Open <Link href="/incidents/new?source=connected" className="font-semibold text-accent hover:underline">Use Loki / Prometheus</Link> and click <strong className="text-text">Use the local demo incident</strong> (or enter your own service, incident time and window, at most 6 h).</li>
+            <li>Keep or change the ticked <strong className="text-text">query templates</strong> (errors and warnings, start-up/config lines, 5xx ratio, p95 latency, request rate, plus any from your templates file). You never type a query.</li>
+            <li><strong className="text-text">Preview returned evidence</strong>: per-query status (ok, no data, auth error, unavailable, rejected, truncated), counts, warnings and sample records with their query source.</li>
+            <li><strong className="text-text">Create incident & start analysis</strong> stores the results as a snapshot and starts the investigation with <ModelName />; the report cites queries and entries, lists every query, and downloads as Markdown.</li>
+            <li>When done: <code className="font-mono">make telemetry-down</code>, then remove the connector lines from <code className="font-mono">.env</code> and restart the API.</li>
+          </ol>
+          <p>
+            <strong className="text-text">Your own telemetry.</strong> For your own backends, set <code className="font-mono">LOKI_URL</code> / <code className="font-mono">PROMETHEUS_URL</code> with read-only credentials in <code className="font-mono">LOKI_BEARER_TOKEN</code> (or <code className="font-mono">LOKI_USERNAME</code> + <code className="font-mono">LOKI_PASSWORD</code>) and the <code className="font-mono">PROMETHEUS_</code> equivalents; https is required for credentials except on loopback. Point <code className="font-mono">LOKI_SERVICE_LABEL</code> / <code className="font-mono">PROMETHEUS_SERVICE_LABEL</code> at the label that holds your service names, and describe your metric names in a templates file (<code className="font-mono">TELEMETRY_TEMPLATES_FILE</code>). Restart the API after every change.
+          </p>
+          <ul className="list-disc space-y-1 pl-4">
+            <li><strong className="text-text">Read-only.</strong> No approval, no execution, no claim of verified recovery from historical data. The investigation reads only the stored snapshot.</li>
+            <li><strong className="text-text">Unknown stays unknown.</strong> Change history, traces and live state are not in Loki/Prometheus; failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
+            <li><strong className="text-text">Bounded and safe.</strong> GET-only to fixed query endpoints, no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
+            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported.</li>
+          </ul>
+          <p>
+            Details, all settings and the interface for adding a provider: <code className="font-mono">docs/integrations/CONNECTORS.md</code>.
+          </p>
+        </div>
+      ),
+    },
+    {
+      number: 13,
       id: "troubleshooting",
-      title: "12. Troubleshooting & Essential CLI Commands",
+      title: "13. Troubleshooting & Essential CLI Commands",
       summary: "Common commands from Makefile and CLI tools.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
@@ -457,8 +511,12 @@ make evaluate
 # Inspect health and schema status
 make doctor
 
-# Delete uploaded incidents older than the retention period (API stopped)
+# Delete uploaded and connected incidents older than the retention period (API stopped)
 make uploads-purge
+
+# Local Loki + Prometheus with synthetic telemetry (v0.6) / remove them
+make telemetry-up
+make telemetry-down
 
 # Stop background Colima/Docker infrastructure containers
 make infra-down`}
@@ -467,22 +525,23 @@ make infra-down`}
       ),
     },
     {
-      number: 13,
+      number: 14,
       id: "boundaries-limitations",
-      title: "13. Limitations & Security Boundaries",
+      title: "14. Limitations & Security Boundaries",
       summary: "Experimental sandbox simulator notice and threat boundaries.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
           <div className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 space-y-1.5">
             <span className="font-bold text-danger">Experimental Simulator Notice:</span>
             <p>
-              OpsPilot AI is an experimental, local-first research prototype and operations sandbox. It is configured to run only against seeded, synthetic simulation schemas (<code className="font-mono">sim.*</code>). It is <strong>NOT</strong> connected to production infrastructure, cloud providers, or live Kubernetes clusters.
+              OpsPilot AI is an experimental, local-first research prototype and operations sandbox. Remediation runs only against seeded, synthetic simulation schemas (<code className="font-mono">sim.*</code>). It has <strong>NO</strong> write access to production infrastructure, cloud providers or live Kubernetes clusters; the optional Loki/Prometheus connectors only read telemetry, and were tested only against local containers with synthetic data.
             </p>
           </div>
           <ul className="list-disc pl-4 space-y-1 pt-1">
             <li><strong className="text-text">No Shell or Arbitrary Execution:</strong> Tools do not accept free-form bash commands, arbitrary file paths, or unstructured SQL.</li>
             <li><strong className="text-text">Uploaded Evidence Is Read-Only:</strong> Incidents created from your files are analyzed, never remediated. The parsers cover common shapes, not every log format; check the preview before analyzing.</li>
-            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1) without egress.</li>
+            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus connectors (v0.6) only read from the URLs you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
+            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs you configure, if any.</li>
             <li><strong className="text-text">Shared Operator Passphrase:</strong> The current release uses an environment-configured operator passphrase; multi-tenant enterprise SSO (OIDC/SAML) is scheduled for future milestones.</li>
           </ul>
         </div>

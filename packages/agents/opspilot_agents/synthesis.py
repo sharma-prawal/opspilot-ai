@@ -21,6 +21,7 @@ from opspilot_agents.impact import assess_impact
 from opspilot_agents.remediation import AMBIGUITY_MARGIN, MIN_ROLLBACK_CORRELATION
 
 STRONG_CORRELATION = 0.5  # same bar the ambiguity gate uses for a rival change
+CHANGE_TOOLS = ("list_recent_deployments", "get_config_changes")
 ATTRIBUTION_SHARE = 0.8  # share of a service's ERROR logs naming one upstream before it is "attributed"
 
 
@@ -124,6 +125,22 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
     missing = [e["summary"][:200] for e in evidence.values() if e["kind"] == "tool_error"]
     if missing:
         notes.append(f"{len(missing)} evidence source(s) could not be read; conclusions that depend on them are open")
+    # v0.6: an empty change list must not read as "nothing changed" when the change history itself was unavailable
+    # (connected telemetry has none). Only added in that case, so digests with readable change history are unchanged.
+    unread = sorted(
+        {
+            str(c.get("tool"))
+            for c in state.get("tool_calls") or []
+            if c.get("tool") in CHANGE_TOOLS and c.get("status") != "ok"
+        }
+    )
+    change_history_unknown = bool(unread) and not changes
+    if change_history_unknown:
+        notes.insert(
+            0,
+            "change history (deployments, config changes) could not be read: whether anything changed in the window "
+            "is UNKNOWN; do not state that no change occurred",
+        )
 
     queues = [
         {
@@ -149,7 +166,7 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
             )
 
     # Key findings first: small models weight what they read first (v0.4 traces).
-    return {
+    digest: dict[str, Any] = {
         "key_findings": notes,
         "impact": {"state": impact.state.value, "reasons": impact.reasons},
         "changes_by_correlation": change_rows,
@@ -158,3 +175,8 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
         "missing_evidence": missing,
         "queues": queues,
     }
+    if change_history_unknown:
+        digest["change_history"] = (
+            f"unavailable ({', '.join(unread)} failed); changes_by_correlation is empty because nothing could be read"
+        )
+    return digest

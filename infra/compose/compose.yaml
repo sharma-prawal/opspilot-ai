@@ -50,6 +50,36 @@ services:
       - "127.0.0.1:4318:4318"
     mem_limit: 512m
 
+  # v0.6 connector test setup: synthetic telemetry only (`make telemetry-up`). Storage is tmpfs, so nothing persists
+  # and no volume is created; the data is regenerated and re-seeded on every start.
+  loki:
+    profiles: ["telemetry"]
+    image: grafana/loki:3.5.0
+    container_name: opspilot-loki
+    command: ["-config.file=/etc/loki/opspilot.yaml"]
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3310}:3100"
+    volumes:
+      - ../telemetry/loki.yaml:/etc/loki/opspilot.yaml:ro
+    tmpfs:
+      - /loki:uid=10001,gid=10001
+    mem_limit: 512m
+
+  prometheus:
+    profiles: ["telemetry"]
+    image: prom/prometheus:v3.5.0
+    container_name: opspilot-prometheus
+    entrypoint: ["/bin/sh", "/etc/prometheus/start.sh"]
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9390}:9090"
+    volumes:
+      - ../telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../telemetry/prometheus-start.sh:/etc/prometheus/start.sh:ro
+      - ../../var/telemetry/prometheus:/seed:ro
+    tmpfs:
+      - /prometheus:uid=65534,gid=65534
+    mem_limit: 1g  # promtool's backfill needs ~600 MB briefly
+
   adminer:
     profiles: ["tools"]
     image: adminer:6.3.0

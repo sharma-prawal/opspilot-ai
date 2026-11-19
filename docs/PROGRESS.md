@@ -372,6 +372,80 @@ Phase C1 is not started.
   Report and UI label hypothesis confidence as model-estimated and uncalibrated. Migration 0010 verified on a clean
   database and on a v0.4.0-schema database with existing incidents (throwaway databases, dropped afterwards).
 
+## Status — 2026-11-18, v0.6.0 connected observability (`feature/connected-observability-v06`, not pushed)
+
+- Base: published v0.5.0 (`origin/main` = `7677360`). Migration `0011` (`evidence_source='connector'`,
+  `ops.uploaded_datasets.queries`), applied to the test DB (downgrade/upgrade round trip checked). The main DB is
+  not migrated yet: run `make migrate`. It is additive.
+- Connectors (`opspilot_shared/connectors`):
+  - `TelemetryConnector` contract, `ReadOnlyHttp` (GET-only allowlisted paths, no redirects, `trust_env=False`,
+    timeouts, size cap, secret scrubbing), approved templates (+ `TELEMETRY_TEMPLATES_FILE`);
+  - Loki and Prometheus connectors and snapshot collection with `collected` signals (D109–D112).
+  - API formats verified against the real `grafana/loki:3.5.0` and `prom/prometheus:v3.5.0`.
+- API:
+  - `GET /connectors`, `POST /connectors/{id}/test|services`, `POST /incidents/connected/preview` and
+    `/incidents/connected`;
+  - the dataset endpoint, deletion and purge cover connector incidents.
+- Agents:
+  - read-only gating covers connector incidents, with a connected prompt note and report sections (D113);
+  - the digest says change history is unknown when it could not be read (D115, prompted by the first qwen3.5 run).
+- Web:
+  - **Connected telemetry** mode on `/incidents/new?source=connected`: connector cards with Test connection and
+    template choice, demo incident, service discovery, preview (per-query status, counts, warnings, samples), create
+    and start;
+  - connector status panel on Integrations (Loki/Prometheus implemented; Datadog, CloudWatch, Azure, tracing,
+    CI/CD and custom marked planned);
+  - source badge and banners; snapshot card with queries and delete;
+  - guide section 12 and architecture nodes.
+- Local test setup: `make telemetry-up` / `make telemetry-down` (compose profile `telemetry`, 127.0.0.1, tmpfs, no
+  volumes; synthetic incident from `scripts/generate_telemetry.py`) (D114). Docs:
+  `docs/integrations/CONNECTORS.md` (config, security, provider contract), README, SECURITY, API_CONTRACTS,
+  DATA_MODEL, AGENT_WORKFLOWS; `docs/releases/V0.6.0_NOTES.md` prepared.
+- Verified:
+  - `make lint` clean;
+  - `uv run pytest` 388 passed / 3 skipped, including 33 connector unit tests, 4 graph tests, 5 API tests and 2
+    live tests against the local Loki/Prometheus;
+  - web 50 passed; `make build-web` OK;
+  - Playwright with `E2E_TELEMETRY=1`: auth, simulator INC-001 (approve → verified recovery), upload and connected
+    specs all pass.
+- Demonstrated investigations (isolated e2e stack, `.env` untouched; models via process-level `E2E_LLM_MODEL`):
+  - `qwen3:8b`: RCA 25 s, `analysis_complete`, pool exhaustion 90%, attributed to a slow query (runbook
+    pattern), not to the pool-size drop the telemetry shows;
+  - `qwen3.5:9b-q4_K_M`: RCA 25 s, pool exhaustion 95% citing the `db_pool_max` drop and timeout logs, an
+    unobserved change as hypothesis 2, escalated to the database team;
+  - in both, nothing was proposed for approval or executed, search_logs went to `opspilot-connected-telemetry`, and
+    the cited Markdown report with the provenance table was downloaded.
+- Not done / open:
+  - official `make evaluate` not re-run (simulator path unchanged apart from D115, which only fires when change
+    tools fail);
+  - connectors tested only against local containers with synthetic data;
+  - `alembic check` reports the pre-existing `ops.execution_owner` table (migration-managed, no ORM model).
+
+## Status — 2026-11-19, v0.6.0 release-readiness pass (same branch)
+
+- First-time documentation aligned in README, `CONNECTORS.md`, Integrations (setup panel) and the guide (section 12):
+  - `make migrate` (0011);
+  - `make telemetry-up`;
+  - `.env` URLs and credentials;
+  - `make stop && make dev`;
+  - test → templates → preview → investigate;
+  - adapting service labels, metric names and templates;
+  - `make telemetry-down`;
+  - tested (local Loki/Prometheus 3.5.0 containers) vs not verified (remote and cloud endpoints, auth other than
+    bearer or basic).
+- Consistency assertions added:
+  - the connected report and outcome label confidence as uncalibrated (API test, Playwright);
+  - the connector credential appears in none of the dataset, investigation, tool-call, evidence, event or report
+    responses.
+- Verified:
+  - `make lint` clean;
+  - pytest 388 passed / 3 skipped; web 50 passed; `make build-web` OK;
+  - Playwright with `E2E_TELEMETRY=1`: 6 passed (auth ×3, connected, simulator INC-001 with verified recovery,
+    upload).
+- Migration 0011 on a full copy of the main database (throwaway database, dropped afterwards): 0010 → 0011
+  cleanly, with 277 incidents, 275 investigations, 7,464 evidence rows, 23 documents and the uploaded dataset unchanged.
+  The main database itself was not migrated (it is still at 0010); run `make migrate`.
+
 ## Earlier note — Phase B mid-session checkpoint (superseded by the status above)
 
 Done:
