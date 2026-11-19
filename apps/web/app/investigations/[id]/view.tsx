@@ -18,24 +18,34 @@ import {
   SeverityBadge,
   StatusBadge,
 } from "@/components/ui";
-import { Composition, DecisionFlow, EvidenceMap, HypothesisComparison, MetricComparison, SourceTimeline } from "@/components/visuals";
+import {
+  Composition,
+  DecisionFlow,
+  EvidenceMap,
+  HypothesisComparison,
+  MetricComparison,
+  SourceTimeline,
+} from "@/components/visuals";
 import { evidenceGroup } from "@/lib/visuals";
 import { api } from "@/lib/api";
-import {
-  humanize,
-  ms,
-  STAGES,
-  stageIndex,
-  utcTime,
-} from "@/lib/format";
+import { humanize, ms, STAGES, stageIndex, utcTime } from "@/lib/format";
 import type { Evidence, WorkflowEvent } from "@/lib/types";
 import { downloadText } from "@/lib/uploads";
 
 /** Where stored evidence came from (file and line/row, or connector query and entry/point) */
 function sourceRef(e: Evidence): string | null {
-  const d = e.data as { attributes?: { source_ref?: string }; sources?: string; metadata?: { source_ref?: string } };
-  const value = d?.attributes?.source_ref ?? d?.sources ?? d?.metadata?.source_ref;
-  return value == null ? null : typeof value === "string" ? value : JSON.stringify(value);
+  const d = e.data as {
+    attributes?: { source_ref?: string };
+    sources?: string;
+    metadata?: { source_ref?: string };
+  };
+  const value =
+    d?.attributes?.source_ref ?? d?.sources ?? d?.metadata?.source_ref;
+  return value == null
+    ? null
+    : typeof value === "string"
+      ? value
+      : JSON.stringify(value);
 }
 
 const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
@@ -52,27 +62,36 @@ function Stepper({
   readOnly?: boolean;
 }) {
   const visited = new Set(
-    events.filter((e) => e.node).map((e) => stageIndex(e.node))
+    events.filter((e) => e.node).map((e) => stageIndex(e.node)),
   );
   const activeIdx = TERMINAL.has(status) ? -1 : stageIndex(current);
 
   return (
-    <ol className="flex flex-wrap items-center gap-2" aria-label="Workflow progress">
+    <ol
+      className="flex flex-wrap items-center gap-2"
+      aria-label="Workflow progress"
+    >
       {STAGES.map((s, i) => {
         const isActive = i === activeIdx;
         const disabled = readOnly && s.key === "remediate";
-        const isDone =
-          !disabled &&
-          visited.has(i);
-        const label = readOnly && s.key === "approval" ? "Suggestions" : disabled ? "Remediate (read-only: off)" : s.label;
+        const isDone = !disabled && visited.has(i);
+        const label =
+          readOnly && s.key === "approval"
+            ? "Suggestions"
+            : disabled
+              ? "Remediate (read-only: off)"
+              : s.label;
 
         let style = "border border-dashed border-border bg-panel-2 text-muted";
         if (isActive) {
-          style = "border-accent bg-accent-soft text-accent font-semibold shadow-2xs ring-1 ring-accent/30";
+          style =
+            "border-accent bg-accent-soft text-accent font-semibold shadow-2xs ring-1 ring-accent/30";
         } else if (isDone) {
           style = "border-border bg-panel text-text font-medium";
         }
-        if (disabled) style = "border-dashed border-border bg-panel-2/40 text-muted/60 line-through";
+        if (disabled)
+          style =
+            "border-dashed border-border bg-panel-2/40 text-muted/60 line-through";
 
         return (
           <li
@@ -86,8 +105,8 @@ function Stepper({
                 isActive
                   ? "animate-pulse bg-accent"
                   : isDone
-                  ? "bg-success"
-                  : "bg-border-strong"
+                    ? "bg-success"
+                    : "bg-border-strong"
               }`}
             />
             <span>{label}</span>
@@ -113,8 +132,8 @@ function SynchronizedTimeRibbon({
   const startTimeMs = startedAt
     ? new Date(startedAt).getTime()
     : events[0]?.created_at
-    ? new Date(events[0].created_at).getTime()
-    : 0;
+      ? new Date(events[0].created_at).getTime()
+      : 0;
 
   // Format delta offset e.g. "T+00:00", "T+00:24" — never fabricates timestamps
   const getOffset = (created: string) => {
@@ -128,7 +147,7 @@ function SynchronizedTimeRibbon({
   };
 
   const keyEvents = events.filter(
-    (e) => e.event_type !== "node_started" || e.node === "triage"
+    (e) => e.event_type !== "node_started" || e.node === "triage",
   );
 
   return (
@@ -139,7 +158,9 @@ function SynchronizedTimeRibbon({
           <span>·</span>
           <span>Execution offsets</span>
         </div>
-        <span className="text-text-muted">Workflow events ({events.length})</span>
+        <span className="text-text-muted">
+          Workflow events ({events.length})
+        </span>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-thin min-w-0 pr-4">
@@ -150,8 +171,14 @@ function SynchronizedTimeRibbon({
         ) : (
           keyEvents.map((ev) => {
             const isSelected = selectedEventId === ev.id;
-            const isApproval = ev.event_type === "approval_requested" || ev.node === "human_approval" || ev.node === "await_approval";
-            const isDone = ev.node === "verify_recovery" || ev.event_type === "workflow_completed" || ev.node === "report";
+            const isApproval =
+              ev.event_type === "approval_requested" ||
+              ev.node === "human_approval" ||
+              ev.node === "await_approval";
+            const isDone =
+              ev.node === "verify_recovery" ||
+              ev.event_type === "workflow_completed" ||
+              ev.node === "report";
             const offset = getOffset(ev.created_at);
 
             return (
@@ -164,14 +191,18 @@ function SynchronizedTimeRibbon({
                   isSelected
                     ? "border-accent bg-accent-soft text-accent ring-1 ring-accent"
                     : isApproval
-                    ? "border-warn/60 bg-warn-soft/40 text-warn"
-                    : isDone
-                    ? "border-success/60 bg-success-soft/30 text-success"
-                    : "border-border bg-panel-2 hover:bg-panel text-text"
+                      ? "border-warn/60 bg-warn-soft/40 text-warn"
+                      : isDone
+                        ? "border-success/60 bg-success-soft/30 text-success"
+                        : "border-border bg-panel-2 hover:bg-panel text-text"
                 }`}
               >
-                <span className="font-bold tabular-nums text-[11px] text-muted">{offset}</span>
-                <time className="sr-only" dateTime={ev.created_at}>{utcTime(ev.created_at)}</time>
+                <span className="font-bold tabular-nums text-[11px] text-muted">
+                  {offset}
+                </span>
+                <time className="sr-only" dateTime={ev.created_at}>
+                  {utcTime(ev.created_at)}
+                </time>
                 <span className="font-semibold text-text truncate max-w-[150px]">
                   {ev.node ? humanize(ev.node) : humanize(ev.event_type)}
                 </span>
@@ -218,8 +249,8 @@ function Timeline({
                 isApproval
                   ? "bg-warn ring-2 ring-warn/30 animate-pulse"
                   : e.node
-                  ? "bg-accent"
-                  : "bg-muted"
+                    ? "bg-accent"
+                    : "bg-muted"
               }`}
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -238,7 +269,9 @@ function Timeline({
 
             {p.active_task && (
               <div className="mt-1 rounded bg-panel-2 px-2 py-1 text-[11px] text-muted">
-                <span className="text-text-muted font-medium">Task dispatch:</span>{" "}
+                <span className="text-text-muted font-medium">
+                  Task dispatch:
+                </span>{" "}
                 <span className="font-bold text-accent">
                   {p.active_task.capability}
                   {p.active_task.service ? `:${p.active_task.service}` : ""}
@@ -268,7 +301,9 @@ function Timeline({
                 key={i}
                 className="mt-1 text-[11px] text-muted flex items-center gap-1.5"
               >
-                <span className="text-purple font-semibold">LLM {c.purpose}</span>
+                <span className="text-purple font-semibold">
+                  LLM {c.purpose}
+                </span>
                 <span>·</span>
                 <span>{c.model}</span>
                 <span>·</span>
@@ -331,7 +366,7 @@ function EvidenceList({
 }) {
   const kinds = useMemo(
     () => Array.from(new Set(evidence.map((e) => e.kind))),
-    [evidence]
+    [evidence],
   );
   const [kind, setKind] = useState<string>("all");
   const [group, setGroup] = useState(initialGroup);
@@ -356,7 +391,14 @@ function EvidenceList({
 
   return (
     <div className="space-y-3 font-mono">
-      {group !== "all" && <div className="flex items-center gap-3 text-xs"><Badge>{group}</Badge><button className="text-link" onClick={() => setGroup("all")}>Show all categories</button></div>}
+      {group !== "all" && (
+        <div className="flex items-center gap-3 text-xs">
+          <Badge>{group}</Badge>
+          <button className="text-link" onClick={() => setGroup("all")}>
+            Show all categories
+          </button>
+        </div>
+      )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div
           className="flex flex-wrap gap-1"
@@ -376,9 +418,11 @@ function EvidenceList({
             >
               {humanize(k)}{" "}
               <span className="text-[10px] opacity-75">
-                ({k === "all"
+                (
+                {k === "all"
                   ? evidence.length
-                  : evidence.filter((e) => e.kind === k).length})
+                  : evidence.filter((e) => e.kind === k).length}
+                )
               </span>
             </button>
           ))}
@@ -411,8 +455,12 @@ function EvidenceList({
           shown.map((e) => {
             const isCited = highlight.has(e.evidence_id);
             const isSelected = selectedEvidenceId === e.evidence_id;
-            const isSupportingActive = activeHypSupportingSet?.has(e.evidence_id);
-            const isContradictingActive = activeHypContradictingSet?.has(e.evidence_id);
+            const isSupportingActive = activeHypSupportingSet?.has(
+              e.evidence_id,
+            );
+            const isContradictingActive = activeHypContradictingSet?.has(
+              e.evidence_id,
+            );
 
             return (
               <div
@@ -422,25 +470,31 @@ function EvidenceList({
                 role="button"
                 aria-label={`Inspect ${e.evidence_id}`}
                 aria-expanded={isSelected}
-                onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelectEvidence?.(isSelected ? "" : e.evidence_id); } }}
-                onClick={() => onSelectEvidence?.(isSelected ? "" : e.evidence_id)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectEvidence?.(isSelected ? "" : e.evidence_id);
+                  }
+                }}
+                onClick={() =>
+                  onSelectEvidence?.(isSelected ? "" : e.evidence_id)
+                }
                 className={`p-3.5 transition-colors cursor-pointer ${
                   isSelected
                     ? "bg-accent-soft/30 outline outline-accent"
                     : isSupportingActive
-                    ? "bg-success-soft/30"
-                    : isContradictingActive
-                    ? "bg-danger-soft/30"
-                    : isCited
-                    ? "bg-accent-soft/10"
-                    : "hover:bg-panel-2/50"
+                      ? "bg-success-soft/30"
+                      : isContradictingActive
+                        ? "bg-danger-soft/30"
+                        : isCited
+                          ? "bg-accent-soft/10"
+                          : "hover:bg-panel-2/50"
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="exhibit-tag">
-                      {e.evidence_id}
-                    </span>
+                    <span className="exhibit-tag">{e.evidence_id}</span>
                     <Badge>{humanize(e.kind)}</Badge>
                     {e.service && (
                       <span className="text-[11px] text-muted">
@@ -457,13 +511,21 @@ function EvidenceList({
                         ✕ Contradicts Hyp #{selectedHypothesisRank}
                       </span>
                     )}
-                    {!isSupportingActive && isCited && <span className="text-[10px] font-bold text-accent uppercase">★ Cited in RCA</span>}
+                    {!isSupportingActive && isCited && (
+                      <span className="text-[10px] font-bold text-accent uppercase">
+                        ★ Cited in RCA
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-muted">
                     <span>tool: {e.source_tool}</span>
                     <span>·</span>
                     <span>rel: {e.relevance.toFixed(2)}</span>
-                    {e.observed_at && <time dateTime={e.observed_at}>{utcTime(e.observed_at)}</time>}
+                    {e.observed_at && (
+                      <time dateTime={e.observed_at}>
+                        {utcTime(e.observed_at)}
+                      </time>
+                    )}
                   </div>
                 </div>
 
@@ -473,14 +535,20 @@ function EvidenceList({
 
                 {sourceRef(e) && (
                   <div className="mt-2 rounded border border-purple/30 bg-purple-soft/20 px-2.5 py-1.5 text-[11px] text-muted font-mono">
-                    <span className="font-semibold text-text-muted">Source reference coordinate:</span>{" "}
-                    <span className="text-purple font-bold">{sourceRef(e)}</span>
+                    <span className="font-semibold text-text-muted">
+                      Source reference coordinate:
+                    </span>{" "}
+                    <span className="text-purple font-bold">
+                      {sourceRef(e)}
+                    </span>
                   </div>
                 )}
 
                 {e.citation && (
                   <div className="mt-2 rounded border border-border bg-panel-2 px-2.5 py-1.5 text-[11px] text-muted font-mono">
-                    <span className="font-semibold text-text-muted">Runbook citation:</span>{" "}
+                    <span className="font-semibold text-text-muted">
+                      Runbook citation:
+                    </span>{" "}
                     <span className="text-accent font-bold">
                       {e.citation.source_uri}
                     </span>{" "}
@@ -530,7 +598,10 @@ function InvestigationWorkspace({ id }: { id: string }) {
       q.state.data && TERMINAL.has(q.state.data.status) ? false : 2000,
   });
 
-  const live = !inv.data || !TERMINAL.has(inv.data.status) || inv.data.executing_in_process;
+  const live =
+    !inv.data ||
+    !TERMINAL.has(inv.data.status) ||
+    inv.data.executing_in_process;
   const poll = live ? 2500 : false;
 
   const events = useQuery({
@@ -556,8 +627,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
   const report = useQuery({
     queryKey: ["report", id],
     queryFn: () => api.report(id),
-    enabled:
-      inv.data?.status === "completed" || inv.data?.status === "failed",
+    enabled: inv.data?.status === "completed" || inv.data?.status === "failed",
   });
   const incident = useQuery({
     queryKey: ["incident", inv.data?.incident_id],
@@ -575,18 +645,21 @@ function InvestigationWorkspace({ id }: { id: string }) {
   });
 
   const [showReport, setShowReport] = useState(false);
-  const [activeTab, setActiveTab] = useState<"analysis" | "evidence" | "traces">(
-    "analysis"
+  const [activeTab, setActiveTab] = useState<
+    "analysis" | "evidence" | "traces"
+  >("analysis");
+  const [selectedHypothesisRank, setSelectedHypothesisRank] =
+    useState<number>(1);
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
+    null,
   );
-  const [selectedHypothesisRank, setSelectedHypothesisRank] = useState<number>(1);
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
   const [evidenceGroupFilter, setEvidenceGroupFilter] = useState("all");
   const [remediationRequest, setRemediationRequest] = useState(0);
   const handledRemediation = useRef(0);
   const openRemediation = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setActiveTab("analysis");
-    setRemediationRequest(n => n + 1);
+    setRemediationRequest((n) => n + 1);
   };
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
@@ -600,7 +673,12 @@ function InvestigationWorkspace({ id }: { id: string }) {
   }, [status, id, qc]);
 
   useEffect(() => {
-    const target = activeTab === "evidence" ? selectedEvidenceId : activeTab === "traces" && selectedEventId ? `event-${selectedEventId}` : null;
+    const target =
+      activeTab === "evidence"
+        ? selectedEvidenceId
+        : activeTab === "traces" && selectedEventId
+          ? `event-${selectedEventId}`
+          : null;
     if (target) {
       const element = document.getElementById(target);
       element?.focus({ preventScroll: true });
@@ -609,26 +687,42 @@ function InvestigationWorkspace({ id }: { id: string }) {
   }, [activeTab, selectedEvidenceId, selectedEventId]);
 
   useEffect(() => {
-    if (activeTab !== "analysis" || handledRemediation.current === remediationRequest) return;
-    const element = document.getElementById("remediation-section");
+    if (
+      activeTab !== "analysis" ||
+      handledRemediation.current === remediationRequest
+    )
+      return;
+    if (actions.isPending) return;
+    const element =
+      document.querySelector<HTMLElement>(
+        '[data-pending-approval="true"] [data-approval-primary]:not(:disabled)',
+      ) ??
+      document.querySelector<HTMLElement>(
+        '[data-pending-approval="true"] form',
+      ) ??
+      document.getElementById("remediation-section");
     if (element) {
       handledRemediation.current = remediationRequest;
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: "start", behavior: "instant" });
     }
-  }, [activeTab, remediationRequest]);
+  }, [activeTab, remediationRequest, actions.isPending, actions.data]);
 
   const v = inv.data;
   const rca = v?.result?.rca;
-  const hyps = useMemo(() => [...(rca?.hypotheses ?? [])].sort((a, b) => a.rank - b.rank), [rca]);
+  const hyps = useMemo(
+    () => [...(rca?.hypotheses ?? [])].sort((a, b) => a.rank - b.rank),
+    [rca],
+  );
   const cited = useMemo(
     () => new Set(hyps.flatMap((h) => h.supporting_evidence_ids)),
-    [hyps]
+    [hyps],
   );
 
-
   const canResume =
-    v && (v.status === "interrupted" || v.status === "failed") && !v.executing_in_process;
+    v &&
+    (v.status === "interrupted" || v.status === "failed") &&
+    !v.executing_in_process;
 
   const outcome = v?.result?.outcome;
   const isAwaitingApproval = v?.status === "awaiting_approval";
@@ -637,14 +731,15 @@ function InvestigationWorkspace({ id }: { id: string }) {
   const suggested = v?.result?.suggested_remediation ?? [];
 
   // Active selected hypothesis for interactive highlighting
-  const activeHypothesis = hyps.find((h) => h.rank === selectedHypothesisRank) ?? hyps[0];
+  const activeHypothesis =
+    hyps.find((h) => h.rank === selectedHypothesisRank) ?? hyps[0];
   const activeHypSupportingSet = useMemo(
     () => new Set(activeHypothesis?.supporting_evidence_ids ?? []),
-    [activeHypothesis]
+    [activeHypothesis],
   );
   const activeHypContradictingSet = useMemo(
     () => new Set(activeHypothesis?.contradicting_evidence_ids ?? []),
-    [activeHypothesis]
+    [activeHypothesis],
   );
 
   return (
@@ -677,13 +772,19 @@ function InvestigationWorkspace({ id }: { id: string }) {
           subtitle={
             v && (
               <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-muted">
-                {incident.data && <SourceBadge source={incident.data.evidence_source} />}
+                {incident.data && (
+                  <SourceBadge source={incident.data.evidence_source} />
+                )}
                 <span>
-                  Dossier ID: <code className="font-bold text-text">{v.id.slice(0, 8)}</code>
+                  Dossier ID:{" "}
+                  <code className="font-bold text-text">
+                    {v.id.slice(0, 8)}
+                  </code>
                 </span>
                 <span>·</span>
                 <span>
-                  Model: <strong className="text-text font-semibold">{v.model}</strong>
+                  Model:{" "}
+                  <strong className="text-text font-semibold">{v.model}</strong>
                 </span>
                 <span>·</span>
                 <span>Started: {utcTime(v.started_at)}</span>
@@ -704,7 +805,9 @@ function InvestigationWorkspace({ id }: { id: string }) {
           }
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              {incident.data && <SeverityBadge severity={incident.data.severity} />}
+              {incident.data && (
+                <SeverityBadge severity={incident.data.severity} />
+              )}
               {v && <StatusBadge status={v.status} />}
               {canResume && (
                 <Button
@@ -748,28 +851,128 @@ function InvestigationWorkspace({ id }: { id: string }) {
         </div>
       )}
 
-
-      <ErrorNote error={incident.error ?? evidence.error ?? events.error ?? actions.error ?? tools.error} />
+      <ErrorNote
+        error={
+          incident.error ??
+          evidence.error ??
+          events.error ??
+          actions.error ??
+          tools.error
+        }
+      />
       <dl className="incident-facts">
-        <div><dt>Affected service</dt><dd>{incident.data?.service ?? "Unavailable"}</dd></div>
-        <div><dt>Detected (UTC)</dt><dd>{utcTime(incident.data?.detected_at)}</dd></div>
-        <div><dt>Evidence source</dt><dd><SourceBadge source={source} /></dd></div>
-        <div><dt>Investigation state</dt><dd>{v ? <StatusBadge status={v.status} /> : "Loading…"}</dd></div>
+        <div>
+          <dt>Affected service</dt>
+          <dd>{incident.data?.service ?? "Unavailable"}</dd>
+        </div>
+        <div>
+          <dt>Detected (UTC)</dt>
+          <dd>{utcTime(incident.data?.detected_at)}</dd>
+        </div>
+        <div>
+          <dt>Evidence source</dt>
+          <dd>
+            <SourceBadge source={source} />
+          </dd>
+        </div>
+        <div>
+          <dt>Investigation state</dt>
+          <dd>{v ? <StatusBadge status={v.status} /> : "Loading…"}</dd>
+        </div>
       </dl>
 
       <section className="case-conclusion" aria-label="Leading conclusion">
-        <div><h2>{hyps[0]?.title ?? (v && TERMINAL.has(v.status) ? "No primary hypothesis available" : "Following the evidence…")}</h2>
-        <p>{outcome?.summary ?? (isAwaitingApproval ? "Analysis is ready. Review the proposed action before simulator execution." : rca?.summary ? "Compare the explanations and inspect their source evidence below." : "Findings will appear as the investigation progresses.")}</p>
-        {rca?.summary && <details className="compact-disclosure mt-3"><summary>Full analysis summary</summary><p className="mt-2">{rca.summary}</p></details>}</div>
-        {outcome ? <div><StatusBadge status={outcome.code} />{outcome.escalate && <p className="mt-2 text-warn">Escalate{outcome.escalate_to ? ` to ${outcome.escalate_to}` : " to an operator"}</p>}</div> : isAwaitingApproval ? <a href="#remediation-section" onClick={openRemediation} className="action-link">Review proposed action ↓</a> : null}
+        <div>
+          <h2>
+            {hyps[0]?.title ??
+              (v && TERMINAL.has(v.status)
+                ? "No primary hypothesis available"
+                : "Following the evidence…")}
+          </h2>
+          <p>
+            {outcome?.summary ??
+              (isAwaitingApproval
+                ? "Analysis is ready. Review the proposed action before simulator execution."
+                : rca?.summary
+                  ? "Compare the explanations and inspect their source evidence below."
+                  : "Findings will appear as the investigation progresses.")}
+          </p>
+          {rca?.summary && (
+            <details className="compact-disclosure mt-3">
+              <summary>Full analysis summary</summary>
+              <p className="mt-2">{rca.summary}</p>
+            </details>
+          )}
+        </div>
+        {outcome ? (
+          <div>
+            <StatusBadge status={outcome.code} />
+            {outcome.escalate && (
+              <p className="mt-2 text-warn">
+                Escalate
+                {outcome.escalate_to
+                  ? ` to ${outcome.escalate_to}`
+                  : " to an operator"}
+              </p>
+            )}
+          </div>
+        ) : isAwaitingApproval && source === "simulator" ? (
+          <a
+            href="#remediation-section"
+            onClick={openRemediation}
+            className="action-link"
+          >
+            Review proposed action ↓
+          </a>
+        ) : null}
       </section>
 
-      {readOnly && <div className="rounded border border-info/30 bg-info-soft p-3 text-sm text-info"><strong>Read-only analysis of {source === "connector" ? "connected telemetry" : "uploaded evidence"}.</strong> Suggestions only. Nothing executed; external recovery is unverified.</div>}
-      {isAwaitingApproval && source === "simulator" && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded border border-warn/40 bg-warn-soft p-3 text-sm"><strong className="text-warn">OPERATOR ACTION REQUIRED</strong><span>Simulator execution is paused for your review.</span><a href="#remediation-section" onClick={openRemediation} className="text-link">Review Proposed Action ↓</a></div>}
-      {outcome && <details className="compact-disclosure"><summary>Outcome details · {outcome.read_only ? "read-only · nothing executed" : `${outcome.actions_executed} of ${outcome.steps_planned} planned actions executed`}</summary><p className="mt-2 text-sm text-text-muted">{outcome.reason}</p></details>}
+      {readOnly && (
+        <div className="rounded border border-info/30 bg-info-soft p-3 text-sm text-info">
+          <strong>
+            Read-only analysis of{" "}
+            {source === "connector"
+              ? "connected telemetry"
+              : "uploaded evidence"}
+            .
+          </strong>{" "}
+          Suggestions only. Nothing executed; external recovery is unverified.
+        </div>
+      )}
+      {isAwaitingApproval && source === "simulator" && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded border border-warn/40 bg-warn-soft p-3 text-sm"
+        >
+          <strong className="text-warn">OPERATOR ACTION REQUIRED</strong>
+          <span>Simulator execution is paused for your review.</span>
+          <a
+            href="#remediation-section"
+            onClick={openRemediation}
+            className="text-link"
+          >
+            Review Proposed Action ↓
+          </a>
+        </div>
+      )}
+      {outcome && (
+        <details className="compact-disclosure">
+          <summary>
+            Outcome details ·{" "}
+            {outcome.read_only
+              ? "read-only · nothing executed"
+              : `${outcome.actions_executed} of ${outcome.steps_planned} planned actions executed`}
+          </summary>
+          <p className="mt-2 text-sm text-text-muted">{outcome.reason}</p>
+        </details>
+      )}
 
       {/* Workspace Navigation Tabs */}
-      <div role="group" aria-label="Investigation workspace" className="workbench-tabs flex items-center gap-2 border-b border-border text-xs">
+      <div
+        role="group"
+        aria-label="Investigation workspace"
+        className="workbench-tabs flex items-center gap-2 border-b border-border text-xs"
+      >
         <button
           aria-pressed={activeTab === "analysis"}
           onClick={() => setActiveTab("analysis")}
@@ -818,14 +1021,199 @@ function InvestigationWorkspace({ id }: { id: string }) {
       {activeTab === "analysis" && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
+            {/* Mutating Mode: Remediation Plan & Safety Gates */}
+            {source === "simulator" && (
+              <Card
+                id="remediation-section"
+                title="Remediation Plan & Safety Gates"
+                subtitle="Deterministic validation against invariant safety gates prior to human approval"
+              >
+                {/* Action Requests & Approval Card */}
+                {actions.data?.length ? (
+                  <div className="space-y-4">
+                    {[...actions.data]
+                      .sort(
+                        (a, b) =>
+                          Number(b.status === "pending") -
+                          Number(a.status === "pending"),
+                      )
+                      .map((a) => (
+                        <div
+                          key={a.id}
+                          data-pending-approval={
+                            a.status === "pending" ? "true" : undefined
+                          }
+                        >
+                          <ApprovalCard action={a} />
+                        </div>
+                      ))}
+                  </div>
+                ) : v?.result?.rejected_proposals?.length ? null : (
+                  <Empty>
+                    {actions.isPending
+                      ? "Loading action requests…"
+                      : actions.error
+                        ? "Action requests unavailable."
+                        : "No remediation action proposed."}
+                  </Empty>
+                )}
+                <div className="mt-5">
+                  <DecisionFlow result={v?.result} actions={actions.data} />
+                </div>
+                {!!v?.result?.remediation_plan?.length && (
+                  <details className="compact-disclosure mb-4">
+                    <summary>
+                      Plan steps ({v.result.remediation_plan.length})
+                    </summary>
+                    <div className="mt-3">
+                      <h4 className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-muted">
+                        Execution Plan Steps ({v.result.remediation_plan.length}
+                        )
+                      </h4>
+                      <ol
+                        className="flex flex-wrap gap-2 font-mono"
+                        aria-label="Remediation plan"
+                      >
+                        {v.result.remediation_plan.map((p) => {
+                          const done = v.result?.executions?.find(
+                            (x) => x.step === p.step,
+                          );
+                          return (
+                            <li
+                              key={p.step}
+                              className="flex items-center gap-2 rounded-[3px] border border-border bg-panel-2 px-3 py-1.5 text-xs"
+                            >
+                              <span className="font-bold text-muted">
+                                {p.step}.
+                              </span>
+                              <span className="font-semibold text-text">
+                                {p.action_type}
+                              </span>
+                              <Badge tone="neutral">{p.role}</Badge>
+                              {p.added_by === "policy" && (
+                                <Badge tone="info">policy-added</Badge>
+                              )}
+                              {done ? (
+                                <StatusBadge status={done.status} />
+                              ) : (
+                                <span className="text-muted text-[11px]">
+                                  pending
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  </details>
+                )}
+
+                {/* Blocked Proposals Demonstration */}
+                {!!v?.result?.rejected_proposals?.length && (
+                  <details className="compact-disclosure blocked-proposals">
+                    <summary>
+                      Blocked proposals ({v.result.rejected_proposals.length}) ·
+                      safety gate reasons
+                    </summary>
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-danger font-bold">🛡</span>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-danger">
+                          Proposals Blocked By Deterministic Safety Gates (
+                          {v.result.rejected_proposals.length})
+                        </h4>
+                      </div>
+                      <p className="mt-1 text-[11px] text-text-muted font-sans">
+                        The model proposed the following state changes, but
+                        deterministic safety gates blocked them before any human
+                        approval request was issued:
+                      </p>
+                      <ul className="mt-2.5 space-y-2 text-xs">
+                        {v.result.rejected_proposals.map((r, i) => (
+                          <li
+                            key={i}
+                            className="rounded border border-danger/30 bg-panel p-2.5"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge tone="danger">
+                                blocked: {r.category || "unsafe"}
+                              </Badge>
+                              <code className="font-bold text-text">
+                                {String(r.proposal.action_type)}
+                              </code>
+                            </div>
+                            <p className="mt-1 text-xs text-text-muted font-medium font-sans">
+                              Violation: {r.reason}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </details>
+                )}
+              </Card>
+            )}
 
             <Card title="Root Cause Hypotheses">
-              {hyps.length ? <HypothesisComparison hypotheses={hyps} evidence={evidence.data ?? []} selected={activeHypothesis?.rank} onSelect={setSelectedHypothesisRank} onEvidence={(eid) => { setEvidenceGroupFilter("all"); setSelectedEvidenceId(eid); setActiveTab("evidence"); }} /> : <Empty>{v && TERMINAL.has(v.status) ? "No root-cause hypotheses generated. Inspect the evidence and report for gaps." : "Collecting evidence. Hypotheses will appear after analysis."}</Empty>}
-              {!!rca?.evidence_gaps?.length && <details className="compact-disclosure mt-4"><summary className="text-warn">Evidence gaps ({rca.evidence_gaps.length})</summary><ul className="mt-2 list-disc space-y-2 pl-4 text-xs text-text-muted">{rca.evidence_gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul></details>}
-              {!!rca?.citation_violations?.length && <p className="mt-4 text-xs text-warn">{rca.citation_violations.length} invalid model citations discarded.</p>}
+              {hyps.length ? (
+                <HypothesisComparison
+                  hypotheses={hyps}
+                  evidence={evidence.data ?? []}
+                  selected={activeHypothesis?.rank}
+                  onSelect={setSelectedHypothesisRank}
+                  onEvidence={(eid) => {
+                    setEvidenceGroupFilter("all");
+                    setSelectedEvidenceId(eid);
+                    setActiveTab("evidence");
+                  }}
+                />
+              ) : (
+                <Empty>
+                  {v && TERMINAL.has(v.status)
+                    ? "No root-cause hypotheses generated. Inspect the evidence and report for gaps."
+                    : "Collecting evidence. Hypotheses will appear after analysis."}
+                </Empty>
+              )}
+              {!!rca?.evidence_gaps?.length && (
+                <details className="compact-disclosure mt-4">
+                  <summary className="text-warn">
+                    Evidence gaps ({rca.evidence_gaps.length})
+                  </summary>
+                  <ul className="mt-2 list-disc space-y-2 pl-4 text-xs text-text-muted">
+                    {rca.evidence_gaps.map((gap, i) => (
+                      <li key={i}>{gap}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              {!!rca?.citation_violations?.length && (
+                <p className="mt-4 text-xs text-warn">
+                  {rca.citation_violations.length} invalid model citations
+                  discarded.
+                </p>
+              )}
             </Card>
-            <Card title="Observed signals"><MetricComparison evidence={evidence.data ?? []} onSelect={(eid) => { setEvidenceGroupFilter("all"); setSelectedEvidenceId(eid); setActiveTab("evidence"); }} /></Card>
-            <Card title="Evidence relationships"><EvidenceMap hypothesis={activeHypothesis} evidence={evidence.data ?? []} onSelect={(eid) => { setEvidenceGroupFilter("all"); setSelectedEvidenceId(eid); setActiveTab("evidence"); }} /></Card>
+            <Card title="Observed signals">
+              <MetricComparison
+                evidence={evidence.data ?? []}
+                onSelect={(eid) => {
+                  setEvidenceGroupFilter("all");
+                  setSelectedEvidenceId(eid);
+                  setActiveTab("evidence");
+                }}
+              />
+            </Card>
+            <Card title="Evidence relationships">
+              <EvidenceMap
+                hypothesis={activeHypothesis}
+                evidence={evidence.data ?? []}
+                onSelect={(eid) => {
+                  setEvidenceGroupFilter("all");
+                  setSelectedEvidenceId(eid);
+                  setActiveTab("evidence");
+                }}
+              />
+            </Card>
 
             {/* Read-Only Mode: Advisory Suggestions (Requirement 5) */}
             {readOnly && (
@@ -836,19 +1224,35 @@ function InvestigationWorkspace({ id }: { id: string }) {
               >
                 <DecisionFlow readOnly result={v?.result} />
                 {suggested.length ? (
-                  <ol className="space-y-2 font-mono" aria-label="Suggested remediation">
+                  <ol
+                    className="space-y-2 font-mono"
+                    aria-label="Suggested remediation"
+                  >
                     {suggested.map((p) => (
-                      <li key={p.step} className="rounded-[4px] border border-border bg-panel-2 p-3 text-xs">
+                      <li
+                        key={p.step}
+                        className="rounded-[4px] border border-border bg-panel-2 p-3 text-xs"
+                      >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-muted">{p.step}.</span>
-                          <span className="font-semibold text-text">{p.action_type}</span>
+                          <span className="font-bold text-muted">
+                            {p.step}.
+                          </span>
+                          <span className="font-semibold text-text">
+                            {p.action_type}
+                          </span>
                           <Badge>{p.role}</Badge>
                           <Badge tone="purple">suggestion · not executed</Badge>
                         </div>
                         <div className="mt-1 text-[11px] text-text-muted">
-                          {Object.entries(p.parameters).map(([k, val]) => `${k}=${val}`).join(" · ")}
+                          {Object.entries(p.parameters)
+                            .map(([k, val]) => `${k}=${val}`)
+                            .join(" · ")}
                         </div>
-                        {p.rationale && <p className="mt-1 text-text-muted font-sans">{p.rationale}</p>}
+                        {p.rationale && (
+                          <p className="mt-1 text-text-muted font-sans">
+                            {p.rationale}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ol>
@@ -862,111 +1266,21 @@ function InvestigationWorkspace({ id }: { id: string }) {
                 {!!v?.result?.rejected_proposals?.length && (
                   <div className="mt-4 rounded-[4px] border border-border bg-panel-2 p-3 font-mono">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
-                      Model proposals not suggested ({v.result.rejected_proposals.length})
+                      Model proposals not suggested (
+                      {v.result.rejected_proposals.length})
                     </h4>
                     <ul className="mt-1.5 space-y-1 text-xs text-text-muted">
                       {v.result.rejected_proposals.map((r, i) => (
                         <li key={i}>
-                          <code className="text-text font-bold">{String(r.proposal.action_type)}</code> —{" "}
-                          {r.category ? `${r.category}: ` : ""}
+                          <code className="text-text font-bold">
+                            {String(r.proposal.action_type)}
+                          </code>{" "}
+                          — {r.category ? `${r.category}: ` : ""}
                           {r.reason}
                         </li>
                       ))}
                     </ul>
                   </div>
-                )}
-              </Card>
-            )}
-
-            {/* Mutating Mode: Remediation Plan & Safety Gates */}
-            {source === "simulator" && (
-              <Card
-                id="remediation-section"
-                title="Remediation Plan & Safety Gates"
-                subtitle="Deterministic validation against invariant safety gates prior to human approval"
-              >
-                <DecisionFlow result={v?.result} actions={actions.data} />
-                {!!v?.result?.remediation_plan?.length && (
-                  <div className="mb-4">
-                    <h4 className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-muted">
-                      Execution Plan Steps ({v.result.remediation_plan.length})
-                    </h4>
-                    <ol className="flex flex-wrap gap-2 font-mono" aria-label="Remediation plan">
-                      {v.result.remediation_plan.map((p) => {
-                        const done = v.result?.executions?.find(
-                          (x) => x.step === p.step
-                        );
-                        return (
-                          <li
-                            key={p.step}
-                            className="flex items-center gap-2 rounded-[3px] border border-border bg-panel-2 px-3 py-1.5 text-xs"
-                          >
-                            <span className="font-bold text-muted">
-                              {p.step}.
-                            </span>
-                            <span className="font-semibold text-text">
-                              {p.action_type}
-                            </span>
-                            <Badge tone="neutral">{p.role}</Badge>
-                            {p.added_by === "policy" && (
-                              <Badge tone="info">policy-added</Badge>
-                            )}
-                            {done ? (
-                              <StatusBadge status={done.status} />
-                            ) : (
-                              <span className="text-muted text-[11px]">pending</span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </div>
-                )}
-
-                {/* Blocked Proposals Demonstration */}
-                {!!v?.result?.rejected_proposals?.length && (
-                  <div className="mb-4 rounded-[4px] border border-danger/40 bg-danger-soft p-4 font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="text-danger font-bold">🛡</span>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-danger">
-                        Proposals Blocked By Deterministic Safety Gates ({v.result.rejected_proposals.length})
-                      </h4>
-                    </div>
-                    <p className="mt-1 text-[11px] text-text-muted font-sans">
-                      The model proposed the following state changes, but deterministic safety gates blocked them before any human approval request was issued:
-                    </p>
-                    <ul className="mt-2.5 space-y-2 text-xs">
-                      {v.result.rejected_proposals.map((r, i) => (
-                        <li
-                          key={i}
-                          className="rounded border border-danger/30 bg-panel p-2.5"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Badge tone="danger">
-                              blocked: {r.category || "unsafe"}
-                            </Badge>
-                            <code className="font-bold text-text">
-                              {String(r.proposal.action_type)}
-                            </code>
-                          </div>
-                          <p className="mt-1 text-xs text-text-muted font-medium font-sans">
-                            Violation: {r.reason}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Action Requests & Approval Card */}
-                {actions.data?.length ? (
-                  <div className="space-y-4">
-                    {actions.data.map((a) => (
-                      <ApprovalCard key={a.id} action={a} />
-                    ))}
-                  </div>
-                ) : v?.result?.rejected_proposals?.length ? null : (
-                  <Empty>No remediation action proposed.</Empty>
                 )}
               </Card>
             )}
@@ -1056,19 +1370,85 @@ function InvestigationWorkspace({ id }: { id: string }) {
               </Card>
             )}
 
-
             <Card title="Evidence composition">
-              <Composition label="Collected evidence composition" items={evidence.data ? Object.entries(evidence.data.reduce<Record<string, number>>((counts, e) => { const group = evidenceGroup(e); counts[group] = (counts[group] ?? 0) + 1; return counts; }, {})).map(([key, count]) => ({ key, label: key, count })) : undefined} onSelect={(group) => { setEvidenceGroupFilter(group); setActiveTab("evidence"); }} />
-              <button className="text-link mt-4" onClick={() => setActiveTab("evidence")}>Explore source records →</button>
+              <Composition
+                label="Collected evidence composition"
+                items={
+                  evidence.data
+                    ? Object.entries(
+                        evidence.data.reduce<Record<string, number>>(
+                          (counts, e) => {
+                            const group = evidenceGroup(e);
+                            counts[group] = (counts[group] ?? 0) + 1;
+                            return counts;
+                          },
+                          {},
+                        ),
+                      ).map(([key, count]) => ({ key, label: key, count }))
+                    : undefined
+                }
+                onSelect={(group) => {
+                  setEvidenceGroupFilter(group);
+                  setActiveTab("evidence");
+                }}
+              />
+              <button
+                className="text-link mt-4"
+                onClick={() => setActiveTab("evidence")}
+              >
+                Explore source records →
+              </button>
             </Card>
-            <Card title="Source chronology"><SourceTimeline evidence={evidence.data ?? []} onSelect={(eid) => { setEvidenceGroupFilter("all"); setSelectedEvidenceId(eid); setActiveTab("evidence"); }} /></Card>
-            <details className="compact-disclosure dossier-paper p-4"><summary>Workflow chronology · {events.data?.length ?? "—"} events</summary>
-              <div className="mt-4 space-y-4">{v && <Stepper events={events.data ?? []} current={v.current_step} status={v.status} readOnly={readOnly} />}
-              <SynchronizedTimeRibbon startedAt={v?.started_at} events={events.data ?? []} selectedEventId={selectedEventId} onSelectEvent={(eventId) => { setSelectedEventId(eventId); setActiveTab("traces"); }} />
-              <button className="text-link" onClick={() => setActiveTab("traces")}>Open full audit →</button></div>
+            <Card title="Source chronology">
+              <SourceTimeline
+                evidence={evidence.data ?? []}
+                onSelect={(eid) => {
+                  setEvidenceGroupFilter("all");
+                  setSelectedEvidenceId(eid);
+                  setActiveTab("evidence");
+                }}
+              />
+            </Card>
+            <details className="compact-disclosure dossier-paper p-4">
+              <summary>
+                Workflow chronology · {events.data?.length ?? "—"} events
+              </summary>
+              <div className="mt-4 space-y-4">
+                {v && (
+                  <Stepper
+                    events={events.data ?? []}
+                    current={v.current_step}
+                    status={v.status}
+                    readOnly={readOnly}
+                  />
+                )}
+                <SynchronizedTimeRibbon
+                  startedAt={v?.started_at}
+                  events={events.data ?? []}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={(eventId) => {
+                    setSelectedEventId(eventId);
+                    setActiveTab("traces");
+                  }}
+                />
+                <button
+                  className="text-link"
+                  onClick={() => setActiveTab("traces")}
+                >
+                  Open full audit →
+                </button>
+              </div>
             </details>
 
-            <div className="flex items-center justify-between border-t border-border py-4 text-xs text-muted"><span>{tools.data?.length ?? "—"} MCP tool calls</span><button className="text-link" onClick={() => setActiveTab("traces")}>Inspect transactions →</button></div>
+            <div className="flex items-center justify-between border-t border-border py-4 text-xs text-muted">
+              <span>{tools.data?.length ?? "—"} MCP tool calls</span>
+              <button
+                className="text-link"
+                onClick={() => setActiveTab("traces")}
+              >
+                Inspect transactions →
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1105,7 +1485,10 @@ function InvestigationWorkspace({ id }: { id: string }) {
             title="Complete Event Timeline"
             subtitle="Durable checkpoint events from LangGraph"
           >
-            <Timeline events={events.data ?? []} selectedEventId={selectedEventId} />
+            <Timeline
+              events={events.data ?? []}
+              selectedEventId={selectedEventId}
+            />
           </Card>
 
           <Card
@@ -1121,9 +1504,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <code className="font-bold text-accent">
-                          {t.tool}
-                        </code>
+                        <code className="font-bold text-accent">{t.tool}</code>
                         <Badge>{t.server}</Badge>
                       </div>
                       <div className="flex items-center gap-2">

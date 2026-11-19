@@ -69,3 +69,24 @@ statistical calibration or new model-performance evaluation is claimed.
 The primary interface remains light. Dark logo exports are provided, without a new
 theme toggle. Summary metrics do not support a historical operational trend chart;
 no backend series endpoint was added. Future adapters remain planned.
+
+
+## Final focused refinement of approved 0a734f3
+
+- Action-first investigation: pending approval controls lead the analysis workspace;
+  both review links focus the relevant decision control after revealing the tab.
+  Parameters and rationale remain visible. Plans and blocked reasons are expandable.
+- Integrations: compact implemented-source rows and a separate planned group replace
+  the long default catalog. Per-provider expansion retains all Loki/Prometheus test,
+  endpoint, auth and template controls. The full comparison and original technical
+  contracts remain available as secondary disclosures; selectors work by keyboard.
+- Safety: five-stage boundary retained; seven concise gate rows expand to the exact
+  original criteria. Authorization/recovery explanations remain available on demand.
+- Readability: metric labels/units/captions enlarged; map labels enlarged and mobile
+  horizontal exploration signposted. Original logo geometry and exports unchanged;
+  native-size 16/24/32 px light/dark captures were inspected. Intake padding and mode
+  height reduced within the same approved homepage composition.
+
+Updated captures and verification: `docs/images/visual-experience-2/refinement/`.
+Screenshots use labeled synthetic fixtures; live journeys run separately against
+`opspilot_test`. No inference, remediation policy or backend contract changed.

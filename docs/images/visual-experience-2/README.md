@@ -5,6 +5,10 @@ is visibly labeled **synthetic UI fixtures**. The browser intercepts all API req
 no live model, database or connector is contacted for these captures. Live end-to-end
 tests are separately recorded in `docs/PROGRESS.md`.
 
+The approved initial captures below are preserved. The current focused refinement
+and native-size symbol board are in [refinement](refinement/README.md); the current
+smoke suite writes there.
+
 Reproduce after a production build: `cd apps/web && pnpm build && pnpm smoke:mock`
 (or `pnpm test:visual2`). The suite refuses an occupied port 3199 and cleans up its
 own server. It supplies an explicit minimal process environment. Desktop is 1440 px;

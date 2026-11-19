@@ -2,7 +2,7 @@
 import { chromium, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   fixtureState,
@@ -10,7 +10,7 @@ import {
 } from "./fixtures/visual-experience-2.mjs";
 
 const root = resolve(import.meta.dirname, "../../..");
-const out = resolve(root, "docs/images/visual-experience-2");
+const out = resolve(root, "docs/images/visual-experience-2/refinement");
 const port = 3199;
 const base = `http://127.0.0.1:${port}`;
 const results = [];
@@ -77,9 +77,23 @@ try {
     await page.goto(`${base}${path}`);
     await page.getByRole("navigation", { name: "Primary" }).waitFor();
     await page.getByRole("button", { name: "Sign out", exact: true }).waitFor();
-    await page.addStyleTag({ content: 'body::before { content: "SYNTHETIC UI FIXTURES · NO LIVE OPERATIONS"; display: block; padding: 6px 10px; background: #1c2529; color: white; text-align: center; font: 10px monospace; }' });
+    await page.addStyleTag({
+      content:
+        'body::before { content: "SYNTHETIC UI FIXTURES · NO LIVE OPERATIONS"; display: block; padding: 6px 10px; background: #1c2529; color: white; text-align: center; font: 10px monospace; }',
+    });
   };
   const shot = async (name) => {
+    if (
+      ![
+        "home-desktop",
+        "workbench-desktop",
+        "workbench-mobile",
+        "integrations-desktop",
+        "integrations-mobile",
+        "safety-desktop",
+      ].includes(name)
+    )
+      return;
     await page.evaluate(async () => {
       await document.fonts.ready;
       document.activeElement?.blur();
@@ -201,19 +215,70 @@ try {
       await page
         .getByRole("button", { name: /Schema migration broke/ })
         .click();
+      expect(
+        await page.locator("#remediation-section").evaluate((section) => {
+          const hypotheses = [...document.querySelectorAll("h2")].find(
+            (h) => h.textContent === "Root Cause Hypotheses",
+          );
+          return Boolean(
+            hypotheses &&
+              section.compareDocumentPosition(hypotheses) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+        }),
+      ).toBeTruthy();
       await shot("workbench-desktop");
       await page.setViewportSize({ width: 390, height: 844 });
       await noOverflow();
+      await page
+        .getByRole("region", { name: "Leading conclusion" })
+        .getByRole("link", { name: /Review proposed action/ })
+        .click();
+      await expect(
+        page.getByRole("button", { name: /Approve & execute in sandbox/ }),
+      ).toBeInViewport();
+      await expect(
+        page.getByRole("button", { name: /Approve & execute in sandbox/ }),
+      ).toBeFocused();
       await shot("workbench-mobile");
+      const mobileEvidence = page
+        .getByLabel("Scrollable hypothesis evidence map")
+        .getByRole("button", { name: /Logs · Supports/ });
+      await mobileEvidence.focus();
+      await expect(mobileEvidence).toBeInViewport();
+      await page.keyboard.press("Enter");
+      await expect(page.locator("pre")).toContainText("amount_cents");
+      await expect(
+        page.getByRole("button", {
+          name: "Inspect ev-log-schema",
+          exact: true,
+        }),
+      ).toBeFocused();
+      await page
+        .getByRole("button", { name: /Analysis & Remediation/ })
+        .click();
       await page.setViewportSize({ width: 1440, height: 960 });
     },
   );
-  await check("review action link opens and focuses remediation from the evidence tab", async () => {
-    await page.getByRole("button", { name: /Collected Evidence/ }).click();
-    await page.getByRole("region", { name: "Leading conclusion" }).getByRole("link", { name: /Review proposed action/ }).click();
-    await expect(page.locator("#remediation-section")).toBeFocused();
-    await expect(page.getByRole("button", { name: /Analysis & Remediation/ })).toHaveAttribute("aria-pressed", "true");
-  });
+  await check(
+    "review action link opens and focuses remediation from the evidence tab",
+    async () => {
+      await page.getByRole("button", { name: /Collected Evidence/ }).click();
+      await page
+        .getByRole("region", { name: "Leading conclusion" })
+        .getByRole("link", { name: /Review proposed action/ })
+        .click();
+      await expect(
+        page.getByRole("button", { name: /Approve & execute in sandbox/ }),
+      ).toBeFocused();
+      await expect(
+        page.getByRole("button", { name: /Approve & execute in sandbox/ }),
+      ).toBeInViewport();
+      await expect(
+        page.getByRole("button", { name: /Analysis & Remediation/ }),
+      ).toHaveAttribute("aria-pressed", "true");
+    },
+  );
   await check(
     "metric comparison and source chronology open their real record",
     async () => {
@@ -221,7 +286,12 @@ try {
         .getByRole("button", { name: "http_5xx_ratio", exact: true })
         .click();
       await expect(page.locator("pre")).toContainText('"baseline": 0.001');
-      await expect(page.getByRole("button", { name: "Inspect ev-metric-errors", exact: true })).toBeFocused();
+      await expect(
+        page.getByRole("button", {
+          name: "Inspect ev-metric-errors",
+          exact: true,
+        }),
+      ).toBeFocused();
       await page
         .getByRole("button", { name: /Analysis & Remediation/ })
         .click();
@@ -344,18 +414,62 @@ try {
     async () => {
       await visit("/integrations");
       await expect(
-        page.getByRole("table", { name: /Implemented capabilities/ }),
+        page.getByRole("heading", { name: "Implemented sources" }),
       ).toBeVisible();
       await expect(
-        page.getByText("Not tested", { exact: true }).first(),
+        page.getByRole("heading", { name: "Planned adapters" }),
       ).toBeVisible();
-      await page
+      await expect(
+        page.getByRole("table", { name: /Implemented capabilities/ }),
+      ).toBeHidden();
+      await expect(
+        page.getByText("http://127.0.0.1:3310", { exact: true }),
+      ).toBeHidden();
+      const loki = page
+        .locator(".connector-provider")
+        .filter({ has: page.locator("summary", { hasText: "Grafana Loki" }) });
+      await loki.locator("summary").click();
+      await expect(
+        loki.getByText("http://127.0.0.1:3310", { exact: true }),
+      ).toBeVisible();
+      await loki
         .getByRole("button", { name: "Test connection", exact: true })
         .click();
       await expect(page.getByText("Synthetic Loki answered.")).toBeVisible();
+      await loki.locator("summary").click();
+      await page
+        .getByText("Compare source capabilities", { exact: true })
+        .click();
+      await expect(
+        page.getByRole("table", { name: /Implemented capabilities/ }),
+      ).toBeVisible();
+      await page
+        .getByText("Compare source capabilities", { exact: true })
+        .click();
+      await page
+        .getByText("Technical adapter contracts and examples", { exact: true })
+        .click();
+      await page.getByRole("tab", { name: /Connected Mode/ }).click();
+      await page
+        .getByRole("button", { name: /Prometheus Implemented/ })
+        .focus();
+      await page.keyboard.press("Enter");
+      await expect(
+        page.getByRole("heading", { name: "Prometheus", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByText("Technical adapter contracts and examples", { exact: true })
+        .click();
       await shot("integrations-desktop");
       await page.setViewportSize({ width: 390, height: 844 });
       await noOverflow();
+      await loki.locator("summary").focus();
+      await page.keyboard.press("Enter");
+      await expect(
+        loki.getByRole("button", { name: "Test connection" }),
+      ).toBeVisible();
+      await noOverflow();
+      await loki.locator("summary").click();
       await shot("integrations-mobile");
       await page.setViewportSize({ width: 1440, height: 960 });
     },
@@ -385,6 +499,17 @@ try {
       await expect(
         page.getByText(/not cryptographically certified/),
       ).toBeVisible();
+      await expect(page.locator(".safety-gate-list > details")).toHaveCount(7);
+      expect(
+        await page.locator(".safety-gate-list > details[open]").count(),
+      ).toBe(0);
+      const capacityGate = page.locator(".safety-gate-list > details").filter({
+        has: page.locator("summary", { hasText: "Capacity Boundaries" }),
+      });
+      await capacityGate.locator("summary").focus();
+      await page.keyboard.press("Enter");
+      await expect(capacityGate.getByText(/90%/)).toBeVisible();
+      await capacityGate.locator("summary").click();
       await shot("safety-desktop");
       await visit("/guide");
       await expect(
@@ -392,7 +517,9 @@ try {
       ).toBeVisible();
       await page.getByRole("button", { name: /Local Setup/ }).click();
       await expect(
-        page.locator("pre").filter({ hasText: "make bootstrap ARGS=--install" }),
+        page
+          .locator("pre")
+          .filter({ hasText: "make bootstrap ARGS=--install" }),
       ).toBeVisible();
       await page.setViewportSize({ width: 390, height: 844 });
       await noOverflow();
@@ -417,6 +544,35 @@ try {
     );
     await shot("unavailable-desktop");
   });
+  await check(
+    "original symbol renders at 16, 24 and 32 pixels on light and dark backgrounds",
+    async () => {
+      const board = await context.newPage();
+      const variants = await Promise.all(
+        ["light", "dark"].map(async (variant) => {
+          const svg = await readFile(
+            resolve(root, `apps/web/public/brand/symbol-${variant}.svg`),
+            "utf8",
+          );
+          return `<section style="padding:24px;background:${variant === "light" ? "#fbfbf8" : "#1c2529"};color:${variant === "light" ? "#1c2529" : "#fbfbf8"}"><h2>${variant} background</h2><div style="display:flex;gap:40px;align-items:center">${[16, 24, 32].map((size) => `<figure style="margin:0"><img alt="OpsPilot symbol ${size}px on ${variant}" width="${size}" height="${size}" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"><figcaption>${size}px</figcaption></figure>`).join("")}</div></section>`;
+        }),
+      );
+      await board.setViewportSize({ width: 600, height: 390 });
+      await board.setContent(
+        `<style>body{margin:0;font:14px sans-serif}h2{font-size:16px;margin:0 0 20px}figcaption{font-size:12px;margin-top:10px}</style>${variants.join("")}`,
+      );
+      await expect(board.locator("img")).toHaveCount(6);
+      expect(
+        await board
+          .locator("img")
+          .evaluateAll((images) =>
+            images.every((i) => i.complete && i.naturalWidth > 0),
+          ),
+      ).toBeTruthy();
+      await board.screenshot({ path: resolve(out, "brand-legibility.png") });
+      await board.close();
+    },
+  );
   expect(errors).toEqual([]);
   await writeFile(
     resolve(out, "verification.json"),

@@ -44,8 +44,8 @@ export function ApprovalCard({
     action.risk === "high"
       ? "danger"
       : action.risk === "medium"
-      ? "warn"
-      : "neutral";
+        ? "warn"
+        : "neutral";
 
   return (
     <div className="rounded-xl border border-border bg-panel-2/70 p-4 shadow-xs transition-all">
@@ -73,10 +73,13 @@ export function ApprovalCard({
               ([k, v]) =>
                 [
                   humanize(k),
-                  <code key={k} className="font-mono text-xs font-semibold text-text">
+                  <code
+                    key={k}
+                    className="font-mono text-xs font-semibold text-text"
+                  >
                     {v}
                   </code>,
-                ] as [string, React.ReactNode]
+                ] as [string, React.ReactNode],
             ),
             ["Rationale", action.rationale || "—"],
             [
@@ -95,7 +98,9 @@ export function ApprovalCard({
                   [
                     "Decided",
                     `${
-                      action.decision_comment ? `“${action.decision_comment}” — ` : ""
+                      action.decision_comment
+                        ? `“${action.decision_comment}” — `
+                        : ""
                     }${action.decided_by} at ${utcTime(action.decided_at)}`,
                   ],
                 ] as [string, string][])
@@ -130,9 +135,21 @@ export function ApprovalCard({
           className="mt-4 space-y-3 rounded-lg border border-warn/30 bg-warn-soft/40 p-3.5"
           onSubmit={(e) => e.preventDefault()}
           aria-label="Approval decision"
+          tabIndex={-1}
         >
-          <p className="text-xs leading-relaxed text-text-muted"><strong>Approve this exact action and its parameters.</strong> Execution is limited to the simulator.</p>
-          <details className="compact-disclosure"><summary>How approval is enforced</summary><p className="mt-2 text-xs text-text-muted">The backend checks the pending action and workflow interrupt. A signed, expiring token binds approval to the action ID and parameter hash; the action server verifies it before execution. Lifetime is configured on the backend.</p></details>
+          <p className="text-xs leading-relaxed text-text-muted">
+            <strong>Approve this exact action and its parameters.</strong>{" "}
+            Execution is limited to the simulator.
+          </p>
+          <details className="compact-disclosure">
+            <summary>How approval is enforced</summary>
+            <p className="mt-2 text-xs text-text-muted">
+              The backend checks the pending action and workflow interrupt. A
+              signed, expiring token binds approval to the action ID and
+              parameter hash; the action server verifies it before execution.
+              Lifetime is configured on the backend.
+            </p>
+          </details>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <label className="flex-1 text-xs text-muted">
@@ -148,7 +165,8 @@ export function ApprovalCard({
             <div className="text-xs text-muted sm:text-right">
               {canDecide ? (
                 <span>
-                  Deciding as <strong className="text-text">{session.sub}</strong>
+                  Deciding as{" "}
+                  <strong className="text-text">{session.sub}</strong>
                 </span>
               ) : (
                 <span className="text-danger font-medium">
@@ -164,6 +182,7 @@ export function ApprovalCard({
               variant="primary"
               size="sm"
               disabled={!canDecide || decide.isPending}
+              data-approval-primary
               onClick={() => decide.mutate("approve")}
             >
               {decide.isPending ? "Executing…" : "Approve & execute in sandbox"}

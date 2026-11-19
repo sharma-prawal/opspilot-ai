@@ -157,3 +157,9 @@ uploaded and connector sources expose advice only. Technical payloads, full repo
 and workflow depth remain available through disclosures/tabs. Runtime hooks remain
 inside the existing Suspense boundaries. See [design notes](../design/VISUAL_EXPERIENCE_2.md)
 and [brand usage](../design/BRAND.md).
+
+The final UX refinement changes only presentation order and disclosure: pending
+simulator approvals appear before forensic detail, review links focus the actual
+approval control, provider configuration is expanded per connector, and each safety
+gate retains its full criteria inside a native keyboard-accessible disclosure.
+No approval decision is submitted by navigation or focus.

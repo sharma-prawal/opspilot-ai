@@ -535,3 +535,41 @@ Not done (next session, in order):
   Screenshots use synthetic fixtures, not production telemetry. No operator usability
   study or measured text-reduction percentage is claimed. Light UI is primary; dark
   brand assets are supplied, with no new theme toggle.
+
+## Status — 2026-11-19, Visual Experience 2 final focused UX refinement
+
+- Refined the approved `0a734f3` design on the same `codex/visual-experience-2`
+  branch/worktree. Original logo geometry and exports are unchanged.
+- Investigation: pending simulator decision controls precede forensic detail; review
+  links reveal Analysis and focus the relevant approval button (or review form for
+  viewers), waiting for action data if necessary. Navigation never submits approval.
+  Parameters/rationale stay visible; plan steps and blocked-proposal reasons expand.
+  Metric labels, units and captions are larger; source-linked map nodes are more
+  readable, with explicit mobile scrolling guidance and verified keyboard access.
+- Integrations: compact implemented-source rows, separate planned adapters, and
+  per-provider configuration/test controls. Capability comparison and the original
+  complete technical catalog are secondary disclosures. Loki/Prometheus behavior is
+  retained; no adapter added. Technical catalog selectors now use keyboard buttons.
+- Safety: five-stage boundary retained; seven short summaries expand to all original
+  technical criteria. Full authorization/recovery explanations remain available.
+- Homepage: reduced intake padding, column gap and selector height within the same
+  layout. Existing symbol inspected at native 16/24/32 px on light and dark backgrounds.
+- Verification executed:
+  - `make lint` passed (Ruff, formatting, strict mypy, four import contracts, ESLint,
+    TypeScript); production build passed. Frontend lint/build/tests were rechecked
+    after the final small mobile-readability changes.
+  - `make test`: 396 Python passed, 3 opt-in live-model tests skipped; 68 web passed.
+  - Existing affected Playwright journeys: 7 passed (auth x3, connected telemetry,
+    simulator approval/recovery, overview and upload), on `opspilot_test` and isolated
+    3100/8100 ports with the existing allowlisted web environment builder.
+  - Production synthetic browser suite: 16 checks passed, zero page errors; includes
+    desktop/mobile direct approval focus and viewport assertions, mobile keyboard
+    evidence-node navigation, connector expansion/testing, secondary comparison,
+    keyboard technical selectors and full gate criteria on expansion.
+  - Updated requested captures plus mobile integrations and symbol-size board are in
+    `docs/images/visual-experience-2/refinement/`. Operational screenshots explicitly
+    label synthetic fixtures; the approved initial screenshots are preserved.
+- No backend, database schema, adapter, inference, enforcement, credential or `.env`
+  changes. Existing running services were not interrupted; only this pass's temporary
+  test servers were started/stopped. No agent behavior change or evaluation rerun.
+- Local commit only; stop for acceptance review. No push, merge, tag or publication.

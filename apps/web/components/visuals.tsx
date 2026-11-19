@@ -345,7 +345,7 @@ export function EvidenceMap({
         ]
       : [];
   });
-  const height = Math.max(130, rows.length * 68 + 16);
+  const height = Math.max(130, rows.length * 84 + 16);
   return (
     <div>
       {dependencies.length > 0 && (
@@ -384,7 +384,7 @@ export function EvidenceMap({
               {rows.map((e, i) => (
                 <path
                   key={e.evidence_id}
-                  d={`M180 ${height / 2} C270 ${height / 2}, 270 ${i * 68 + 42}, 340 ${i * 68 + 42}`}
+                  d={`M180 ${height / 2} C270 ${height / 2}, 270 ${i * 84 + 42}, 340 ${i * 84 + 42}`}
                   className={
                     hypothesis.contradicting_evidence_ids.includes(
                       e.evidence_id,
@@ -403,7 +403,7 @@ export function EvidenceMap({
               <button
                 key={e.evidence_id}
                 className="map-evidence"
-                style={{ top: i * 68 + 10 }}
+                style={{ top: i * 84 + 10 }}
                 onClick={() => onSelect(e.evidence_id)}
               >
                 <span>
@@ -420,6 +420,12 @@ export function EvidenceMap({
         </div>
       ) : (
         <Empty>No persisted evidence associations for this hypothesis.</Empty>
+      )}
+      {linked.length > 0 && (
+        <p className="evidence-map-hint">
+          Scroll horizontally to inspect linked evidence. Each node opens its
+          source record.
+        </p>
       )}
       {linked.length > 5 && (
         <button

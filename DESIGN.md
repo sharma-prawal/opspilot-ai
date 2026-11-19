@@ -184,7 +184,7 @@ The palette combines archival neutrals with sparse operational color; frontmatte
 
 The application shell centers content in a `max-w-7xl` container (`80rem`). Gutters are `16px`, increasing to `24px` at the `640px` breakpoint; the main area has `24px` vertical padding. Shared panel bodies use the panel spacing token. The shell header remains sticky; the document reserves `140px` scroll padding for anchored sections.
 
-Use the established four-pixel rhythm and fine rules to group related content. The intake desk uses an asymmetric `1fr 1.8fr` grid with a `48px` gap and generous padding. It stacks at `800px`, with `22px` padding and gap. Incident facts move from four columns to two at that breakpoint; five-stage decision and boundary sequences stack vertically.
+Use the established four-pixel rhythm and fine rules to group related content. The intake desk uses the approved asymmetric composition with a `1fr 2.3fr` grid, `28px` gap and `24px` padding. It stacks at `800px` with an `18px` gap; padding reduces to `20px` below `480px`. Incident facts move from four columns to two at that breakpoint; five-stage decision and boundary sequences stack vertically.
 
 Navigation scrolls horizontally below `640px`. The roster keeps an `820px` minimum width inside its labeled horizontal scroller; capability tables use `600px` and the evidence map `560px`. Do not squeeze exact data into unreadable columns. Below `480px`, panel horizontal padding reduces to `16px`, filter text inputs become `16px`, intake controls stack and source chronology narrows its time column. Use the existing responsive behavior instead of hiding record identity or state.
 
@@ -248,3 +248,19 @@ Motion remains subordinate to state: short control transitions and active status
 - **Don't** turn missing data into zero or unknown provenance into simulator authorization.
 - **Don't** distort the convergence mark, add glow or imply provider implementation through an icon.
 - **Don't** add decorative chart effects or panel shadows that obscure evidence hierarchy.
+
+
+## Final focused refinement
+
+Pending simulator action controls precede the forensic detail in Analysis. Both
+review links reveal that tab and focus the current approval control (or the review
+form for a viewer), without submitting a decision. Rationale and exact parameters
+remain visible; plan history and blocked-proposal explanations expand on demand.
+Metric labels, units and provenance captions use 12 px text, with larger evidence
+map labels and an explicit mobile scrolling hint.
+
+Integrations begins with compact implemented-source rows and a separate planned
+group. A provider expands its configuration and connection-test controls. Capability
+comparison and the complete technical catalog are secondary disclosures. Safety
+keeps the five-stage boundary visible and presents seven short, individually
+expandable gate summaries with their original technical criteria intact.
