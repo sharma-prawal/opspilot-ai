@@ -486,3 +486,52 @@ Not done (next session, in order):
 3. B3: held-out retrieval set, multi-scenario agent eval with ground truth files (INC-002/003, NEG-*), BASELINE regeneration.
 4. B4: MCP session supervision/reconnect plus resilience tests (MCP kill, duplicate resume/approval, expiry).
 5. B5: UI outcome/plan display, README/architecture/security docs, screenshots, roadmap.
+
+
+## Status — 2026-11-19, Visual Experience 2 (local review)
+
+- Baseline verified remotely: v0.7.1 published 2026-11-19; `origin/main` at `1ee1b70`,
+  CI run 44548721335 passed. Work is isolated on `codex/visual-experience-2` in the
+  managed `visual-experience-2` worktree. No push, merge, tag or release.
+- Original evidence-convergence identity: three vector concepts, selected symbol,
+  light/dark wordmarks, square icon, SVG/PNG exports and favicon. Usage guide:
+  `docs/design/BRAND.md`. Implementation direction and before/after comparison:
+  `docs/design/VISUAL_EXPERIENCE_2.md`.
+- Home: three-source intake, single scenario picker, real runtime status strip,
+  recent cases and incident-source distribution; removed hardcoded connector status.
+  Roster: search, source/state filters, exact timestamps and linked case titles.
+- Workbench: leading conclusion and structured facts, ranked selectable hypotheses,
+  source-backed metric summary bars, evidence composition/filtering, observed service
+  links, model association map and source chronology. Workflow chronology, reasoning,
+  technical context and report are available on demand. Simulator-only approval controls;
+  uploads/connected telemetry remain read-only. Keyboard focus follows evidence and
+  review-action links across tabs; workspace selection is announced.
+- Integrations: capability matrix separates implementation, configuration and tested
+  connectivity. Datadog, Azure Monitor and CloudWatch remain planned. Architecture
+  selections emphasize adjacent edges; safety uses an approval-boundary sequence;
+  guide adds a task walkthrough while keeping all technical sections.
+- Verification executed:
+  - `make lint`: Ruff, formatting, strict mypy, four import contracts, ESLint and
+    TypeScript passed; frontend lint/tests and production build rechecked after fixes.
+  - `make test`: 396 Python passed, 3 opt-in live-model tests skipped; 68 web tests passed.
+  - Existing Playwright: 7 passed (auth x3, connected, simulator approval/recovery,
+    overview and upload). Dedicated `opspilot_test`, ports 3100/8100; a temporary test
+    launcher filtered the web environment through the existing `build_web_env` allowlist.
+  - `pnpm smoke:mock` (also `pnpm test:visual2`): 15 production-browser checks passed,
+    no page errors. Tests cover normal/running/failure, approval, blocked-only,
+    verified simulator recovery, both read-only sources, empty/loading/unavailable,
+    evidence links, filtering, keyboard focus, downloads and mobile overflow.
+  - Actual implementation screenshots in `docs/images/visual-experience-2/`, explicitly
+    labeled synthetic. See its `verification.json` and `README.md`.
+  - Independent visual reviewer requested two P2 interaction fixes; both implemented
+    and browser-verified. Scoped verdict pass: **ship**, both findings resolved.
+- No backend/agent/schema/security/startup changes, no credentials or `.env` edited,
+  no paid inference, no main-database tests, no services on 3000/8000 stopped.
+  `make evaluate` not rerun: inference/workflow behavior is unchanged; no new model
+  quality or recovery-rate claims. Private Phase C1 work was not accessed.
+- Limits: metric evidence stores summaries rather than historical series, so charts
+  compare baseline/extreme/current instead of fabricating trends. Confidence remains
+  uncalibrated; graph edges distinguish observed dependency and model association.
+  Screenshots use synthetic fixtures, not production telemetry. No operator usability
+  study or measured text-reduction percentage is claimed. Light UI is primary; dark
+  brand assets are supplied, with no new theme toggle.

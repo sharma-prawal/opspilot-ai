@@ -84,9 +84,9 @@ async function runLiveSmoke() {
 
     // 6. Monitor Recovery & Final RCA
     console.log("Step 7: Verifying action execution, recovery verification, and final RCA...");
-    await page.waitForSelector("text=VERIFIED RECOVERY", { timeout: 60000 });
+    await page.waitForSelector("text=VERIFIED SIMULATOR RECOVERY", { timeout: 60000 });
     await page.waitForSelector("text=RCA Postmortem Report", { timeout: 15000 });
-    console.log("  ✔ Recovery verified! Verdict: VERIFIED RECOVERY");
+    console.log("  ✔ Recovery verified! Verdict: VERIFIED SIMULATOR RECOVERY");
     console.log("  ✔ Final RCA postmortem report generated and rendered");
 
     console.log("\n========================================================");

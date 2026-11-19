@@ -49,7 +49,8 @@ test("operator uploads files from disk, gets a cited read-only RCA, downloads it
 
   await expect(page.getByText(/Analysis (complete|inconclusive)/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Approve/ })).toHaveCount(0); // read-only: nothing to approve
-  await expect(page.getByText("Supporting evidence:").first()).toBeVisible();
+  await expect(page.getByText(/\d+ supporting/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Expand Report" }).click();
   const report = page.locator(".prose-report");
   await expect(report).toContainText("Ranked hypotheses");
   await expect(report).toContainText(/source: (checkout-api\.log|service-metrics\.csv|change-events\.json|checkout-traces\.json)/);

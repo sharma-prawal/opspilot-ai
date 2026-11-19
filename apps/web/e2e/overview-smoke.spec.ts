@@ -14,26 +14,15 @@ test("overview home page renders primary content and operating modes without err
 
   // Primary content verification
   await expect(page.getByRole("heading", { name: "System overview" })).toBeVisible();
-  await expect(page.getByText("Evidence-Grounded Distributed Incident Investigation")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Initiate Investigation Dossier" })).toBeVisible();
-
-  // 3 Operating Modes tabs verification
-  await expect(page.getByRole("button", { name: /1\. Simulated Fault Scenarios/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /2\. Uploaded Artifacts/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /3\. Connected Loki\/Prometheus/i })).toBeVisible();
-
-  // Mode switching verification
-  await page.getByRole("button", { name: /2\. Uploaded Artifacts/i }).click();
-  await expect(page.getByText("Drop raw incident logs, CSV metric series, or JSON event traces")).toBeVisible();
-
-  await page.getByRole("button", { name: /3\. Connected Loki\/Prometheus/i }).click();
-  await expect(page.getByText("Audit Telemetry from Grafana Loki & Prometheus")).toBeVisible();
-
-  await page.getByRole("button", { name: /1\. Simulated Fault Scenarios/i }).click();
+  await expect(page.getByRole("heading", { name: "Open an investigation." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Simulator/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Uploaded files/ }).click();
+  await expect(page.getByRole("link", { name: "Analyze your files" })).toBeVisible();
+  await page.getByRole("button", { name: /^Connected telemetry/ }).click();
+  await expect(page.getByRole("link", { name: "Use Loki / Prometheus" })).toBeVisible();
+  await page.getByRole("button", { name: /^Simulator/ }).click();
   await expect(page.getByLabel("Scenario")).toBeVisible();
-
-  // Runtime Seams & Health card verification
-  await expect(page.getByRole("heading", { name: "Runtime Seams & Health" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runtime health" })).toBeVisible();
 
   // Navigation verification
   await expect(page.getByRole("link", { name: "Overview", exact: true })).toBeVisible();

@@ -552,8 +552,8 @@ make infra-down`}
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Developer & Operator Getting Started Guide"
-        subtitle="Complete step-by-step walkthrough: installation, local runtime, operator authentication, scenario execution, and safety mechanisms."
+        title="Field guide"
+        subtitle="From first evidence to a reviewed decision."
         actions={
           <div className="flex items-center gap-2">
             <Link href="/integrations">
@@ -575,6 +575,7 @@ make infra-down`}
         }
       />
 
+      <nav className="guide-journey" aria-label="Investigation walkthrough"><Link href="/"><strong>Choose evidence →</strong><small>Simulator, files or telemetry</small></Link><Link href="/incidents"><strong>Follow the case →</strong><small>Signals and hypotheses</small></Link><Link href="/safety"><strong>Review the decision →</strong><small>Approval boundary</small></Link><Link href="/incidents"><strong>Inspect the outcome</strong><small>Cited findings and report</small></Link></nav>
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Navigation Sidebar (4 cols) */}
         <div className="space-y-2 lg:col-span-4">
@@ -588,6 +589,7 @@ make infra-down`}
                 return (
                   <button
                     key={s.id}
+                    aria-current={isActive ? "step" : undefined}
                     onClick={() => setActiveStep(s.id)}
                     className={`flex w-full items-start gap-2.5 rounded-[3px] px-3 py-2 text-left transition-all cursor-pointer ${
                       isActive
@@ -610,7 +612,7 @@ make infra-down`}
             .filter((s) => s.id === activeStep)
             .map((s) => (
               <Card key={s.id} title={s.title} subtitle={s.summary}>
-                <div className="pt-2">{s.content}</div>
+                {s.number === 1 ? <details className="compact-disclosure"><summary>Product overview and technical background</summary><div className="pt-3">{s.content}</div></details> : <div className="pt-2">{s.content}</div>}
 
                 <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
                   {s.number > 1 ? (

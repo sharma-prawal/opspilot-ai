@@ -19,8 +19,8 @@ export function ConnectorsPanel() {
 
   return (
     <Card
-      title="Connected observability (v0.6)"
-      subtitle="Read-only connectors configured on this OpsPilot API. Only these destinations are ever contacted."
+      title="Connection configuration"
+      subtitle="Configured does not mean reachable. Test each connector to check its current health."
       actions={
         <Link href="/incidents/new?source=connected">
           <Button size="sm" variant="primary">Investigate with telemetry →</Button>
@@ -43,7 +43,7 @@ export function ConnectorsPanel() {
                     <span className="text-sm font-bold text-text">{c.name}</span>
                     <Badge tone="success">Implemented</Badge>
                     <Badge tone={c.configured ? "info" : "neutral"}>{c.configured ? "Configured" : "Not configured"}</Badge>
-                    {label && <Badge tone={label.tone}>{label.label}</Badge>}
+                    {label ? <Badge tone={label.tone}>{label.label}</Badge> : <Badge>Not tested</Badge>}
                     <span className="flex-1" />
                     {c.configured && (
                       <Button size="sm" variant="secondary" disabled={test.isPending && test.variables === c.id}
@@ -53,7 +53,7 @@ export function ConnectorsPanel() {
                     )}
                   </div>
                   {c.configured ? (
-                    <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-text-muted">
+                    <details className="compact-disclosure mt-3"><summary>Endpoint, auth and query templates</summary><dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-text-muted">
                       <dt>Endpoint</dt><dd className="font-mono text-text">{c.endpoint}</dd>
                       <dt>Auth</dt><dd>{c.auth}{c.tenant ? ` · tenant ${c.tenant}` : ""}</dd>
                       <dt>Service label</dt><dd className="font-mono">{c.service_label}</dd>
@@ -62,12 +62,13 @@ export function ConnectorsPanel() {
                       <dd>
                         {c.limits?.max_window_hours} h window · {c.signal === "log" ? `${c.limits?.max_log_lines_per_query} lines` : `${c.limits?.max_series_per_query} series`}/query · {c.limits?.timeout_seconds} s timeout
                       </dd>
-                    </dl>
+                    </dl></details>
                   ) : (
                     <p className="mt-2 text-text-muted">
                       {c.problem ? <span className="text-warn">{c.problem}. </span> : null}To enable: {c.hint}, then restart the API.
                     </p>
                   )}
+                  {st?.checked_at && <p className="mt-2 font-mono text-[10px] text-muted">Checked: {st.checked_at}</p>}
                   {st && <p className={`mt-2 ${st.status === "ok" ? "text-success" : "text-danger"}`} role="status">{st.message}</p>}
                 </div>
               );

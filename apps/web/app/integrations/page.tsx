@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { fillModels, useActiveModels } from "@/lib/models";
+import { IntegrationMatrix } from "@/components/integration-matrix";
 import { ConnectorsPanel } from "@/components/connectors-panel";
 import { Badge, Button, Card, CodeBlock, PageHeader } from "@/components/ui";
 
@@ -470,7 +471,7 @@ export default function IntegrationsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Data Sources & Integrations"
-        subtitle="Source-agnostic evidence ingestion: explore how synthetic simulators, air-gapped file exports, and live telemetry platforms integrate into standardized evidence."
+        subtitle="Choose a source. Check its capabilities. Inspect its configuration."
         actions={
           <div className="flex items-center gap-2">
             <Link href="/architecture">
@@ -487,7 +488,8 @@ export default function IntegrationsPage() {
         }
       />
 
-      {/* Hero Banner: Source-Agnostic Philosophy */}
+      <IntegrationMatrix />
+      <details className="compact-disclosure"><summary>How sources become investigation evidence</summary>
       <div className="rounded-2xl border border-border bg-gradient-to-br from-panel via-panel to-panel-2 p-6 shadow-sm">
         <div className="max-w-3xl space-y-3">
           <div className="flex items-center gap-2">
@@ -502,10 +504,12 @@ export default function IntegrationsPage() {
             Decoupled Evidence Gathering Across Three Usage Modes
           </h2>
           <p className="text-xs text-muted leading-relaxed">
-            OpsPilot AI is not coupled to any single observability provider or logging tool. The agent core interacts exclusively with typed port interfaces (<code className="font-mono text-text">ToolGateway</code>, <code className="font-mono text-text">ChatModel</code>). Whether evidence arrives from our deterministic local simulator, uploaded export files, or a read-only snapshot from Grafana Loki and Prometheus (the connectors implemented in v0.6), it is normalized into immutable, verifiable <code className="font-mono text-text">ops.evidence</code> items before reasoning occurs.
+            OpsPilot AI is not coupled to any single observability provider or logging tool. The agent core interacts exclusively with typed port interfaces (<code className="font-mono text-text">ToolGateway</code>, <code className="font-mono text-text">ChatModel</code>). Whether evidence arrives from our deterministic local simulator, uploaded export files, or a read-only snapshot from Grafana Loki and Prometheus (the connectors implemented in v0.6), it is normalized into persisted, source-attributed <code className="font-mono text-text">ops.evidence</code> items before reasoning occurs.
           </p>
         </div>
       </div>
+
+      </details>
 
       <ConnectorsPanel />
 
@@ -564,6 +568,7 @@ export default function IntegrationsPage() {
 
         <div className="flex items-center gap-2">
           <select
+            aria-label="Signal category"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value as Category)}
             className="h-8.5 rounded-lg border border-border bg-panel-2 px-3 text-xs font-medium text-text capitalize focus:outline-hidden"

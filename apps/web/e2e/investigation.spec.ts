@@ -15,7 +15,7 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
   assertIsolated(await (await page.request.get("/api/ops/api/v1/system/identity")).json(), "browser session");
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "System overview" })).toBeVisible();
-  await expect(page.getByText("mcp read", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runtime health" })).toBeVisible();
 
   await page.getByRole("link", { name: "Incidents", exact: true }).click(nav);
   await page.waitForURL("**/incidents");
@@ -26,6 +26,7 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
 
   await page.getByRole("button", { name: "Start investigation" }).first().click(nav); // header button (the empty state repeats it)
   await page.waitForURL(/\/investigations\/[0-9a-f-]{36}$/);
+  await page.getByText(/Workflow chronology ·/).click();
   await expect(page.getByRole("list", { name: "Workflow progress" })).toBeVisible();
 
   // The agent pauses for approval; the proposed action must be the migration rollback.
@@ -43,6 +44,7 @@ test("operator investigates INC-001, approves the rollback and sees verified rec
 
   await expect(page.getByRole("heading", { name: "RCA Postmortem Report" })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/^Recovered —/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Expand Report" }).click();
   await expect(page.locator(".prose-report")).toContainText("Ranked hypotheses");
   await expect(page.locator(".prose-report")).toContainText(/migration/i);
   await page.screenshot({ path: "test-results/completed.png", fullPage: true });

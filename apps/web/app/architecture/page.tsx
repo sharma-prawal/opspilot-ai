@@ -1202,11 +1202,12 @@ export default function ArchitectureExplorerPage() {
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       const data = node.data as unknown as CustomNodeData;
+      setEdges(current => current.map(edge => ({ ...edge, style: { ...edge.style, stroke: edge.source === node.id || edge.target === node.id ? "var(--accent)" : "var(--border-strong)", strokeWidth: edge.source === node.id || edge.target === node.id ? 2.5 : 1, opacity: edge.source === node.id || edge.target === node.id ? 1 : 0.35 } })));
       if (data?.detailId && COMPONENT_DETAILS[data.detailId]) {
         setSelectedDetail(COMPONENT_DETAILS[data.detailId]);
       }
     },
-    []
+    [setEdges]
   );
 
   return (
@@ -1214,7 +1215,7 @@ export default function ArchitectureExplorerPage() {
       {/* Page Header */}
       <PageHeader
         title="Interactive Architecture &amp; Workflow Explorer"
-        subtitle="Explore the real components, execution stategraph, RAG retrieval pipeline, and source-agnostic evidence ingestion architecture."
+        subtitle="Select a component to inspect its contracts and trust boundaries."
         actions={
           <div className="flex items-center gap-2">
             <Link href="/integrations">
@@ -1312,7 +1313,7 @@ export default function ArchitectureExplorerPage() {
         <div className="grid gap-6 lg:grid-cols-12">
           {/* React Flow Canvas (8 columns) */}
           <div className="space-y-2 lg:col-span-8">
-            <div className="relative h-[720px] lg:h-[760px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner">
+            <div className="relative h-[510px] lg:h-[600px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner">
               <ReactFlow
                 key={activeDiagram}
                 nodes={nodes}
@@ -1323,7 +1324,7 @@ export default function ArchitectureExplorerPage() {
                 nodeTypes={nodeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.14, maxZoom: 1.15 }}
-                minZoom={0.4}
+                minZoom={0.15}
                 maxZoom={2.0}
               >
                 <Background color="var(--border)" gap={24} size={1} />
@@ -1349,7 +1350,7 @@ export default function ArchitectureExplorerPage() {
                     if (data?.tone === "purple") return "var(--purple)";
                     return "var(--panel-2)";
                   }}
-                  maskColor="rgba(9, 13, 22, 0.75)"
+                  maskColor="rgba(244, 243, 236, 0.65)"
                 />
               </ReactFlow>
             </div>
@@ -1409,6 +1410,7 @@ export default function ArchitectureExplorerPage() {
                     </div>
                   )}
 
+                  <details className="compact-disclosure"><summary>Inputs and outputs</summary><div className="mt-3 space-y-4">
                   <div>
                     <h4 className="font-semibold uppercase tracking-wider text-muted text-[10px]">
                       Inputs &amp; Invariants
@@ -1431,6 +1433,7 @@ export default function ArchitectureExplorerPage() {
                     </ul>
                   </div>
 
+                  </div></details>
                   <div className="rounded-lg border border-warn/30 bg-warn-soft/40 p-3">
                     <h4 className="font-bold uppercase tracking-wider text-warn text-[10px]">
                       Safety &amp; Trust Boundary
@@ -1539,7 +1542,7 @@ export default function ArchitectureExplorerPage() {
       )}
 
       {/* Component Legend */}
-      <Card title="Architecture Status &amp; Protocol Legend">
+      <details className="compact-disclosure"><summary>Architecture status and protocol legend</summary><div className="mt-3">      <Card title="Architecture Status &amp; Protocol Legend">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full bg-emerald-500" />
@@ -1558,7 +1561,7 @@ export default function ArchitectureExplorerPage() {
             <span className="text-text font-medium">Agent Graph / MCP Protocol</span>
           </div>
         </div>
-      </Card>
+      </Card></div></details>
     </div>
   );
 }

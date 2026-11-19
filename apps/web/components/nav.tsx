@@ -48,7 +48,7 @@ export function Nav() {
   const count = pending.data?.length ?? 0;
 
   return (
-    <nav aria-label="Primary" className="flex flex-wrap items-center gap-1">
+    <nav aria-label="Primary" className="primary-nav flex flex-wrap items-center gap-1">
       {LINKS.map((l) => {
         const active =
           l.href === "/"
@@ -69,13 +69,6 @@ export function Nav() {
                 : "text-text-muted hover:bg-panel-2 hover:text-text"
             }`}
           >
-            <span
-              className={`font-mono text-[10px] mr-1.5 ${
-                active ? "text-accent" : "text-muted"
-              }`}
-            >
-              §{l.sec}
-            </span>
             <span>{l.label}</span>
             {l.href === "/approvals" && count > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-warn px-1.5 py-0.2 font-mono text-[10px] font-bold text-white tabular-nums">

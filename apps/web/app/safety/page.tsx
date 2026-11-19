@@ -28,7 +28,8 @@ export default function SafetyPage() {
         }
       />
 
-      {/* Core Philosophy Banner */}
+      <section aria-labelledby="boundary-title"><h2 id="boundary-title" className="mb-4 font-serif-heading text-xl font-bold">Every action crosses an approval boundary.</h2><ol className="boundary-flow" aria-label="Safety enforcement sequence"><li><strong>Model proposal</strong><small>A candidate action, never authorization.</small></li><li><strong>Evidence gates</strong><small>Unsafe or unsupported proposals stop here.</small></li><li><strong>Operator approval</strong><small>Review the exact action and parameters.</small></li><li><strong>Action server</strong><small>Verify the signed, expiring action token. Execute in the simulator.</small></li><li><strong>Fresh verification</strong><small>Check simulator metrics and postconditions. Unknown fails closed.</small></li></ol><p className="mt-3 text-xs text-muted">HMAC signatures authorize individual actions. Recovery is checked against fresh observations; it is not cryptographically certified.</p></section>
+      <details className="compact-disclosure"><summary>Why the model cannot execute directly</summary>
       <div className="rounded-2xl border border-border bg-gradient-to-br from-panel via-panel to-panel-2 p-6 shadow-sm">
         <div className="max-w-3xl space-y-3">
           <div className="flex items-center gap-2">
@@ -51,10 +52,13 @@ export default function SafetyPage() {
         </div>
       </div>
 
+      </details>
+
       {/* Visual Case Studies: Model Suggestion vs Safety Gate Decision */}
+      <details className="compact-disclosure"><summary>Explore documented safety cases · INC-002 / NEG-002</summary><div className="mt-4">
       <Card
         title="Documented Case Studies: The Safety Gate in Action"
-        subtitle="Real examples from the test suite where the LLM makes an unsafe proposal and the safety gate intervenes."
+        subtitle="Illustrations of documented simulator cases; these are not live investigation results."
         actions={
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-panel-2 p-1">
             <button
@@ -91,7 +95,7 @@ export default function SafetyPage() {
               <div className="rounded-xl border border-border bg-panel-2/60 p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
                   <span className="font-mono text-xs font-bold text-purple">
-                    Raw LLM Proposal (recorded trace)
+                    Illustrative proposal from documented scenario
                   </span>
                   <Badge tone="warn">Probabilistic Suggestion</Badge>
                 </div>
@@ -102,7 +106,7 @@ export default function SafetyPage() {
                   <div>rationale: &quot;Expand pool to accommodate spike&quot;</div>
                 </div>
                 <p className="text-xs text-danger leading-relaxed">
-                  <strong>The Danger:</strong> The database maximum connection limit is 100. Across 4 service replicas, setting pool to 80 requires 320 connections. Executing this would cause total database crash, cascading into payment failures!
+                  <strong>The Danger:</strong> The database maximum connection limit is 100. Across 4 service replicas, setting pool to 80 requires 320 connections. Executing this would cause exhaustion of the datastore’s available connections in this documented scenario.
                 </p>
               </div>
 
@@ -137,7 +141,7 @@ export default function SafetyPage() {
               <div className="rounded-xl border border-border bg-panel-2/60 p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
                   <span className="font-mono text-xs font-bold text-purple">
-                    Raw LLM Proposal (recorded trace)
+                    Illustrative proposal from documented scenario
                   </span>
                   <Badge tone="warn">False Correlation</Badge>
                 </div>
@@ -172,7 +176,7 @@ export default function SafetyPage() {
             </div>
           </div>
         )}
-      </Card>
+      </Card>      </div></details>
 
       {/* The 7 Invariant Safety Gates */}
       <Card
@@ -258,13 +262,13 @@ export default function SafetyPage() {
                 <strong className="text-text">Deterministic Parameter Hash:</strong> All action arguments are serialized canonically and hashed via SHA-256. Any modification to parameters invalidates approval.
               </li>
               <li>
-                <strong className="text-text">Single-Use Token:</strong> An ephemeral approval token is minted with an exact 60-second TTL.
+                <strong className="text-text">Single-Use Token:</strong> An HMAC-signed token binds approval to the action ID and parameter hash, with a configured short lifetime.
               </li>
               <li>
                 <strong className="text-text">Independent MCP Check:</strong> The MCP action server does not trust the API runner. It independently connects to PostgreSQL to re-check the token and atomically claim the action before calling the simulator.
               </li>
               <li>
-                <strong className="text-text">Automatic Expiry &amp; Sweeper:</strong> Unapproved actions expire after 60 seconds. A background sweeper marks them <code className="font-mono">approval_expired</code> and resumes the graph into report escalation.
+                <strong className="text-text">Automatic Expiry &amp; Sweeper:</strong> Pending approval requests have a separately configured expiry (one hour by default). A background sweeper marks them <code className="font-mono">approval_expired</code> and resumes the graph into report escalation.
               </li>
             </ul>
           </div>

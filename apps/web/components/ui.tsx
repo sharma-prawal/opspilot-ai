@@ -115,12 +115,12 @@ export function Card({
   suppressHydrationWarning?: boolean;
 }) {
   return (
-    <section id={id} className={`dossier-paper ${className}`}>
+    <section id={id} tabIndex={id ? -1 : undefined} className={`dossier-paper ${className}`}>
       {(title || actions || subtitle) && (
         <header className={`flex flex-wrap items-center justify-between gap-3 border-b border-border bg-panel px-5 py-3.5 ${headerClassName}`}>
           <div>
             {title && <h2 className="font-serif-heading text-base font-bold tracking-tight text-text">{title}</h2>}
-            {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
+            {subtitle && <details className="panel-context"><summary>Context</summary><div className="mt-2 max-w-prose text-xs text-muted">{subtitle}</div></details>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
