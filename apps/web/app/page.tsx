@@ -188,7 +188,7 @@ export default function OverviewPage() {
               Evidence-Grounded Distributed Incident Investigation
             </h2>
             <p className="max-w-2xl text-xs leading-relaxed text-text-muted">
-              OpsPilot AI ingests operational runbooks via dense embeddings and sparse BM25 keyword matching with pgvector hybrid RAG, correlates telemetry and deployment changes across services, formulates cited root-cause hypotheses, and executes verified remediation plans through cryptographic human operator approvals.
+              OpsPilot AI ingests operational runbooks via dense vector embeddings and PostgreSQL full-text search (tsvector, ts_rank_cd) with pgvector hybrid Reciprocal Rank Fusion (RRF), correlates telemetry and deployment changes across services, formulates cited root-cause hypotheses, and executes verified remediation plans through authenticated human operator approvals.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -219,24 +219,24 @@ export default function OverviewPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-[10px] text-muted">OPEN CASES</div>
-                <div className="text-lg font-bold text-text tabular-nums">{openIncidentsCount}</div>
+                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{openIncidentsCount}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">RUNNING THREADS</div>
-                <div className="text-lg font-bold text-info tabular-nums">{runningInvsCount}</div>
+                <div className="text-lg font-bold text-info tabular-nums" suppressHydrationWarning>{runningInvsCount}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">PENDING APPROVALS</div>
-                <div className="text-lg font-bold text-warn tabular-nums">{pendingApprovalsCount}</div>
+                <div className="text-lg font-bold text-warn tabular-nums" suppressHydrationWarning>{pendingApprovalsCount}</div>
               </div>
               <div>
                 <div className="text-[10px] text-muted">KNOWLEDGE CHUNKS</div>
-                <div className="text-lg font-bold text-text tabular-nums">{knowledgeChunksCount}</div>
+                <div className="text-lg font-bold text-text tabular-nums" suppressHydrationWarning>{knowledgeChunksCount}</div>
               </div>
             </div>
             {pendingApprovalsCount > 0 && (
               <div className="rounded border border-warn/40 bg-warn-soft p-2 text-[11px] text-warn font-semibold">
-                ⚠️ Cryptographic operator approval pending for active plan.
+                ⚠️ Authenticated operator approval pending for active plan.
               </div>
             )}
           </div>

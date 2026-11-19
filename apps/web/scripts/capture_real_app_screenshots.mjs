@@ -5,7 +5,8 @@ import { chromium } from "@playwright/test";
 
 const PORT = 3458;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
-const OUT_DIR = path.resolve(process.cwd(), "../../docs/images/redesign");
+const WEB_DIR = path.resolve(import.meta.dirname, "..");
+const OUT_DIR = path.resolve(import.meta.dirname, "../../../docs/images/redesign");
 const ARTIFACT_DIR = "/Users/prawalsharma/.gemini/antigravity/brain/23573cec-f20e-4e56-85f1-f2e2d997c8c1/images";
 
 for (const dir of [OUT_DIR, ARTIFACT_DIR]) {
@@ -272,6 +273,7 @@ const MOCK_EVIDENCE = [
 async function main() {
   console.log("Starting Next.js production server on port", PORT);
   const server = spawn("pnpm", ["next", "start", "-p", String(PORT)], {
+    cwd: WEB_DIR,
     stdio: "inherit",
     env: { ...process.env, PORT: String(PORT) },
   });

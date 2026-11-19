@@ -44,7 +44,7 @@ const COMPONENTS: ArchComponent[] = [
     id: "COMP-03",
     name: "Hybrid pgvector RAG Engine",
     category: "rag",
-    role: "Indexes operational runbooks and past postmortems using dense embeddings + sparse BM25 keyword matching.",
+    role: "Indexes operational runbooks and past postmortems using dense embeddings + PostgreSQL tsvector full-text search.",
     status: "implemented",
     sourcePath: "packages/rag/opspilot_rag/retrieval.py",
     inputs: ["Query Text", "Service Scope"],

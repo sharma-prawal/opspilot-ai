@@ -100,7 +100,7 @@ export default function ConceptAGuidePage() {
                   <span className="exhibit-tag">MODE 01</span>
                   <h4 className="mt-2 font-serif-heading font-bold text-[#16191D]">Simulator &amp; Sandboxed HITL</h4>
                   <p className="mt-1 text-[#4A525D]">
-                    Six built-in failure scenarios. Evaluates full loop: triage, multi-hypothesis formulation, safety gates, cryptographic approval, and containerized remediation execution.
+                    Six built-in failure scenarios. Evaluates full loop: triage, multi-hypothesis formulation, safety gates, authenticated operator approval, and containerized remediation execution.
                   </p>
                 </div>
                 <div className="rounded border border-[#E2DFD5] bg-[#FBFBF8] p-4 text-xs">

@@ -61,6 +61,7 @@ export function Nav() {
           <Link
             key={l.href}
             href={l.href}
+            aria-label={l.label}
             aria-current={active ? "page" : undefined}
             className={`group relative rounded-[4px] px-2.5 py-1.5 text-xs font-medium transition-all ${
               active

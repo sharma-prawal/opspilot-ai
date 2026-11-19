@@ -141,7 +141,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     id: "browser-ui",
     name: "Operator UI (Next.js 16)",
     category: "Presentation Layer",
-    role: "Single-pane-of-glass operations console for human SRE operators. Renders incident summaries, live investigation progress, root-cause hypotheses, and cryptographic remediation approval prompts.",
+    role: "Single-pane-of-glass operations console for human SRE operators. Renders incident summaries, live investigation progress, root-cause hypotheses, and authenticated remediation approval prompts.",
     sourcePath: "apps/web",
     inputs: ["Operator credentials (passphrase)", "Approval/Rejection decisions", "Scenario simulation triggers"],
     outputs: ["Authenticated browser session", "CSRF-protected mutation requests"],

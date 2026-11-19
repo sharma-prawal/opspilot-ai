@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "OpsPilot AI — Incident Forensics Workbench",
   description:
-    "Evidence-grounded autonomous incident investigation with deterministic safety gates, hybrid pgvector RAG, and cryptographic human-in-the-loop approvals.",
+    "Evidence-grounded autonomous incident investigation with deterministic safety gates, PostgreSQL tsvector and pgvector hybrid RAG, and authenticated human-in-the-loop approvals.",
 };
 
 export default function RootLayout({

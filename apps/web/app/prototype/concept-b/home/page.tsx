@@ -22,7 +22,7 @@ export default function ConceptBHomePage() {
               MISSION CONTROL // INCIDENT FLIGHT DECK
             </h2>
             <p className="max-w-2xl text-xs text-[#8B97A8] leading-relaxed">
-              Continuous operational telemetry recording, automated failure anomaly attribution, and cryptographic human authorization for high-stakes distributed systems.
+              Continuous operational telemetry recording, automated failure anomaly attribution, and authenticated human authorization for high-stakes distributed systems.
             </p>
           </div>
 
@@ -139,7 +139,7 @@ export default function ConceptBHomePage() {
                 service: "settlement-worker",
                 status: "MULTI-STEP HITL",
                 tone: "green",
-                summary: "Poison messages flood Dead-Letter Queue due to schema drift. 4-step remediation executed with step-by-step cryptographic approval.",
+                summary: "Poison messages flood Dead-Letter Queue due to schema drift. 4-step remediation executed with step-by-step authenticated approval.",
                 resolution: "Pause → Rollback → Quarantine → Resume",
               },
               {
@@ -299,7 +299,7 @@ export default function ConceptBHomePage() {
             <span className="text-[10px] font-bold text-[#10B981]">[CH-04: ACTUATOR]</span>
             <h4 className="mt-1 font-bold text-white">Human-Signed Dispatch</h4>
             <p className="mt-1.5 text-[11px] text-[#8B97A8] leading-relaxed">
-              Requires valid cryptographic operator token. Multi-step plans execute inside sandboxed container scopes.
+              Requires valid authenticated operator token. Multi-step plans execute inside sandboxed container scopes.
             </p>
           </div>
         </div>

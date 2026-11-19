@@ -22,7 +22,7 @@ export default function ConceptAHomePage() {
               Evidence-grounded root-cause forensics for distributed infrastructure.
             </h2>
             <p className="max-w-2xl text-base leading-relaxed text-[#4A525D]">
-              OpsPilot functions like an independent forensics laboratory. Rather than hallucinating or executing unconstrained bash scripts, the AI agent ingests verifiable telemetry exhibits, cross-examines competing failure hypotheses against approved runbooks, and submits deterministic remediation plans to cryptographic human authorization.
+              OpsPilot functions like an independent forensics laboratory. Rather than hallucinating or executing unconstrained bash scripts, the AI agent ingests verifiable telemetry exhibits, cross-examines competing failure hypotheses against approved runbooks, and submits deterministic remediation plans to authenticated human authorization.
             </p>
           </div>
 
@@ -123,7 +123,7 @@ export default function ConceptAHomePage() {
                 service: "settlement-worker",
                 tag: "Multi-Step HITL",
                 tagTone: "emerald",
-                summary: "Poison messages flood Dead-Letter Queue. Agent formulates 4-step plan with cryptographic human approval for each stage.",
+                summary: "Poison messages flood Dead-Letter Queue. Agent formulates 4-step plan with authenticated human approval for each stage.",
                 remediation: "Pause → Rollback → Quarantine → Resume",
               },
               {

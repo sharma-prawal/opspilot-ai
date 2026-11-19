@@ -47,7 +47,11 @@ export function ModelName({ kind = "llm", className }: { kind?: "llm" | "embeddi
   const m = useActiveModels();
   const value = kind === "llm" ? m.llm : m.embedding;
   return (
-    <code className={className ?? "font-mono text-accent"} title={kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL"}>
+    <code
+      suppressHydrationWarning
+      className={className ?? "font-mono text-accent"}
+      title={kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL"}
+    >
       {value ?? (kind === "llm" ? "LLM_MODEL" : "EMBEDDING_MODEL")}
     </code>
   );

@@ -38,7 +38,7 @@ export default function GuidePage() {
               <strong className="text-text">Deterministic Safety Gates:</strong> Hard Python rules evaluate every AI remediation proposal against impact, correlation, ambiguity, and capacity constraints before any action can be presented to an operator.
             </li>
             <li>
-              <strong className="text-text">Human-in-the-Loop (HITL):</strong> Every state-changing action requires an authenticated operator decision. Approvals mint single-use, 60-second cryptographic tokens independently verified by the MCP action server.
+              <strong className="text-text">Human-in-the-Loop (HITL):</strong> Every state-changing action requires an authenticated operator decision. Approvals mint single-use, 60-second HMAC-signed tokens independently verified by the MCP action server.
             </li>
             <li>
               <strong className="text-text">Affirmative Recovery Verification:</strong> Incidents are never marked resolved or mitigated unless post-action telemetry confirms all recovery thresholds have returned to baseline.

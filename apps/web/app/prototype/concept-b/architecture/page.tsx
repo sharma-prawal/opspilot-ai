@@ -46,7 +46,7 @@ const SUBSYSTEMS: Subsystem[] = [
     busType: "HYBRID_STORAGE",
     status: "ONLINE",
     file: "packages/rag/opspilot_rag/retrieval.py",
-    role: "Dense vector search (1024 dims) + BM25 keyword matching for runbooks and postmortems.",
+    role: "Dense vector search (1024 dims) + PostgreSQL tsvector full-text search for runbooks and postmortems.",
     inputs: ["Diagnostic Query String", "Service Filter"],
     outputs: ["Ranked Runbook Chunks with Source Line Offsets"],
     safetyBoundary: "Read-only database roles; excludes draft or superseded runbook revisions.",

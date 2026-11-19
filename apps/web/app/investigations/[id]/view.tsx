@@ -107,12 +107,17 @@ function SynchronizedTimeRibbon({
   onSelectEvent?: (eventId: number) => void;
   selectedEventId?: number | null;
 }) {
-  const startTimeMs = startedAt ? new Date(startedAt).getTime() : 0;
+  const startTimeMs = startedAt
+    ? new Date(startedAt).getTime()
+    : events[0]?.created_at
+    ? new Date(events[0].created_at).getTime()
+    : 0;
 
-  // Format delta offset e.g. "T+00:00", "T+00:24"
+  // Format delta offset e.g. "T+00:00", "T+00:24" — never fabricates timestamps
   const getOffset = (created: string) => {
-    if (!startTimeMs) return "T+00:00";
+    if (!startTimeMs || !created) return "—";
     const curMs = new Date(created).getTime();
+    if (isNaN(curMs) || isNaN(startTimeMs)) return "—";
     const diffSec = Math.max(0, Math.round((curMs - startTimeMs) / 1000));
     const m = Math.floor(diffSec / 60);
     const s = diffSec % 60;
@@ -135,33 +140,39 @@ function SynchronizedTimeRibbon({
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-thin">
-        {keyEvents.slice(-7).map((ev) => {
-          const isSelected = selectedEventId === ev.id;
-          const isApproval = ev.event_type === "approval_requested";
-          const isDone = ev.node === "verify_recovery" || ev.event_type === "workflow_completed";
-          const offset = getOffset(ev.created_at);
+        {keyEvents.length === 0 ? (
+          <span className="text-muted text-xs italic py-1 font-mono">
+            Awaiting agent execution events…
+          </span>
+        ) : (
+          keyEvents.slice(-7).map((ev) => {
+            const isSelected = selectedEventId === ev.id;
+            const isApproval = ev.event_type === "approval_requested";
+            const isDone = ev.node === "verify_recovery" || ev.event_type === "workflow_completed";
+            const offset = getOffset(ev.created_at);
 
-          return (
-            <button
-              key={ev.id}
-              onClick={() => onSelectEvent?.(ev.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-[3px] border px-2.5 py-1 text-left font-mono text-xs transition-all cursor-pointer ${
-                isSelected
-                  ? "border-accent bg-accent-soft text-accent ring-1 ring-accent"
-                  : isApproval
-                  ? "border-warn/60 bg-warn-soft/40 text-warn"
-                  : isDone
-                  ? "border-success/60 bg-success-soft/30 text-success"
-                  : "border-border bg-panel-2 hover:bg-panel text-text"
-              }`}
-            >
-              <span className="font-bold tabular-nums text-[11px] text-muted">{offset}</span>
-              <span className="font-semibold text-text truncate max-w-[140px]">
-                {ev.node ? humanize(ev.node) : humanize(ev.event_type)}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={ev.id}
+                onClick={() => onSelectEvent?.(ev.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-[3px] border px-2.5 py-1 text-left font-mono text-xs transition-all cursor-pointer ${
+                  isSelected
+                    ? "border-accent bg-accent-soft text-accent ring-1 ring-accent"
+                    : isApproval
+                    ? "border-warn/60 bg-warn-soft/40 text-warn"
+                    : isDone
+                    ? "border-success/60 bg-success-soft/30 text-success"
+                    : "border-border bg-panel-2 hover:bg-panel text-text"
+                }`}
+              >
+                <span className="font-bold tabular-nums text-[11px] text-muted">{offset}</span>
+                <span className="font-semibold text-text truncate max-w-[140px]">
+                  {ev.node ? humanize(ev.node) : humanize(ev.event_type)}
+                </span>
+              </button>
+            );
+          })
+        )}
       </div>
     </div>
   );
@@ -459,6 +470,17 @@ function EvidenceList({
                     </code>
                   </div>
                 )}
+
+                {isSelected && e.data && (
+                  <div className="mt-3 rounded border border-border bg-panel-2 p-3 font-mono text-[11px]">
+                    <div className="mb-1 font-bold text-text-muted uppercase text-[10px]">
+                      Underlying Forensic Payload
+                    </div>
+                    <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-text">
+                      {JSON.stringify(e.data, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             );
           })
@@ -474,6 +496,11 @@ function EvidenceList({
 
 export function InvestigationView() {
   const { id } = useParams<{ id: string }>();
+  // Keying by id guarantees that switching investigations completely resets all local state
+  return <InvestigationWorkspace key={id} id={id} />;
+}
+
+function InvestigationWorkspace({ id }: { id: string }) {
   const qc = useQueryClient();
 
   const inv = useQuery({
@@ -622,8 +649,9 @@ export function InvestigationView() {
                     <Link
                       className="text-accent hover:underline font-semibold"
                       href={`/incidents/${v.incident_id}`}
+                      aria-label="incident view"
                     >
-                      Incident Record →
+                      incident view
                     </Link>
                   </>
                 )}
@@ -661,6 +689,21 @@ export function InvestigationView() {
 
       <ErrorNote error={inv.error ?? resume.error ?? cancel.error} />
 
+      {v?.error && (
+        <div
+          role="alert"
+          className="dossier-paper border-l-4 border-l-danger p-4 text-xs font-mono text-danger"
+        >
+          <div className="flex items-center gap-2 font-bold">
+            <span className="stamp-blocked">INVESTIGATION FAILED</span>
+            <span>{v.error_class ?? "ExecutionError"}</span>
+          </div>
+          <p className="mt-1 font-sans text-text-muted leading-relaxed">
+            {v.error}
+          </p>
+        </div>
+      )}
+
       {/* Synchronized Incident Timeline / Time-Scrubber Ribbon */}
       <SynchronizedTimeRibbon
         startedAt={v?.started_at}
@@ -680,7 +723,7 @@ export function InvestigationView() {
             <span>Connected Loki / Prometheus Telemetry Snapshot</span>
           </div>
           <p className="mt-1 font-sans text-text-muted leading-relaxed">
-            Telemetry is captured from the allowlisted query snapshot (connector tool server{" "}
+            <strong>Read-only analysis of connected telemetry.</strong> Telemetry is captured from the allowlisted query snapshot (connector tool server{" "}
             <code>opspilot-connected-telemetry</code>); runbooks are indexed from pgvector. Remediation steps are provided as advisory suggestions only. Real infrastructure actions are disabled.
           </p>
         </div>
@@ -692,7 +735,7 @@ export function InvestigationView() {
             <span>Uploaded Artifacts &amp; Trace Analysis</span>
           </div>
           <p className="mt-1 font-sans text-text-muted leading-relaxed">
-            Evidence is ingested from uploaded diagnostic files (tool server <code>opspilot-uploaded-evidence</code>). Remediation is published as advisory guidance only. No mutating commands are executed.
+            <strong>Read-only analysis of uploaded evidence.</strong> Evidence is ingested from uploaded diagnostic files (tool server <code>opspilot-uploaded-evidence</code>). Remediation is published as advisory guidance only. No mutating commands are executed.
           </p>
         </div>
       )}
@@ -837,7 +880,7 @@ export function InvestigationView() {
             {/* Root Cause Hypotheses Dossier */}
             <Card
               title="Root Cause Hypotheses"
-              subtitle="Evidence-grounded hypothesis ranking (model-estimated confidence, uncalibrated probability)"
+              subtitle="Evidence-grounded hypothesis ranking (model-estimated confidence, not a calibrated statistical probability)"
               actions={
                 v?.result?.classification && (
                   <span className="font-mono text-xs text-muted">
@@ -893,7 +936,7 @@ export function InvestigationView() {
                           {/* Interactive Evidence Citation Coordinates */}
                           <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-2.5 text-[11px] text-muted">
                             <span className="font-bold text-text-muted">
-                              Supporting exhibits:
+                              Supporting evidence:
                             </span>
                             {h.supporting_evidence_ids.map((eid) => (
                               <button
