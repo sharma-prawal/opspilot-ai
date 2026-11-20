@@ -17,6 +17,7 @@ import pytest
 
 from opspilot_shared.config import Settings
 from opspilot_shared.connectors.azure_monitor import (
+    EMPTY_NOTE,
     FIXTURE_TOKEN,
     PUBLIC_API,
     SCOPE,
@@ -543,6 +544,29 @@ async def test_no_content_and_empty_results_are_empty_not_healthy() -> None:
     c = conn(fake)
     r = await c.fetch(tpl(c, "trace_warnings"), "no-such-service", W)
     assert r.provenance.status == "empty" and not r.logs
+
+
+async def test_empty_answers_are_not_presented_as_absence_while_403_and_partial_stay_explicit() -> None:
+    """v0.10: restricted tables answer with zero rows when data access is missing (documented by Microsoft), so an
+    empty answer is "no accessible matching records", never "no such records exist"."""
+    fake = FakeAzureMonitor()
+    c = conn(fake)
+    r = await c.fetch(tpl(c, "exceptions"), "inventory-service", W)
+    assert r.provenance.status == "empty" and EMPTY_NOTE in r.provenance.issues
+    assert EMPTY_NOTE.startswith("No accessible matching records — access/coverage not independently verified")
+    ok = await c.fetch(tpl(c, "exceptions"), "payment-service", W)
+    assert ok.provenance.status == "ok" and EMPTY_NOTE not in ok.provenance.issues
+    c = conn(fake, azure_monitor_workspace_id=WS["forbidden"])
+    denied = await c.fetch(tpl(c, "exceptions"), "payment-service", W)  # 403 stays an explicit error
+    assert denied.provenance.status == "error" and (denied.provenance.error or {}).get("kind") == "permission_denied"
+    assert EMPTY_NOTE not in denied.provenance.issues
+    c = conn(fake, azure_monitor_workspace_id=WS["partial"])
+    partial = await c.fetch(tpl(c, "trace_warnings"), "payment-service", W)
+    assert partial.provenance.truncated and EMPTY_NOTE not in partial.provenance.issues
+    quiet = conn(fake, azure_monitor_workspace_id=WS["no_content"])
+    st = await quiet.test()
+    quiet_tables = [t for t in (st.tables or {}).values() if t.status == "ok"]
+    assert quiet_tables and all("no accessible records" in t.message for t in quiet_tables)
 
 
 async def test_missing_required_and_extra_columns() -> None:

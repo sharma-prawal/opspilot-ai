@@ -8,7 +8,7 @@ import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/
 import { SeriesChart } from "@/components/visuals";
 import { api } from "@/lib/api";
 import {
-  DEMO_AZURE, DEMO_CONNECTED, DEMO_DATADOG, TABLE_STATE, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint,
+  DEMO_AZURE, DEMO_CONNECTED, DEMO_DATADOG, TABLE_STATE, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, queryStatusLabel,
   signalLabel, signalsOf, templateSignal, utcIso, windowProblem,
 } from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
@@ -479,7 +479,7 @@ export function ConnectedView() {
                             )}</td>
                           <td className="pr-3">
                             <Badge tone={q.status === "ok" ? "success" : q.status === "empty" ? "neutral" : "danger"}>
-                              {q.status === "error" ? q.error?.kind.replace("_", " ") : q.status === "empty" ? "no data" : `${q.returned} records`}
+                              {queryStatusLabel(q)}
                             </Badge>
                             {q.truncated && <Badge tone="warn" className="ml-1">truncated</Badge>}
                           </td>

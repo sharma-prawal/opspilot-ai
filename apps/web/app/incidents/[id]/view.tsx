@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { humanize, utcTime } from "@/lib/format";
+import { queryStatusLabel } from "@/lib/connectors";
 import { formatBytes } from "@/lib/uploads";
 
 export function IncidentView() {
@@ -237,7 +238,7 @@ export function IncidentView() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-mono font-semibold text-text">{q.id}</span>
                           <span className={q.status === "error" ? "text-danger" : "text-muted"}>
-                            {q.status === "error" ? `failed: ${q.error?.kind}` : q.status === "empty" ? "no data" : `${q.returned} records`}
+                            {q.status === "error" ? `failed: ${q.error?.kind}` : queryStatusLabel(q)}
                             {q.truncated ? " · truncated" : ""}
                           </span>
                         </div>

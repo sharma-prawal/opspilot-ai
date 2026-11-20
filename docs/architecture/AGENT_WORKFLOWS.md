@@ -262,7 +262,7 @@ uploads (`is_read_only`, D113):
 - The report banner, provenance table (site, signal, Log Explorer link) and next steps name Datadog.
 - Loki/Prometheus prompt notes and report banners are unchanged.
 
-**Azure Monitor snapshots (v0.10, unreleased, D128–D134)** take the same path as Datadog snapshots:
+**Azure Monitor snapshots (v0.10, unreleased, D128–D136)** take the same path as Datadog snapshots:
 
 - Application Insights requests and dependencies are spans: `OperationId` is the trace, `Id` the span, `ParentId` the
   parent. `get_service_dependencies` reports an edge only when a dependency's child request belongs to another
@@ -276,6 +276,11 @@ uploads (`is_read_only`, D113):
 - For every uploaded or connected incident, a truncated WARN+ log search (300 entries, newest first) marks its log
   patterns `search_truncated` and words their times as "earliest returned"; the report timeline does not call them
   the first error (D134). Simulator incidents are unchanged.
+- Read-only RCAs are annotated, never edited (D135): the report separates observed facts, evidence-supported
+  hypotheses, verified conclusions (none) and unknowns; `claims.py` notes certainty claims, deployment or
+  configuration-change wording that rests on log observations, "ongoing" (end of the evidence window, not live state)
+  and restart suggestions under a configuration hypothesis. Empty Azure queries are *no accessible matching records*
+  (D136).
 
 **Evidence states (all connected snapshots, D125).**
 

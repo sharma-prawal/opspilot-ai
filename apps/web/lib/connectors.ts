@@ -157,6 +157,16 @@ export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "succes
 };
 
 /** User-facing explanation for a failed query, by error kind. */
+/** v0.10: an empty Azure Monitor answer cannot be told apart from data the identity may not read (restricted tables
+ * answer with zero rows), so it is never shown as "no data". */
+export const AZURE_EMPTY_LABEL = "no accessible records";
+
+export function queryStatusLabel(q: Pick<QueryProvenance, "status" | "connector" | "returned" | "error">): string {
+  if (q.status === "error") return q.error?.kind.replace("_", " ") ?? "error";
+  if (q.status === "empty") return q.connector === "azure_monitor" ? AZURE_EMPTY_LABEL : "no data";
+  return `${q.returned} records`;
+}
+
 export function queryErrorHint(q: QueryProvenance): string {
   switch (q.error?.kind) {
     case "auth_error": return "Authentication failed: check the read-only credentials or tenant in the API settings.";

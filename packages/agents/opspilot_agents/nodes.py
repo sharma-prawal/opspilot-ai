@@ -30,7 +30,15 @@ from opspilot_agents.analysis import (
     lexical_overlap_bonus,
     mean,
 )
-from opspilot_agents.claims import CHANGE_TERMS, check_hypotheses, is_change_observation, summary_warnings
+from opspilot_agents.claims import (
+    CHANGE_TERMS,
+    calibrate_hypotheses,
+    calibration_summary_warnings,
+    check_hypotheses,
+    is_change_observation,
+    suggestion_limitations,
+    summary_warnings,
+)
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import (
@@ -1096,6 +1104,7 @@ class InvestigationNodes:
         for i, item in enumerate(hyps, start=1):
             item["rank"] = i
         check_hypotheses(hyps, state)  # v0.9: flag "no change occurred" claims made without change history
+        calibrate_hypotheses(hyps, state)  # v0.10: read-only only: certainty and change-indicator wording
         update: Update = {"llm_calls": [out.record.model_dump(mode="json")]}
         if not hyps:
             return {
@@ -1118,11 +1127,16 @@ class InvestigationNodes:
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
-                **({"evidence_warnings": w} if (w := summary_warnings(value.summary, state)) else {}),
+                **({"evidence_warnings": w} if (w := self._summary_notes(value.summary, state)) else {}),
                 "round": round_no,
                 "model": self.d.chat.model_name,
             },
         }
+
+    @staticmethod
+    def _summary_notes(summary: str, state: State) -> list[str]:
+        """v0.9 negative-change check plus v0.10 read-only calibration notes (claims.py); the summary is kept as is."""
+        return summary_warnings(summary, state) + calibration_summary_warnings(summary, state)
 
     # -- bounded follow-up ----------------------------------------------------------
     async def followup(self, state: State) -> Update:
@@ -1276,7 +1290,11 @@ class InvestigationNodes:
                 "plan_index": 0,
                 "proposed_action": None,
                 "suggested_remediation": [
-                    {k: v for k, v in p.items() if k not in ("action_id", "params_hash")} for p in plan
+                    {
+                        **{k: v for k, v in p.items() if k not in ("action_id", "params_hash")},
+                        **({"limitations": lim} if (lim := suggestion_limitations(p, state)) else {}),
+                    }
+                    for p in plan
                 ],
                 "rejected_proposals": rejected,
             }

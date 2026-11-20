@@ -148,6 +148,8 @@ export interface InvestigationResult {
   rca?: {
     summary: string; hypotheses?: Hypothesis[]; evidence_gaps?: string[]; followups?: string[];
     citation_violations?: string[]; remediation?: Record<string, string | null>; round?: number;
+    evidence_warnings?: string[]; // v0.9/v0.10: deterministic notes on the summary's wording (claims.py)
+    impact?: { state: string; reasons?: string[] };
   };
   proposed_action?: ProposedAction | null;
   approval?: { decision: string; decided_by: string; comment?: string; decided_at: string } | null;
@@ -156,7 +158,7 @@ export interface InvestigationResult {
   rejected_proposals?: { proposal: Record<string, unknown>; reason: string; category?: string | null }[];
   remediation_plan?: (ProposedAction & { step: number; role: string; added_by?: string })[];
   suggested_remediation?: { step: number; action_type: string; parameters: Record<string, string>; rationale: string;
-                            risk: string; role: string }[];
+                            risk: string; role: string; limitations?: string[] }[];
   executions?: { step: number; status: string; message: string; action_type: string }[];
   outcome?: { code: string; summary: string; escalate: boolean; escalate_to?: string | null; reason: string;
               actions_executed: number; steps_planned: number; read_only?: boolean; suggested_steps?: number } | null;

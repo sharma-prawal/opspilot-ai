@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from opspilot_agents.claims import change_history_unread, change_observations
+from opspilot_agents.claims import change_history_unread, change_observations, snapshot_end
 from opspilot_agents.prompts import (
     PROVIDER_NAMES,
     connected_sources,
@@ -253,14 +253,28 @@ def render_report(state: dict[str, Any]) -> str:
             outcome["reason"],
             "",
         ]
+    if uploaded and (rca.get("summary") or hyps):  # v0.10: what kind of statement each part of the report makes
+        lines += _reading_guide(inc)
     if rca.get("summary"):
-        lines += ["## Summary", "", rca["summary"], ""]
+        lines += ["## Summary", ""]
+        if uploaded:
+            lines += ["_Written by the model; the notes below it are deterministic checks of its wording._", ""]
+        lines += [rca["summary"], ""]
         lines += [f"> ⚠ {w}" for w in rca.get("evidence_warnings") or []] + (
             [""] if rca.get("evidence_warnings") else []
         )
         if rca.get("impact"):
             imp = rca["impact"]
-            lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
+            reasons = "; ".join(imp.get("reasons") or [])
+            if uploaded:  # v0.10: the impact describes the collected evidence, not the live system
+                where = "collected snapshot window" if is_connected(inc) else "uploaded evidence"
+                lines += [
+                    f"Impact at the end of the {where} ({_ts(snapshot_end(state))}): **{imp['state']}** — {reasons}. "
+                    "This is not the current live state, which this analysis did not observe.",
+                    "",
+                ]
+            else:
+                lines += [f"Impact at analysis time: **{imp['state']}** — {reasons}.", ""]
     if hyps:
         lines += [
             "## Ranked hypotheses",
@@ -390,6 +404,27 @@ def _cite(e: dict[str, Any]) -> str:
     return f" _(source: {_one_line(str(src), 120)})_" if src else ""
 
 
+AZURE_EMPTY_LABEL = "No accessible matching records — access/coverage not independently verified"
+
+
+def _reading_guide(inc: dict[str, Any]) -> list[str]:
+    """v0.10: read-only reports keep observed facts, hypotheses, verified conclusions and unknowns apart."""
+    source = "collected telemetry snapshot" if is_connected(inc) else "uploaded files"
+    return [
+        "## How to read this report",
+        "",
+        f"- **Observed facts:** the timeline and the evidence lines, each with its source reference in the {source}.",
+        "- **Evidence-supported hypotheses:** the summary and the ranked hypotheses are the model's explanations of "
+        "those facts; confidence is the model's own, uncalibrated estimate.",
+        "- **Verified causal conclusions:** none. A read-only analysis cannot verify a cause or a recovery; nothing "
+        "was executed.",
+        "- **Unknown or unavailable:** listed under "
+        + ("*Evidence coverage* and " if is_connected(inc) else "")
+        + "the next investigation steps; missing evidence is never treated as evidence of absence.",
+        "",
+    ]
+
+
 def _coverage_section(state: dict[str, Any]) -> list[str]:
     """v0.9: what the evidence shows, contradicts, did not find, and could not see (connected snapshots)."""
     inc = state.get("incident") or {}
@@ -397,7 +432,11 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     hyps = (state.get("rca") or {}).get("hypotheses") or []
     observed = change_observations(ev)
     contra = sorted({i for h in hyps for i in h.get("contradicting_evidence_ids") or [] if i in ev})
-    empty = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "empty"]
+    queries = inc.get("telemetry_queries") or []
+    empty = [q["id"] for q in queries if q.get("status") == "empty" and q.get("connector") != "azure_monitor"]
+    # v0.10: Azure answers protected or restricted tables with zero rows when the caller lacks data access, so an empty
+    # Azure query does not show that no such records exist.
+    az_empty = [q["id"] for q in queries if q.get("status") == "empty" and q.get("connector") == "azure_monitor"]
     failed = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "error"]
     unread = change_history_unread(state)
     gaps = [_one_line(e["summary"], 140) for e in ev.values() if e["kind"] == "tool_error"]
@@ -427,9 +466,22 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             else "no change event (version, start-up, configuration line) in the collected logs",
         ),
         ("Contradicting evidence", ", ".join(f"`{i}`" for i in contra) or "none cited by the model"),
-        ("Searched, nothing found", ", ".join(f"`{q}`" for q in empty) or "every query returned records"),
+        (
+            "Searched, nothing found",
+            ", ".join(f"`{q}`" for q in empty) or ("none" if az_empty else "every query returned records"),
+        ),
         ("Not collected / unavailable", "; ".join(not_collected) or "none"),
     ]
+    if az_empty:
+        rows.insert(
+            3,
+            (
+                AZURE_EMPTY_LABEL,
+                ", ".join(f"`{q}`" for q in az_empty)
+                + " (Azure Monitor returns zero rows for restricted tables when data access is missing; this does not "
+                "show that no such records exist)",
+            ),
+        )
     if incomplete or sampled:  # v0.10: partial, truncated or sampled results are evidence, but not complete evidence
         parts = [f"`{q}` returned partial or truncated results" for q in incomplete]
         parts += [
@@ -458,7 +510,10 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
         "|---|---|---|---|---|",
     ]
     for q in queries:
-        res = f"{q.get('status')}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
+        status = q.get("status")
+        if status == "empty" and q.get("connector") == "azure_monitor":
+            status = "no accessible matching records (access not independently verified)"
+        res = f"{status}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
         step = f", step {q['step_seconds']} s" if q.get("step_seconds") else ""
         source = str(q.get("connector_name"))
         if q.get("site"):  # v0.9 Datadog: site and signal; a Log Explorer link when one was built
@@ -633,6 +688,10 @@ def _uploaded_sections(state: dict[str, Any], rca: dict[str, Any], ev: dict[str,
             for p in suggested
         ]
         lines.append("")
+        for p in suggested:  # v0.10: what the step would not address under the leading hypothesis
+            lines += [f"> ⚠ Step {p.get('step')} (`{p['action_type']}`): {w}" for w in p.get("limitations") or []]
+        if any(p.get("limitations") for p in suggested):
+            lines.append("")
     else:
         lines.append(
             f"- No remediation step was supported well enough by the {_evidence_words(state.get('incident'))} "

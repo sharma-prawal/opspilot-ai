@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultWindow, shiftLocal, utcIso, windowProblem } from "./connectors";
+import { AZURE_EMPTY_LABEL, defaultWindow, queryStatusLabel, shiftLocal, utcIso, windowProblem } from "./connectors";
 
 describe("connected telemetry helpers", () => {
   it("reads datetime-local values as UTC", () => {
@@ -79,5 +79,20 @@ describe("v0.10 Azure Monitor helpers", () => {
     expect(connectedService("Billing.Worker")).toBe("billing.worker");
     expect(connectedService("Notification Worker")).toBeNull();
     expect(parseConnectedServices("payment-service, inventory-service").services).toEqual(["payment-service", "inventory-service"]);
+  });
+});
+
+describe("query status labels (v0.10)", () => {
+  const base = { returned: 0, error: null } as const;
+  it("never shows an empty Azure Monitor answer as 'no data'", () => {
+    expect(queryStatusLabel({ ...base, status: "empty", connector: "azure_monitor" })).toBe(AZURE_EMPTY_LABEL);
+    expect(AZURE_EMPTY_LABEL).toBe("no accessible records");
+  });
+  it("keeps the other providers' labels", () => {
+    for (const connector of ["loki", "prometheus", "datadog"] as const)
+      expect(queryStatusLabel({ ...base, status: "empty", connector })).toBe("no data");
+    expect(queryStatusLabel({ status: "ok", connector: "azure_monitor", returned: 3, error: null })).toBe("3 records");
+    expect(queryStatusLabel({ status: "error", connector: "azure_monitor", returned: 0,
+      error: { kind: "permission_denied", message: "" } })).toBe("permission denied");
   });
 });

@@ -116,6 +116,9 @@ test("operator previews Azure telemetry and gets a cited read-only RCA, exports 
   await expect(queries.getByText("azure_monitor/failed_requests/orders-api", { exact: true })).toBeVisible();
   await expect(queries.getByText(/ItemCount-weighted estimates/).first()).toBeVisible();
   await expect(queries.getByText(/absent, never filled with zero/).first()).toBeVisible();
+  // v0.10: an empty Azure answer may be restricted data, so it is never shown as "no data"
+  await expect(queries.getByText("no accessible records").first()).toBeVisible();
+  await expect(queries.getByText(/access\/coverage not independently verified/).first()).toBeVisible();
   await expect(page.getByText(/^azure_monitor\/(trace_warnings|trace_lifecycle|exceptions)\/[a-z-]+:entry \d+$/).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Returned metric series" })).toBeVisible();
   await page.screenshot({ path: "test-results/azure-preview.png", fullPage: true });
@@ -152,6 +155,11 @@ test("operator previews Azure telemetry and gets a cited read-only RCA, exports 
   expect(md).toContain("## Evidence coverage");
   expect(md).toMatch(/\| Observed events \|[^\n]*(version=2\.14\.0|db\.pool\.max_size=5)/);
   expect(md).toContain("its absence is not evidence that nothing changed");
+  expect(md).toContain("## How to read this report");
+  expect(md).toContain("**Verified causal conclusions:** none");
+  expect(md).toMatch(/Impact at the end of the collected snapshot window \(2026-11-16 11:05:00Z\)/);
+  expect(md).not.toContain("Impact at analysis time");
+  expect(md).toContain("| No accessible matching records — access/coverage not independently verified |");
   expect(md).toMatch(/Azure Monitor \(workspace 6f1c2a9e-4b7d-4e2a-9c3b-0a5d7e8f1001, (log|metric|span)/);
   expect(md).toContain("_(source: azure_monitor/");
   expect(md).not.toContain("opspilot-synthetic-fixture-token");

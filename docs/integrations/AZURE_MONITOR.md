@@ -94,8 +94,9 @@ exists, by design). There is no setting that accepts a URL other than the loopba
 1. **Integrations → Azure Monitor → Test connection.** The test (1) obtains a token, (2) runs `print opspilot_probe = 1`
    against the workspace, then (3) runs `<table> | take 1 | project TimeGenerated` over the last day for each of the four
    tables. Results: overall `ok` / `partial` / `auth_error` / `permission_denied` / `rate_limited` / `unavailable` /
-   `error`; per signal; and per table (`present`, `not in workspace`, `access denied`, …). "present; no records in the
-   last 24 h" means the table exists but is quiet.
+   `error`; per signal; and per table (`present`, `not in workspace`, `access denied`, …). "present; no accessible
+   records in the last 24 h" means the table exists and returned no rows to this identity: it may be quiet, or its data
+   may be restricted (see below).
 2. **Incidents → New → Connected telemetry.** Enter the incident, time and window, tick *Azure Monitor*, choose
    templates. **Find services in this window** lists cloud role names.
 3. **Preview returned evidence**: per-query status, provenance, issues (partial, truncated, sampled, empty bins),
@@ -198,7 +199,18 @@ table(s), template ID and label, service, the exact KQL that ran, window, bin si
 - **Change history** is never collected. The RCA prompt and digest say it is unknown; start-up, version and
   configuration lines found by `trace_lifecycle` are *log indicators of a possible change*, not a verified deployment
   history; claims that "nothing changed" are flagged as unsupported (D125).
+- **Empty answers.** Microsoft documents that a query over protected or restricted data succeeds with zero rows when
+  the caller lacks data access. OpsPilot cannot tell that from "no matching telemetry" without Azure Resource Manager
+  or permission lookups, which it does not make. An empty Azure query is therefore reported as **"No accessible
+  matching records — access/coverage not independently verified"** (provenance note, preview badge *no accessible
+  records*, its own *Evidence coverage* row, and the provenance table), never as "nothing found" (D136). HTTP 401/403
+  and `PartialError` keep their explicit handling.
 - **Model confidence** in the report is the model's own uncalibrated estimate.
+- **Claim calibration.** The report keeps observed facts, evidence-supported hypotheses, verified conclusions (none in
+  a read-only analysis) and unknowns apart, and adds deterministic notes when the model states a cause as fact,
+  presents a start-up or configuration log line as a deployment or configuration change, describes the incident as
+  "ongoing" (that is the end of the snapshot window, not the live state), or when a suggested restart would not fix a
+  persisted configuration (D135). The model's text is never edited.
 
 ## Error conditions
 
@@ -217,7 +229,8 @@ table(s), template ID and label, service, the exact KQL that ran, window, bin si
 | HTTP 500 / 503 | `unavailable` (503 retried like 429) |
 | HTTP 3xx | `redirect_refused` (redirects are never followed) |
 | HTTP 200 with `error.code = PartialError` | rows kept, query marked truncated with the partial error |
-| HTTP 204 | `empty` with a note (the workspace has no data) |
+| HTTP 204 | `empty` with a note (the workspace has no data), reported as no accessible matching records |
+| HTTP 200 with zero rows | `empty`, reported as "No accessible matching records — access/coverage not independently verified" |
 | Malformed body, short rows, missing required columns | `invalid_response` or rows rejected and counted |
 | Answer > 5 MiB | `response_too_large` |
 
@@ -281,9 +294,10 @@ Not performed for this release. To verify against your own workspace without cha
 - **Partial distributed traces**: `failed_requests` expands at most 10 operations within the record budget, and
   sampling or missing correlation leaves operations partial.
 - **Protected/restricted tables**: Microsoft documents that queries without access to protected data succeed with no
-  rows; OpsPilot cannot tell that apart from "no data" and reports it as `empty`.
+  rows; OpsPilot cannot tell that apart from "no data", so every empty Azure query is reported as *no accessible
+  matching records* with access/coverage not independently verified, never as proof that no records exist.
 - **Role names** with spaces, `:` or `/` cannot be queried; mixed-case roles are matched case-insensitively.
 - **Service-side limits** (500,000 rows, ~100 MiB, 10 min) are far above OpsPilot's own bounds and never reached.
 
-Decisions: D128–D134 in [DECISIONS.md](../DECISIONS.md). Release notes (draft):
+Decisions: D128–D136 in [DECISIONS.md](../DECISIONS.md). Release notes (draft):
 [V0.10.0_NOTES.md](../releases/V0.10.0_NOTES.md).

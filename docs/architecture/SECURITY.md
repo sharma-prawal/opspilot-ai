@@ -130,7 +130,7 @@ Full detail: [DATADOG.md](../integrations/DATADOG.md#security-controls). Decisio
 
 ## Azure Monitor connector (v0.10, unreleased)
 
-Full detail: [AZURE_MONITOR.md](../integrations/AZURE_MONITOR.md). Decisions D128–D134.
+Full detail: [AZURE_MONITOR.md](../integrations/AZURE_MONITOR.md). Decisions D128–D136.
 
 - **Destination.** Only `POST https://api.loganalytics.azure.com/v1/workspaces/<AZURE_MONITOR_WORKSPACE_ID>/query`
   (Azure public cloud). The workspace ID must be a GUID; names, resource IDs and URLs are refused at start-up. No

@@ -114,6 +114,12 @@ _DEPENDENCY_COLUMNS = (
     "TimeGenerated, Id, ParentId, OperationId, Name, Target, DependencyType, ResultCode, Success, DurationMs, "
     "AppRoleName, AppRoleInstance, AppVersion, ItemCount"
 )
+# Microsoft documents that a query over protected/restricted data succeeds with zero rows when the caller lacks access,
+# so OpsPilot cannot tell "no matching telemetry" from "not visible to this identity" (no ARM or permission lookup).
+EMPTY_NOTE = (
+    "No accessible matching records — access/coverage not independently verified: Azure Monitor answers restricted "
+    "tables with zero rows when data access is missing, so this does not show that no such records exist"
+)
 DISCOVERY_QUERY = (
     "union isfuzzy=true AppRequests, AppDependencies, AppExceptions, AppTraces\n"
     "| summarize records = count() by AppRoleName\n"
@@ -681,7 +687,11 @@ class AzureMonitorConnector(HttpConnector):
             return SignalStatus(status=status, message=msg[:300])  # type: ignore[arg-type]
         if res.rows:
             return SignalStatus(status="ok", message="present; records in the last 24 h")
-        return SignalStatus(status="ok", message="present; no records in the last 24 h")
+        return SignalStatus(
+            status="ok",
+            message="present; no accessible records in the last 24 h (restricted data also reads as empty; access "
+            "not independently verified)",
+        )
 
     async def services(self, window: FetchWindow) -> list[str]:
         return (await self.discover(window))[0]
@@ -760,6 +770,8 @@ class AzureMonitorConnector(HttpConnector):
         prov.duration_ms = round((time.perf_counter() - t0) * 1000, 1)
         prov.returned = len(result.logs) + len(result.metrics) + len(result.spans)
         prov.status = "ok" if prov.returned else "empty"
+        if not prov.returned:
+            prov.issues.append(EMPTY_NOTE)
         return result
 
     @staticmethod

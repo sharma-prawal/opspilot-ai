@@ -765,3 +765,36 @@ Not done (next session, in order):
   - native Azure Monitor resource metrics, sovereign clouds and change history are deferred;
   - `make evaluate` not re-run (the simulator path is unchanged);
   - draft notes `docs/releases/V0.10.0_NOTES.md`; not tagged or published.
+
+## Status — 2026-11-20, v0.10.0 RCA truthfulness corrections (same branch, not pushed)
+
+- Final bounded pass on `e54488b`, requested before release approval. Model output is never edited.
+- **Claim calibration (D135).**
+  - Uploaded and connected reports open with *How to read this report*: observed facts, evidence-supported
+    hypotheses, verified causal conclusions (none in a read-only analysis), unknowns.
+  - `claims.py` adds deterministic notes, in the report and the workbench, when a summary or hypothesis:
+    - states a cause as established;
+    - calls an observed start-up or configuration log line a deployment or configuration change while change
+      history was not collected;
+    - says "ongoing" (anchored to the end of the snapshot window).
+  - The impact line reads "Impact at the end of the collected snapshot window (…) … not the current live state".
+  - A suggested `restart_service` carries a limitation when the leading hypothesis is a configuration problem.
+  - Simulator investigations are not annotated: prompts, outputs and `make evaluate` are unaffected.
+- **Empty Azure results (D136).** An empty Azure query is "No accessible matching records — access/coverage not
+  independently verified" in provenance, the preview and incident badges, its own *Evidence coverage* row and the
+  provenance table; the connection test says "no accessible records". 401/403, `PartialError` and missing tables
+  are unchanged. Loki/Prometheus/Datadog empty results keep their wording.
+- Tests: `tests/unit/test_claim_calibration.py` (16, including real-run phrasings), a connector test (empty vs 403
+  vs `PartialError` vs probe), web `queryStatusLabel` tests, and Azure E2E assertions on the report and preview.
+- Verified (isolated stack, as before):
+  - `make lint` clean (mypy 113 files, import-linter 4/4, ESLint, tsc);
+  - pytest 593 passed / 3 skipped; web 75 passed; `pnpm build` OK;
+  - Playwright with all fixtures: 13 passed, 5 skipped by design; Azure journey re-run after the last change:
+    3 passed, 1 skipped by design; without fixtures: 6 passed, 6 skipped by design;
+  - screenshots in `docs/images/azure/` refreshed.
+- Real-model run (`qwen3.5:9b-q4_K_M`, final RCA): the model's text matched the previous run. The summary's "The
+  root cause is a configuration change" now carries the established-cause, change-indicator and snapshot-window
+  notes; hypotheses 1–2 carry change-indicator notes; the restart suggestion shows its limitation; seven empty Azure
+  queries are listed as no accessible matching records.
+- Still open: live Azure verification; deferred native metrics, sovereign clouds and change history; the
+  calibration is English pattern matching (unrecognized phrasings are not flagged); not tagged or released.
