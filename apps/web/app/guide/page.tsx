@@ -433,15 +433,16 @@ make uploads-purge`}
     {
       number: 12,
       id: "connected-telemetry",
-      title: "12. Investigate with Loki & Prometheus",
-      summary: "Connect read-only Grafana Loki and Prometheus, preview telemetry and run a read-only investigation.",
+      title: "12. Investigate with Loki, Prometheus & Datadog",
+      summary: "Connect read-only Grafana Loki, Prometheus or Datadog, preview telemetry and run a read-only investigation.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
           <p>
             v0.6 adds two optional, read-only connectors: <strong className="text-text">Grafana Loki</strong> for logs and{" "}
             <strong className="text-text">Prometheus</strong> for metrics. They exist only when configured in the API
-            environment, and OpsPilot contacts no other address. Azure Monitor, Datadog, CloudWatch and custom adapters
-            are planned, not implemented.
+            environment, and OpsPilot contacts no other address. v0.9 adds <strong className="text-text">Datadog</strong>{" "}
+            (logs, APM trace metrics and indexed APM spans) through the same templates, snapshot and read-only
+            investigation. Azure Monitor, CloudWatch and custom adapters are planned, not implemented.
           </p>
           <p>First run with the local demo stack (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
           <CodeBlock
@@ -463,7 +464,7 @@ make stop && make dev`}
           />
           <ol className="list-decimal space-y-1 pl-4" start={5}>
             <li>On <Link href="/integrations" className="font-semibold text-accent hover:underline">Integrations</Link>, click <strong className="text-text">Test connection</strong> for each connector: connected, authentication failed, unavailable or not configured.</li>
-            <li>Open <Link href="/incidents/new?source=connected" className="font-semibold text-accent hover:underline">Use Loki / Prometheus</Link> and click <strong className="text-text">Use the local demo incident</strong> (or enter your own service, incident time and window, at most 6 h).</li>
+            <li>Open <Link href="/incidents/new?source=connected" className="font-semibold text-accent hover:underline">Connected telemetry</Link> and click <strong className="text-text">Use the local demo incident</strong> (or enter your own service, incident time and window, at most 6 h).</li>
             <li>Keep or change the ticked <strong className="text-text">query templates</strong> (errors and warnings, start-up/config lines, 5xx ratio, p95 latency, request rate, plus any from your templates file). You never type a query.</li>
             <li><strong className="text-text">Preview returned evidence</strong>: per-query status (ok, no data, auth error, unavailable, rejected, truncated), counts, warnings and sample records with their query source.</li>
             <li><strong className="text-text">Create incident & start analysis</strong> stores the results as a snapshot and starts the investigation with <ModelName />; the report cites queries and entries, lists every query, and downloads as Markdown.</li>
@@ -472,11 +473,20 @@ make stop && make dev`}
           <p>
             <strong className="text-text">Your own telemetry.</strong> For your own backends, set <code className="font-mono">LOKI_URL</code> / <code className="font-mono">PROMETHEUS_URL</code> with read-only credentials in <code className="font-mono">LOKI_BEARER_TOKEN</code> (or <code className="font-mono">LOKI_USERNAME</code> + <code className="font-mono">LOKI_PASSWORD</code>) and the <code className="font-mono">PROMETHEUS_</code> equivalents; https is required for credentials except on loopback. Point <code className="font-mono">LOKI_SERVICE_LABEL</code> / <code className="font-mono">PROMETHEUS_SERVICE_LABEL</code> at the label that holds your service names, and describe your metric names in a templates file (<code className="font-mono">TELEMETRY_TEMPLATES_FILE</code>). Restart the API after every change.
           </p>
+          <p>
+            <strong className="text-text">Datadog.</strong> Set <code className="font-mono">DATADOG_ENABLED=true</code>,{" "}
+            <code className="font-mono">DATADOG_SITE</code> (a documented site such as <code className="font-mono">datadoghq.eu</code>),{" "}
+            <code className="font-mono">DATADOG_API_KEY</code> and <code className="font-mono">DATADOG_APP_KEY</code> (an application
+            key scoped to <code className="font-mono">logs_read_data</code>, <code className="font-mono">timeseries_query</code>,{" "}
+            <code className="font-mono">apm_read</code>) in the API environment only, and restart the API. Test connection reports
+            each product separately. Without an account, <code className="font-mono">make datadog-fixture</code> serves synthetic
+            Datadog responses on 127.0.0.1; see <code className="font-mono">docs/integrations/DATADOG.md</code>.
+          </p>
           <ul className="list-disc space-y-1 pl-4">
             <li><strong className="text-text">Read-only.</strong> No approval, no execution, no claim of verified recovery from historical data. The investigation reads only the stored snapshot.</li>
-            <li><strong className="text-text">Unknown stays unknown.</strong> Change history, traces and live state are not in Loki/Prometheus; failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
-            <li><strong className="text-text">Bounded and safe.</strong> GET-only to fixed query endpoints, no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
-            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported.</li>
+            <li><strong className="text-text">Unknown stays unknown.</strong> Change history and live state are not in the connected telemetry (traces only when Datadog APM spans are collected, and then possibly partial); failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
+            <li><strong className="text-text">Bounded and safe.</strong> GET to fixed read endpoints (Datadog: plus POST to four documented search/query endpoints only), no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
+            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported. Datadog was tested only against the synthetic contract fixture, not a live organization.</li>
           </ul>
           <p>
             Details, all settings and the interface for adding a provider: <code className="font-mono">docs/integrations/CONNECTORS.md</code>.
@@ -540,8 +550,8 @@ make infra-down`}
           <ul className="list-disc pl-4 space-y-1 pt-1">
             <li><strong className="text-text">No Shell or Arbitrary Execution:</strong> Tools do not accept free-form bash commands, arbitrary file paths, or unstructured SQL.</li>
             <li><strong className="text-text">Uploaded Evidence Is Read-Only:</strong> Incidents created from your files are analyzed, never remediated. The parsers cover common shapes, not every log format; check the preview before analyzing.</li>
-            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus connectors (v0.6) only read from the URLs you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
-            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs you configure, if any.</li>
+            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus (v0.6) and Datadog (v0.9) connectors only read from the URLs or Datadog site you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
+            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs and the Datadog site API host you configure, if any.</li>
             <li><strong className="text-text">Shared Operator Passphrase:</strong> The current release uses an environment-configured operator passphrase; multi-tenant enterprise SSO (OIDC/SAML) is scheduled for future milestones.</li>
           </ul>
         </div>

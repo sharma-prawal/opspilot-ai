@@ -1,5 +1,5 @@
-// v0.6: connector routes contact the configured Loki/Prometheus, so they are operator-only and limited to the two
-// implemented connectors; the backend operator token never reaches the browser.
+// v0.6/v0.9: connector routes contact the configured Loki/Prometheus/Datadog, so they are operator-only and limited
+// to the implemented connectors; the backend operator token never reaches the browser.
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/ops/[...path]/route";
@@ -38,6 +38,8 @@ function req(path: string, role: "viewer" | "operator", method = "POST") {
 const ROUTES = [
   "api/v1/connectors/loki/test",
   "api/v1/connectors/prometheus/services",
+  "api/v1/connectors/datadog/test",
+  "api/v1/connectors/datadog/services",
   "api/v1/incidents/connected/preview",
   "api/v1/incidents/connected",
 ];
@@ -58,7 +60,10 @@ describe("BFF connector routes", () => {
   });
 
   it("refuse other connectors and sub-paths", async () => {
-    for (const path of ["api/v1/connectors/datadog/test", "api/v1/connectors/loki/push", "api/v1/connectors/loki/test/x"]) {
+    for (const path of [
+      "api/v1/connectors/splunk/test", "api/v1/connectors/loki/push", "api/v1/connectors/loki/test/x",
+      "api/v1/connectors/datadog/query", "api/v1/connectors/datadog/test/x", "api/v1/connectors/datadog",
+    ]) {
       expect((await POST(req(path, "operator"), ctx(path))).status, path).toBe(404);
     }
     expect(upstream).toHaveLength(0);

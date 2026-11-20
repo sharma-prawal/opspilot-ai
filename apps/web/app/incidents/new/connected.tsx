@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/ui";
+import { SeriesChart } from "@/components/visuals";
 import { api } from "@/lib/api";
-import { DEMO_CONNECTED, STATE_LABEL, defaultWindow, queryErrorHint, utcIso, windowProblem } from "@/lib/connectors";
+import {
+  DEMO_CONNECTED, DEMO_DATADOG, SIGNAL_LABEL, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, signalsOf,
+  templateSignal, utcIso, windowProblem,
+} from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
 import { ModelName } from "@/lib/models";
 import type {
-  ConnectedPreview, ConnectedRequest, ConnectionStatus, ConnectorId, ConnectorInfo, NormalizedRecord,
+  ConnectedPreview, ConnectedRequest, ConnectionStatus, ConnectorId, ConnectorInfo, NormalizedRecord, TelemetrySignal,
 } from "@/lib/types";
-import { normalizeService, parseServices } from "@/lib/uploads";
 import { SourceTabs } from "./tabs";
 
 const input =
@@ -31,8 +34,18 @@ function Field({ label, hint, children, htmlFor }: { label: string; hint?: strin
 function recordText(r: NormalizedRecord): string {
   if (r.message !== undefined) return `${r.level ?? ""}${r.level_inferred ? " (inferred)" : ""} ${r.message}`;
   if (r.metric !== undefined) return `${r.metric} = ${Number(r.value).toPrecision(4)}${r.unit ? ` ${r.unit}` : ""}`;
+  if (r.trace_id !== undefined && r.name !== undefined) {
+    const dur = typeof r.duration_ms === "number" ? ` · ${Math.round(r.duration_ms)} ms` : "";
+    const parent = r.parent_span_id ? "" : " · root";
+    const partial = r.attributes?.parent_missing ? " · parent not in snapshot (partial trace)" : "";
+    return `${r.status === "error" ? "ERROR " : ""}${r.name}${dur}${parent}${partial}${r.status_message ? ` — ${r.status_message}` : ""}`;
+  }
   return "";
 }
+
+const TABS: { key: TelemetrySignal; label: string }[] = [
+  { key: "log", label: "Logs" }, { key: "metric", label: "Metrics" }, { key: "span", label: "Spans" },
+];
 
 function ConnectorCard({
   c, enabled, onEnabled, chosen, onChosen, status, onTest, testing,
@@ -41,6 +54,8 @@ function ConnectorCard({
   status: ConnectionStatus | undefined; onTest: () => void; testing: boolean;
 }) {
   const state = status ? STATE_LABEL[status.status] : null;
+  const signals = signalsOf(c);
+  const groups = signals.map((sig) => ({ sig, items: (c.templates ?? []).filter((t) => templateSignal(t) === sig) }));
   return (
     <div className={`rounded-xl border p-4 ${enabled ? "border-accent/50 bg-accent-soft/10" : "border-border bg-panel-2/30"}`}>
       <div className="flex flex-wrap items-center gap-2">
@@ -49,7 +64,8 @@ function ConnectorCard({
             aria-label={`Use ${c.name}`} />
           {c.name}
         </label>
-        <Badge>{c.signal === "log" ? "logs" : "metrics"}</Badge>
+        {signals.map((sig) => <Badge key={sig}>{SIGNAL_LABEL[sig].toLowerCase()}</Badge>)}
+        {c.fixture && <Badge tone="warn" className="text-[10px]">synthetic fixture</Badge>}
         {!c.configured ? (
           <Badge tone="neutral">Not configured</Badge>
         ) : state ? (
@@ -71,17 +87,34 @@ function ConnectorCard({
       ) : (
         <>
           <p className="mt-1 text-[11px] text-muted">
-            <span className="font-mono">{c.endpoint}</span> · auth: {c.auth}
-            {c.tenant ? <> · tenant <span className="font-mono">{c.tenant}</span></> : null} · service label{" "}
-            <span className="font-mono">{c.service_label}</span>
+            <span className="font-mono">{c.endpoint}</span>{c.site ? <> · site <span className="font-mono">{c.site}</span></> : null}
+            {" "}· auth: {c.auth}
+            {c.tenant ? <> · tenant <span className="font-mono">{c.tenant}</span></> : null} · service {c.site ? "tag" : "label"}{" "}
+            <span className="font-mono">{c.service_label}</span>{c.env ? <> · env <span className="font-mono">{c.env}</span></> : null}
           </p>
           {status && status.status !== "ok" && (
-            <p role="alert" className="mt-2 text-xs text-danger">{status.message}</p>
+            <p role="alert" className={`mt-2 text-xs ${status.status === "partial" ? "text-warn" : "text-danger"}`}>{status.message}</p>
           )}
           {status?.status === "ok" && <p className="mt-2 text-xs text-success">{status.message}{status.latency_ms ? ` · ${status.latency_ms} ms` : ""}</p>}
+          {status?.signals && (
+            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`${c.name} signal availability`}>
+              {Object.entries(status.signals).map(([sig, st]) => st && (
+                <li key={sig} title={st.message}>
+                  <Badge tone={SIGNAL_STATE[st.status].tone}>{SIGNAL_LABEL[sig as TelemetrySignal]}: {SIGNAL_STATE[st.status].label}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
           <fieldset className="mt-3 space-y-1.5" disabled={!enabled}>
             <legend className="text-[11px] font-semibold uppercase tracking-wider text-muted">Approved query templates</legend>
-            {(c.templates ?? []).map((t) => (
+            {groups.map(({ sig, items }) => (
+              <div key={sig} className="space-y-1.5">
+                {groups.length > 1 && (
+                  <p className="pt-1 text-[11px] font-semibold text-text-muted">
+                    {SIGNAL_LABEL[sig]}{c.permissions?.[sig] ? <span className="font-normal text-muted"> · needs <span className="font-mono">{c.permissions[sig]}</span></span> : null}
+                  </p>
+                )}
+            {items.map((t) => (
               <label key={t.id} className="flex items-start gap-2 text-xs">
                 <input type="checkbox" className="mt-0.5" checked={chosen.includes(t.id)}
                   onChange={(e) => onChosen(e.target.checked ? [...chosen, t.id] : chosen.filter((x) => x !== t.id))} />
@@ -93,6 +126,8 @@ function ConnectorCard({
                   <code className="block break-all font-mono text-[10px] text-text-muted" title="The service selector is filled in per service">{t.query}</code>
                 </span>
               </label>
+            ))}
+              </div>
             ))}
           </fieldset>
         </>
@@ -118,7 +153,7 @@ export function ConnectedView() {
   const [chosen, setChosen] = useState<Partial<Record<ConnectorId, string[]>>>({});
   const [statuses, setStatuses] = useState<Partial<Record<ConnectorId, ConnectionStatus>>>({});
   const [preview, setPreview] = useState<ConnectedPreview | null>(null);
-  const [tab, setTab] = useState<"log" | "metric">("log");
+  const [tab, setTab] = useState<TelemetrySignal>("log");
   const [stage, setStage] = useState<"idle" | "creating" | "starting">("idle");
 
   const list = connectors.data?.connectors ?? [];
@@ -126,8 +161,8 @@ export function ConnectedView() {
   const maxHours = configured[0]?.limits?.max_window_hours ?? 6;
   const isOn = (c: ConnectorInfo) => c.configured && (enabled[c.id] ?? true);
   const templatesOf = (c: ConnectorInfo) => chosen[c.id] ?? (c.templates ?? []).filter((t) => t.default).map((t) => t.id);
-  const primary = normalizeService(service);
-  const others = parseServices(affected);
+  const primary = connectedService(service);
+  const others = parseConnectedServices(affected);
   const invalidate = () => setPreview(null);
 
   const problems: string[] = [];
@@ -168,7 +203,7 @@ export function ConnectedView() {
 
   const previewM = useMutation({
     mutationFn: () => api.connectedPreview(body()),
-    onSuccess: (p) => { setPreview(p); setTab(p.summary.records.log ? "log" : "metric"); },
+    onSuccess: (p) => { setPreview(p); setTab(p.summary.records.log ? "log" : p.summary.records.metric ? "metric" : "span"); },
   });
 
   const create = useMutation({
@@ -198,14 +233,18 @@ export function ConnectedView() {
     invalidate();
   }
 
-  function loadDemo() {
-    setTitle(DEMO_CONNECTED.title);
-    setDescription(DEMO_CONNECTED.description);
-    setService(DEMO_CONNECTED.service);
-    setAffected(DEMO_CONNECTED.affected);
-    setSeverity(DEMO_CONNECTED.severity);
-    setIncidentTime(DEMO_CONNECTED.time);
+  function loadDemo(demo: typeof DEMO_CONNECTED = DEMO_CONNECTED) {
+    setTitle(demo.title);
+    setDescription(demo.description);
+    setService(demo.service);
+    setAffected(demo.affected);
+    setSeverity(demo.severity);
+    setIncidentTime(demo.time);
   }
+  // The local demo incidents only exist in the local test setups: Loki/Prometheus (`make telemetry-up`) and the
+  // synthetic Datadog fixture (DATADOG_LOCAL_API_URL). Never offered against a real Datadog site.
+  const ddFixture = configured.some((c) => c.id === "datadog" && c.fixture);
+  const v06Demo = configured.some((c) => c.id !== "datadog");
 
   const busy = previewM.isPending || create.isPending;
   const samples = preview?.samples[tab] ?? [];
@@ -224,8 +263,8 @@ export function ConnectedView() {
         badge={<Badge tone="cyan">Connected telemetry</Badge>}
         subtitle={
           <span>
-            Query your configured Grafana Loki and Prometheus for one incident window with approved templates, check
-            what came back, then investigate with the local model{" "}
+            Query your configured Grafana Loki, Prometheus or Datadog for one incident window with approved templates,
+            check what came back, then investigate with the local model{" "}
             <ModelName kind="llm" className="font-mono text-xs text-text" /> — read-only: it suggests
             remediation but never executes it.
           </span>
@@ -254,16 +293,23 @@ export function ConnectedView() {
               </div>
             }
           >
-            <strong className="text-text">No connector is configured.</strong> Set <code className="font-mono">LOKI_URL</code>{" "}
-            and/or <code className="font-mono">PROMETHEUS_URL</code> in the API environment (see .env.example) and restart
-            the API. For a local test setup with synthetic data run <code className="font-mono">make telemetry-up</code>.
+            <strong className="text-text">No connector is configured.</strong> Set <code className="font-mono">LOKI_URL</code>,{" "}
+            <code className="font-mono">PROMETHEUS_URL</code> and/or <code className="font-mono">DATADOG_ENABLED</code> with
+            the Datadog site and keys in the API environment (see .env.example) and restart the API. For local test setups
+            with synthetic data run <code className="font-mono">make telemetry-up</code> or{" "}
+            <code className="font-mono">make datadog-fixture</code>.
           </Empty>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <Card title="1. Incident and window" subtitle="Times are UTC. The agent treats this text as data, not instructions."
-              actions={<Button size="sm" variant="secondary" onClick={loadDemo}>Use the local demo incident</Button>}>
+              actions={
+                <div className="flex max-w-[16rem] flex-wrap justify-end gap-2 sm:max-w-none">
+                  {v06Demo && <Button size="sm" variant="secondary" onClick={() => loadDemo()}>Use the local demo incident</Button>}
+                  {ddFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_DATADOG)}>Use the Datadog fixture incident</Button>}
+                </div>
+              }>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Field label="Title" htmlFor="cn-title">
@@ -277,7 +323,7 @@ export function ConnectedView() {
                       onChange={(e) => { setDescription(e.target.value); invalidate(); }} />
                   </Field>
                 </div>
-                <Field label="Affected service" htmlFor="cn-svc" hint="Value of the connector's service label.">
+                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; '.' and '_' allowed). Loki/Prometheus: slugs only.">
                   <input id="cn-svc" className={input} value={service} placeholder="checkout-api" list="cn-services"
                     aria-invalid={!!service && !primary} onChange={(e) => { setService(e.target.value); invalidate(); }} />
                 </Field>
@@ -320,6 +366,9 @@ export function ConnectedView() {
                 {discover.data?.filter((d) => d.error).map((d) => (
                   <span key={d.connector} className="text-danger">{d.connector}: {d.error?.message}</span>
                 ))}
+                {discover.data?.flatMap((d) => (d.notes ?? []).map((n) => (
+                  <span key={`${d.connector}-${n}`} className="w-full text-muted">{d.connector}: {n}</span>
+                )))}
               </div>
               <div className="mt-2"><ErrorNote error={discover.error} /></div>
             </Card>
@@ -357,10 +406,11 @@ export function ConnectedView() {
                       : "The queries succeeded but returned no data for this window and these services. Check the window and the service name."}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className={`grid grid-cols-2 gap-3 ${preview.collected.span ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
                   {[
                     ["Log lines", preview.summary.records.log],
                     ["Metric points", preview.summary.records.metric],
+                    ...(preview.collected.span ? [["Spans", preview.summary.records.span ?? 0]] : []),
                     ["Queries", preview.queries.length],
                     ["Failed queries", failed.length],
                   ].map(([k, v]) => (
@@ -375,6 +425,12 @@ export function ConnectedView() {
                   <dd className="font-mono text-text">{preview.collected.log.join(", ") || "— (unknown)"}</dd>
                   <dt className="text-muted">Metrics collected for</dt>
                   <dd className="font-mono text-text">{preview.collected.metric.join(", ") || "— (unknown)"}</dd>
+                  {preview.collected.span && (
+                    <>
+                      <dt className="text-muted">Spans collected for</dt>
+                      <dd className="font-mono text-text">{preview.collected.span.join(", ") || "— (unknown)"}</dd>
+                    </>
+                  )}
                   <dt className="text-muted">Time range</dt>
                   <dd className="text-text">{utcTime(preview.summary.start)} → {utcTime(preview.summary.end)}</dd>
                   <dt className="text-muted">Redacted</dt>
@@ -395,14 +451,17 @@ export function ConnectedView() {
                       {preview.queries.map((q) => (
                         <tr key={q.id} className="align-top">
                           <td className="py-2 pr-3"><span className="font-mono text-text">{q.id}</span>
-                            <code className="mt-0.5 block max-w-sm break-all font-mono text-[10px] text-muted">{q.query}</code></td>
+                            <code className="mt-0.5 block max-w-sm break-all font-mono text-[10px] text-muted">{q.query}</code>
+                            {q.link?.startsWith("https://") && (
+                              <a href={q.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent hover:underline">Open in Datadog ↗</a>
+                            )}</td>
                           <td className="pr-3">
                             <Badge tone={q.status === "ok" ? "success" : q.status === "empty" ? "neutral" : "danger"}>
                               {q.status === "error" ? q.error?.kind.replace("_", " ") : q.status === "empty" ? "no data" : `${q.returned} records`}
                             </Badge>
                             {q.truncated && <Badge tone="warn" className="ml-1">truncated</Badge>}
                           </td>
-                          <td className="pr-3 text-text-muted">{q.step_seconds ? `step ${q.step_seconds} s` : `limit ${q.limit}`} · {Math.round(q.duration_ms)} ms</td>
+                          <td className="pr-3 text-text-muted">{q.step_seconds ? `step ${q.step_seconds} s` : `limit ${q.limit}`}{q.pages ? ` · ${q.pages} page(s)` : ""} · {Math.round(q.duration_ms)} ms</td>
                           <td className="text-text-muted">{q.status === "error" ? <span className="text-danger">{queryErrorHint(q)} <span className="text-muted">({q.error?.message})</span></span> : q.issues.join("; ") || "—"}</td>
                         </tr>
                       ))}
@@ -411,10 +470,10 @@ export function ConnectedView() {
                 </div>
                 <div className="mt-5">
                   <div className="flex gap-1" role="tablist" aria-label="Sample records">
-                    {(["log", "metric"] as const).map((k) => (
+                    {TABS.filter((t) => t.key !== "span" || preview.collected.span).map(({ key: k, label }) => (
                       <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
                         className={`rounded-md border px-2.5 py-1 text-xs font-medium cursor-pointer ${tab === k ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-text"}`}>
-                        {k === "log" ? "Logs" : "Metrics"} ({preview.summary.records[k] ?? 0})
+                        {label} ({preview.summary.records[k] ?? 0})
                       </button>
                     ))}
                   </div>
@@ -439,6 +498,15 @@ export function ConnectedView() {
                   </div>
                   <p className="mt-1 text-[11px] text-muted">* service from the query&apos;s selector (aggregated series). Hover a time to see it as returned.</p>
                 </div>
+                {!!preview.series?.length && (
+                  <div className="mt-5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Returned metric series</h4>
+                    <p className="mt-0.5 text-[11px] text-muted">Every point as the backend returned it; intervals without a value are breaks, never filled in.</p>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      {preview.series.map((s) => <SeriesChart key={`${s.service}/${s.metric}`} series={s} />)}
+                    </div>
+                  </div>
+                )}
                 <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
                   <Button variant="primary" size="md" disabled={!preview.usable || busy || problems.length > 0} onClick={() => create.mutate()}>
                     {stage === "creating" ? "Taking snapshot…" : stage === "starting" ? "Starting investigation…" : "Create incident & start analysis"}
@@ -459,11 +527,12 @@ export function ConnectedView() {
                 <li>Results are read-only: no approval, no execution, no claim of verified recovery.</li>
               </ol>
             </Card>
-            <Card title="Not available from Loki/Prometheus">
+            <Card title="Not available from connected telemetry">
               <p className="text-xs leading-relaxed text-text-muted">
-                Deployment and config-change history, traces, live health, runtime configuration, datastore and queue
-                state. The agent treats them as unknown and the report lists them as gaps. Connectors for Azure
-                Monitor, Datadog, CloudWatch and custom sources are planned, not implemented.
+                Deployment and config-change history, live health, runtime configuration, datastore and queue state;
+                traces too, unless Datadog APM spans are collected (indexed spans only, so a trace can be partial). The
+                agent treats what is missing as unknown and the report lists it as a gap. Connectors for Azure Monitor,
+                CloudWatch and custom sources are planned, not implemented.
               </p>
             </Card>
           </div>

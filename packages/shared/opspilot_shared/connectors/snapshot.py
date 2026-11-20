@@ -7,6 +7,8 @@ next to it.
 
 What was not collected stays unknown: ``Dataset.collected`` names, per signal, the services whose queries
 succeeded; the evidence provider reports any other (signal, service) as unavailable rather than as "no data".
+v0.9: the signal of each query comes from its template (a Datadog connector returns logs, metrics and spans); a
+``span`` entry exists only when a span-capable connector was selected, so v0.6 Loki/Prometheus snapshots are unchanged.
 """
 
 from __future__ import annotations
@@ -43,7 +45,7 @@ class Snapshot:
 
     @property
     def usable(self) -> bool:
-        return bool(self.dataset.logs or self.dataset.metrics)
+        return bool(self.dataset.logs or self.dataset.metrics or self.dataset.spans)
 
     def redactions(self) -> int:
         return sum(q.redactions for q in self.queries)
@@ -88,16 +90,27 @@ async def collect(
                 seen.add(key)
                 logs.append(r)
     metrics = [r for res in results for r in res.metrics]
+    spans, seen_spans = [], set()
+    for res in results:  # error spans and their expanded traces can overlap across services
+        for sp in res.spans:
+            if (sp.trace_id, sp.span_id) not in seen_spans:
+                seen_spans.add((sp.trace_id, sp.span_id))
+                spans.append(sp)
     warnings: list[str] = []
-    if len(logs) + len(metrics) > MAX_RECORDS:
+    if len(logs) + len(metrics) + len(spans) > MAX_RECORDS:
         warnings.append(f"more than {MAX_RECORDS} records were returned; the oldest were dropped")
-        keep_logs = max(0, MAX_RECORDS - len(metrics))
+        spans = sorted(spans, key=lambda r: r.ts)[-min(len(spans), MAX_RECORDS // 5) :]
+        keep_logs = max(0, MAX_RECORDS - len(metrics) - len(spans))
         logs = sorted(logs, key=lambda r: r.ts)[-keep_logs:] if keep_logs else []
-        metrics = sorted(metrics, key=lambda r: r.ts)[-(MAX_RECORDS - len(logs)) :]
+        metrics = sorted(metrics, key=lambda r: r.ts)[-(MAX_RECORDS - len(logs) - len(spans)) :]
+    selected = {t.returns for _, t, _ in plan}
+    span_capable = any("span" in c.signals for c, _, _ in plan)
     collected: dict[str, set[str]] = {"log": set(), "metric": set()}
+    if span_capable:
+        collected["span"] = set()
     for res in results:
         q = res.provenance
-        signal = "log" if q.connector == "loki" else "metric"
+        signal = q.returns
         if q.status == "error":
             err = q.error or {}
             warnings.append(f"{q.id} failed ({err.get('kind', 'error')}): {err.get('message', '')}")
@@ -106,17 +119,18 @@ async def collect(
             if q.status == "empty":
                 warnings.append(f"{q.id} returned no data for this window")
         warnings += [f"{q.id}: {i}" for i in q.issues]
-    for signal, label in (("log", "logs"), ("metric", "metrics")):
-        if any(s.connector == ("loki" if signal == "log" else "prometheus") for s in sources):
+    for signal, label in (("log", "logs"), ("metric", "metrics"), ("span", "traces/spans")):
+        if signal in selected:
             missing = [s for s in dict.fromkeys(services) if s not in collected[signal]]
             if missing:
                 warnings.append(f"no {label} could be collected for {', '.join(missing)}; they stay unknown")
-    if not any(s.connector == "prometheus" for s in sources):
+    if "metric" not in selected:
         warnings.append("no metrics were queried: impact cannot be measured, so conclusions will stay uncertain")
     dataset = Dataset(
         files=[],
         logs=logs,
         metrics=metrics,
+        spans=spans,
         warnings=warnings,
         collected={k: sorted(v) for k, v in collected.items()},
     )

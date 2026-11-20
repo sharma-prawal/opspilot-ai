@@ -215,6 +215,51 @@ CONNECTED_TELEMETRY_NOTE = (
     "recommendation for a human reviewer: nothing will be executed. Use evidence_gaps to name the data that would "
     "confirm or rule out the top hypothesis.\n"
 )
+# v0.9: a snapshot that includes Datadog names the signals it actually holds. Loki/Prometheus snapshots keep the v0.6
+# note above byte for byte.
+_SIGNAL_NAMES = {"log": "logs", "metric": "metrics", "span": "APM spans"}
+_UNAVAILABLE = {"log": "logs", "metric": "metrics", "span": "traces"}
+
+
+def connected_sources(incident: dict[str, Any] | None) -> tuple[list[str], list[str]]:
+    """(connector kinds, signals with at least one successful query) behind a connected incident's snapshot."""
+    queries = [q for q in (incident or {}).get("telemetry_queries") or [] if isinstance(q, dict)]
+    kinds = list(dict.fromkeys(str(q.get("connector")) for q in queries))
+    signals: list[str] = []
+    for q in queries:
+        sig = q.get("signal") or ("log" if q.get("connector") == "loki" else "metric")
+        if q.get("status") != "error" and sig not in signals:
+            signals.append(str(sig))
+    return kinds, signals
+
+
+def connected_note(incident: dict[str, Any] | None) -> str:
+    kinds, signals = connected_sources(incident)
+    if "datadog" not in kinds:
+        return CONNECTED_TELEMETRY_NOTE
+    names = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}
+    have = ", ".join(_SIGNAL_NAMES[s] for s in ("log", "metric", "span") if s in signals) or "no usable signal"
+    missing = [_UNAVAILABLE[s] for s in ("log", "metric", "span") if s not in signals]
+    spans = (
+        "APM spans are the indexed sample Datadog retained, so a trace can be partial (spans marked "
+        "parent_missing); a span that is absent is not evidence that a call did not happen. "
+        if "span" in signals
+        else ""
+    )
+    return (
+        "Evidence source: a historical, read-only snapshot of telemetry queried from the user's observability "
+        f"backends ({' and '.join(names.get(k, k) for k in kinds)}: {have}) for the incident window, not a live "
+        "environment. Deployment and configuration change history, "
+        + "".join(f"{m}, " for m in missing)
+        + "live service health, runtime configuration, datastore and queue state are NOT available; treat their "
+        "absence as a gap, never as a sign of health or as proof that nothing changed. "
+        + spans
+        + "Version or start-up lines in logs are observations, not a complete change history. Your remediation_plan "
+        "is only a recommendation for a human reviewer: nothing will be executed. Use evidence_gaps to name the "
+        "data that would confirm or rule out the top hypothesis.\n"
+    )
+
+
 READ_ONLY_SOURCES = frozenset({"upload", "connector"})
 
 
@@ -225,13 +270,13 @@ def is_read_only(incident: dict[str, Any] | None) -> bool:
 
 
 def is_connected(incident: dict[str, Any] | None) -> bool:
-    """v0.6: the incident is backed by a Loki/Prometheus telemetry snapshot."""
+    """v0.6: the incident is backed by a connector telemetry snapshot (Loki/Prometheus; Datadog since v0.9)."""
     return bool(incident) and (incident or {}).get("evidence_source") == "connector"
 
 
 def read_only_note(incident: dict[str, Any] | None) -> str:
     if is_connected(incident):
-        return CONNECTED_TELEMETRY_NOTE
+        return connected_note(incident)
     return UPLOADED_EVIDENCE_NOTE if is_read_only(incident) else ""
 
 

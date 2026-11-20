@@ -81,6 +81,8 @@ BACKEND_DENYLIST_PREFIXES: tuple[str, ...] = (
     "TOOL_",
     "LOKI_",
     "PROMETHEUS_",
+    "DATADOG_",
+    "DD_",
     "TELEMETRY_",
     "OTEL_",
     "LANGGRAPH_",

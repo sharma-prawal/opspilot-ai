@@ -15,7 +15,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.8.0, experimental, local-first.** **Visual Experience 2.0** adds original vector branding, an action-first investigation workbench, source-linked evidence visualizations, compact connector rows and progressive safety details ([release notes](docs/releases/V0.8.0_NOTES.md)). The v0.7.1 environment allowlist, detached startup and accurate unavailable states are preserved. Uploaded files and Loki/Prometheus snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.8.0, experimental, local-first.** **Visual Experience 2.0** adds original vector branding, an action-first investigation workbench, source-linked evidence visualizations, compact connector rows and progressive safety details ([release notes](docs/releases/V0.8.0_NOTES.md)). The v0.7.1 environment allowlist, detached startup and accurate unavailable states are preserved. Unreleased on this branch: **v0.9.0 Datadog read-only evidence provider** ([draft notes](docs/releases/V0.9.0_NOTES.md); synthetic-fixture tested, not yet verified against a live Datadog organization). Uploaded files and Loki/Prometheus/Datadog snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
@@ -37,6 +37,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Native Ollama; investigation model selected by `LLM_MODEL` (preferred `qwen3.5:9b-q4_K_M`, fallback `qwen3:8b`), embeddings `qwen3-embedding:0.6b` (dim verified = 1024); `opspilot models --probe` checks a model before use; models are downloaded only on explicit opt-in (`make models`) | ✅ (v0.4) |
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
 | Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
+| Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ synthetic contract fixture only; live organization not yet verified (v0.9, unreleased) |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
@@ -118,8 +119,9 @@ OTLP traces; regenerate with `scripts/generate_upload_examples.py`). Download th
 Investigate real telemetry from **Grafana Loki** (logs) and **Prometheus** (metrics) with the same workflow: on
 **Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`) pick the configured sources, test the
 connection, give the affected service and an incident window, choose approved query templates, preview what came
-back, then start the read-only investigation. Azure Monitor, Datadog, CloudWatch and custom adapters are **planned,
-not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has the interface contract for adding one.
+back, then start the read-only investigation. **Datadog** (v0.9) works the same way, see below. Azure Monitor,
+CloudWatch and custom adapters are **planned, not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has
+the interface contract for adding one.
 
 First run with the local demo stack (tested):
 
@@ -181,6 +183,45 @@ executed:
   change as a second hypothesis, and escalated to the database team.
 
 Design: D109–D115 in [DECISIONS.md](docs/DECISIONS.md).
+
+### Datadog (v0.9, unreleased)
+
+Datadog is a read-only evidence provider in the same workflow: **logs** (Log Management search), **APM trace
+metrics** (timeseries query: 5xx ratio, trace error ratio, p95 latency, request rate) and **indexed APM spans**
+(error spans plus the other indexed spans of up to 10 of their traces). OpsPilot never writes to Datadog. Full
+guide: [DATADOG.md](docs/integrations/DATADOG.md).
+
+```bash
+# .env (API only; never NEXT_PUBLIC_*). Application key scoped to logs_read_data, timeseries_query, apm_read.
+DATADOG_ENABLED=true
+DATADOG_SITE=datadoghq.eu          # a documented site; anything else is refused
+DATADOG_API_KEY=...
+DATADOG_APP_KEY=...
+```
+
+Then restart the API, **Integrations → Test connection** (per-product result: readable, permission missing, not
+available, rate-limited), and **Incidents → Connected telemetry** with Datadog ticked. Without an account, run
+`make datadog-fixture`. It serves a synthetic, fictional Datadog API on 127.0.0.1 (the UI labels it *synthetic
+fixture*; see the guide for the settings).
+
+- **Fixed destination, read-only calls.** Requests go only to `https://api.<site>`:
+  - `GET /api/v1/validate`;
+  - `POST` to the four documented read queries (`/api/v2/logs/events/search`, `/api/v2/logs/analytics/aggregate`,
+    `/api/v2/query/timeseries`, `/api/v2/spans/events/search`).
+  
+  No other method or path is reachable, and Loki/Prometheus still cannot POST.
+- **Bounded.** The usual 6 h window and query limits apply, plus cursor pagination (≤ 1000 records per page, ≤ 5
+  pages) and at most 2 Datadog requests in flight. On a 429, OpsPilot retries at most twice, and only when
+  `X-RateLimit-Reset` is ≤ 10 s; otherwise the query is reported `rate_limited`.
+- **Truthful evidence.** Metric `null` intervals are left out, never filled in. Spans are `error` only when Datadog
+  flags them, otherwise `unset`. Spans whose parent was not indexed mark their trace as partial. Missing permissions
+  leave that signal *unknown* while the others are still analysed. Change events are not collected, so change
+  history stays unknown. Version, start-up and configuration log lines are kept as observed change events, and an
+  RCA that claims "no change occurred" without change history is flagged.
+- **Service names** may contain `.` and `_` (e.g. `billing.worker_v2`). They are escaped per Datadog's search
+  syntax and never rewritten.
+- **Verified.** Tested only against the synthetic contract fixture, which uses Datadog's documented request and
+  response shapes. **Not yet verified against a live Datadog organization.**
 
 ### v0.4 reasoning and model comparison
 
@@ -319,6 +360,7 @@ Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. W
 | `make db-roles` | create/refresh least-privilege DB roles for the MCP servers |
 | `make uploads-purge` / `uv run opspilot uploads list` | delete uploaded and connected incidents older than `UPLOAD_RETENTION_DAYS` (files or snapshots, records, checkpoints; stop the API first) / list uploads |
 | `make telemetry-up` / `make telemetry-down` | start / remove the local Loki + Prometheus test setup with synthetic telemetry (127.0.0.1, tmpfs, no volumes) |
+| `make datadog-fixture` | serve the synthetic Datadog API fixture on 127.0.0.1:8126 (fictional data; for the v0.9 connector without an account) |
 | `make lint` | ruff, mypy --strict, import-linter, ESLint, tsc |
 | `make evaluate` | retrieval (development + held-out) and agent evaluation over all scenarios → `docs/evaluation/BASELINE.md` |
 

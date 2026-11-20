@@ -601,3 +601,83 @@ Not done (next session, in order):
   no migration/data reset. Existing data/uploads/private Phase C1 files and other
   worktrees are not modified. Tests use only `opspilot_test` and isolated test ports;
   existing runtime on 3000/8000 is preserved. No evaluation rerun: agent behavior unchanged.
+
+## Status — 2026-11-19, v0.9.0 Datadog observability integration (`feature/datadog-v0.9.0`, not pushed)
+
+- Base: published v0.8.0 (`origin/main` = `535dfa2`, maintenance fixes from v0.7.1 included). Isolated worktree
+  `../opspilot-ai-datadog`. No migration, schema, model, safety-policy or approval change.
+- Connector (`opspilot_shared/connectors/datadog.py`, D119–D124):
+  - Datadog logs search, APM trace metrics (timeseries query with formulas) and indexed APM spans (error spans plus
+    the other indexed spans of ≤ 10 traces);
+  - bounded service discovery (log aggregate, top 50) and a per-product connection test;
+  - destination from the documented site allowlist only; loopback-only fixture override;
+  - `ReadOnlyHttp.post_json` with a per-connector POST allowlist (4 read-query paths), bounded 429/503 retries, at
+    most 2 requests in flight, cursor pagination with page and record ceilings.
+- Pipeline: templates name their `signal`; provenance adds `signal`, `site`, `link` and `pages`; snapshots add
+  `spans` and `collected.span`. The stored-evidence provider, prompt note, report banner, provenance table and next
+  steps name Datadog. Loki/Prometheus note and banner wording is unchanged (tested).
+- Web (Visual Experience 2.0 kept):
+  - Datadog in the provider cards (templates grouped by signal, per-signal test badges, *synthetic fixture* label,
+    fixture demo incident);
+  - discovery notes; span counts and a span tab; returned metric series charts (no resampling, gaps as breaks);
+  - Log Explorer links; Integrations catalogue, matrix, guide and architecture text updated. BFF allows
+    `connectors/datadog/(test|services)`, operator-only.
+- Fixture: `scripts/datadog_fixture.py` (`make datadog-fixture`). Documented response shapes; fictional orders-api →
+  inventory-service → inventory-db lock-contention incident; partial traces, missing series, null gaps, untagged
+  logs, failure modes.
+- Verified:
+  - `make lint` clean (ruff, mypy `--strict` 110 files, import-linter 4/4, ESLint, tsc);
+  - `pytest` 442 passed / 3 skipped (live-model opt-in), including 46 new Datadog tests (39 connector/security,
+    3 graph, 4 HTTP API) and the 2 live Loki/Prometheus container tests;
+  - web 70 passed; `pnpm build` OK;
+  - Playwright with `E2E_DATADOG=1 E2E_TELEMETRY=1`: 9 passed (auth ×3; Loki/Prometheus connected; Datadog error
+    states; Datadog journey with the real `qwen3.5:9b-q4_K_M`; simulator INC-001 approve → verified recovery;
+    overview; upload);
+  - Datadog catalogue/mobile screenshot test and the not-configured path (without the fixture) also pass;
+  - screenshots in `docs/images/datadog/`.
+- Datadog journey result (one run, development testing, not an evaluation): `analysis_complete`, nothing proposed
+  or executed. Top hypothesis "inventory-service is degraded by lock contention on stock_levels in inventory-db,
+  causing timeouts that propagate to orders-api", cited. Model limitation observed: a second hypothesis asserted that
+  no internal change caused the fault, although change history was marked unknown and the `lifecycle` logs show the
+  3.8.0 start. The report still lists change history as a gap. Not addressed: no prompt or model change in this
+  milestone.
+- Not done / open:
+  - **live Datadog verification** (no account configured; procedure in `docs/integrations/DATADOG.md`);
+  - Datadog Events/Change Tracking deferred;
+  - official `make evaluate` not re-run: simulator path unchanged;
+  - draft release notes `docs/releases/V0.9.0_NOTES.md`; not tagged or published.
+
+## Status — 2026-11-20, v0.9.0 Datadog correctness and compatibility pass (same branch, not pushed)
+
+- **Unsupported negative change claims (D125).**
+  - Connected investigations collect INFO version, start-up and config lines as change observations.
+  - The digest lists them when change history is unknown.
+  - `claims.py` flags hypotheses or summaries claiming that no change occurred (annotate only, no gate change).
+  - The report adds an *Evidence coverage* table.
+  - Real `qwen3.5:9b-q4_K_M` on the fixture:
+    - before: hypothesis 2 "No internal deployment or configuration change caused the fault" (85%);
+    - after, two E2E runs: hypothesis 1 "inventory-service deployment (version 3.8.0) with
+      reservation_lock_mode=table introduced a fault…" (65%), citing the observed lines; no negative change claim
+      and no warning.
+  - The first after-run also exposed a false positive ("change history unavailable to rule out recent changes");
+    it is fixed and covered by a test.
+- **Service names (D126).**
+  - `.` and `_` are accepted for Datadog; values are escaped per Datadog's documented search syntax and kept
+    exactly (web form included).
+  - Loki/Prometheus stay slug-only.
+  - The fixture adds `billing.worker_v2`.
+- **Span templates.** Confirmed operation-independent (test); only APM metric templates use `trace.http.request`.
+- **Mobile.** The two demo buttons forced a 418 px intake at 390 px when Loki/Prometheus and the Datadog fixture were
+  both configured. The button group now wraps; the test asserts no page-level horizontal scroll.
+- **Verified.**
+  - `make lint` clean (mypy 111 files);
+  - pytest 474 passed / 3 skipped (live-model opt-in);
+  - web 71 passed; `pnpm build` OK;
+  - Playwright with `E2E_DATADOG=1 E2E_TELEMETRY=1`: 10 passed (auth ×3, Loki/Prometheus, Datadog error states,
+    Datadog journey with the real model, Datadog catalogue/mobile, simulator INC-001 with verified recovery,
+    overview, upload);
+  - the not-configured Datadog path passes without the fixture;
+  - screenshots refreshed.
+- Still open: live Datadog verification; Datadog events deferred; `make evaluate` not re-run (simulator path
+  unchanged: the new evidence and checks apply only to connected snapshots or when change history is unknown).
+

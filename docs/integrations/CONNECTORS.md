@@ -1,4 +1,4 @@
-# Connected observability (v0.6)
+# Connected observability (v0.6; Datadog v0.9)
 
 OpsPilot can investigate real telemetry from your observability stack. You configure a connector, choose a service,
 an incident window and approved query templates, preview what comes back, and run the same LangGraph investigation
@@ -10,7 +10,7 @@ claimed from historical data.
 | Grafana Loki | logs (LogQL `query_range`) | **implemented** (tested with `grafana/loki:3.5.0`) |
 | Prometheus | metrics (PromQL `query_range`) | **implemented** (tested with `prom/prometheus:v3.5.0`) |
 | Azure Monitor / Application Insights | logs, metrics | planned, not implemented |
-| Datadog | metrics, logs, events | planned, not implemented |
+| Datadog | logs (search), metrics (timeseries query), APM spans (search) | **implemented in v0.9**, tested only against a synthetic contract fixture: [DATADOG.md](DATADOG.md). Events are not collected |
 | Amazon CloudWatch | metrics, Logs Insights | planned, not implemented |
 | Custom adapters | any | planned: implement the contract below |
 
@@ -18,8 +18,9 @@ Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were
 
 ## How it works
 
-1. **Connectors exist only when configured.** `LOKI_URL` and/or `PROMETHEUS_URL` in the API environment. The API
-   never accepts a URL, host, path or query text from a request.
+1. **Connectors exist only when configured.** `LOKI_URL` and/or `PROMETHEUS_URL`, or `DATADOG_ENABLED=true` with a
+   documented `DATADOG_SITE` and keys, in the API environment. The API never accepts a URL, host, path, HTTP method or
+   query text from a request.
 2. **Preview.** `POST /api/v1/incidents/connected/preview` runs each selected template for the affected service and
    each other affected service (up to 4 services, 40 queries) over one window (at most `TELEMETRY_MAX_WINDOW_HOURS`,
    default 6 h). The results are normalized into the same `LogRecord` / `MetricRecord` contracts as uploads. The
@@ -31,7 +32,8 @@ Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were
 4. **Investigate.** The investigation reads only the snapshot through the stored-evidence provider. Its tool calls
    are labelled `opspilot-connected-telemetry`, and the backends are not contacted again. Runbook and past-incident
    retrieval still uses the RAG knowledge base (`opspilot-ops-read`), so telemetry and knowledge stay separate.
-5. **Report.** The RCA cites `loki/<template>/<service>:entry N` and `prometheus/<template>/<service>:point N`. It
+5. **Report.** The RCA cites `loki/<template>/<service>:entry N`, `prometheus/<template>/<service>:point N` and
+   `datadog/<template>/<service>:entry|point|span N`. It
    lists every query in a "Telemetry queries (provenance)" table and gives recommended next steps. Download it as
    Markdown. **Delete snapshot**, or `make uploads-purge` after the retention period, removes the snapshot and its
    analyses.
@@ -40,7 +42,7 @@ Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were
 gaps, never as healthy or unchanged:
 
 - deployment and configuration-change history;
-- traces;
+- traces (Datadog v0.9 adds indexed APM spans, which may be partial traces);
 - live health, runtime configuration, datastore and queue state.
 
 Two more rules apply:
@@ -233,11 +235,13 @@ A provider implements `TelemetryConnector` (`packages/shared/opspilot_shared/con
 class TelemetryConnector(Protocol):
     id: str  # "loki", "prometheus", "datadog", ...
     kind: ConnectorKind
-    signal: Literal["log", "metric"]
+    signal: Literal["log", "metric", "span"]  # primary signal
+    signals: tuple[Signal, ...]  # v0.9: every signal its templates return (Datadog: log, metric, span)
 
     def info(self) -> dict: ...  # display-safe: endpoint, auth mode, label, templates, limits
     def templates(self) -> list[QueryTemplate]: ...
-    async def test(self) -> ConnectionStatus: ...  # ok | auth_error | unavailable | error
+    async def test(self) -> ConnectionStatus: ...  # ok | partial | auth_error | rate_limited | unavailable | error
+    # (multi-signal providers add ConnectionStatus.signals: one SignalStatus per product)
     async def services(self, window: FetchWindow) -> list[str]: ...
     async def fetch(self, template: QueryTemplate, service: str, window: FetchWindow) -> FetchResult: ...
 ```
@@ -246,7 +250,8 @@ Every provider must meet these requirements:
 
 1. **Input.** Only an approved `QueryTemplate`, a service slug and a bounded `FetchWindow`. Render the query
    with `templates.render` (or an equivalent that validates the service). Accept no free-form query, URL or path.
-2. **Output.** `FetchResult(provenance, logs | metrics)`:
+2. **Output.** `FetchResult(provenance, logs | metrics | spans)`. A multi-signal provider names each template's
+   `signal`; `provenance.signal` decides which `Dataset.collected` entry the query counts for:
    - Records are `LogRecord` / `MetricRecord` with `ts`, `ts_original` exactly as returned, `tz`, `service`,
      `service_source` (`record` if the record names it, `query` if it comes from the selector) and `source` of the
      form `<id>/<template>/<service>:entry|point N`.
@@ -256,7 +261,9 @@ Every provider must meet these requirements:
    using the `ErrorKind` values, and are never raised. Only an invalid request raises
    `ConnectorError("invalid_request")`. Messages must not contain credentials.
 4. **Transport.** Use `ReadOnlyHttp` (GET-only, allowlisted paths, no redirects, `trust_env=False`, timeouts,
-   size cap, secret scrubbing) or give the same guarantees. Subclassing `HttpConnector`
+   size cap, secret scrubbing) or give the same guarantees. A provider whose *read* queries are POSTs (Datadog) lists
+   them in `allowed_post_paths()`; every other POST is refused, and a provider without that list cannot POST.
+   Bounded retries for 429/503 (`max_retries`, `max_retry_wait`) are opt-in per connector. Subclassing `HttpConnector`
    (`connectors/base.py`) gives you URL validation, auth headers, window checks, the connection test and provenance.
 5. **Registration.** Add the settings to `opspilot_shared.config.Settings`, build the connector in
    `connectors/registry.py` (only when its URL is configured), add its ID to the API's `ConnectorSourceIn` literal

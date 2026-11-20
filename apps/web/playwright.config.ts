@@ -15,6 +15,15 @@ export default defineConfig({
   use: { baseURL: E2E_WEB_URL, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
+    // v0.9: E2E_DATADOG=1 serves the synthetic Datadog API fixture on loopback for the E2E API (never a real site).
+    ...(process.env.E2E_DATADOG
+      ? [{
+          command: `uv run python ../../scripts/datadog_fixture.py --port ${process.env.E2E_DATADOG_PORT ?? 8127}`,
+          url: `http://127.0.0.1:${process.env.E2E_DATADOG_PORT ?? 8127}/api/v1/validate`, // 403 without keys = up
+          reuseExistingServer: false,
+          timeout: 60_000,
+        }]
+      : []),
     {
       command: "../../scripts/e2e-api.sh",
       url: `${E2E_API_URL}/health/live`,

@@ -215,7 +215,7 @@ Confirm 5xx error ratio returns below baseline 0.1%.`,
       "A service label on your series (PROMETHEUS_SERVICE_LABEL, default service)",
     ],
     configuration:
-      "Apply migration 0011 (make migrate). Set PROMETHEUS_URL (and optionally PROMETHEUS_BEARER_TOKEN or PROMETHEUS_USERNAME/PROMETHEUS_PASSWORD, PROMETHEUS_SERVICE_LABEL, TELEMETRY_TEMPLATES_FILE) in the API environment and restart it. Then Incidents → Use Loki / Prometheus. Local test setup with synthetic data: make telemetry-up (stop with make telemetry-down).",
+      "Apply migration 0011 (make migrate). Set PROMETHEUS_URL (and optionally PROMETHEUS_BEARER_TOKEN or PROMETHEUS_USERNAME/PROMETHEUS_PASSWORD, PROMETHEUS_SERVICE_LABEL, TELEMETRY_TEMPLATES_FILE) in the API environment and restart it. Then Incidents → Connected telemetry. Local test setup with synthetic data: make telemetry-up (stop with make telemetry-down).",
     exampleQuery: {
       language: "promql",
       code: `# Built-in template http_5xx_ratio, rendered for one service ($selector, $rate):
@@ -268,34 +268,41 @@ sum(rate(http_requests_total{service="checkout-api",status=~"5.."}[5m]))
   },
   {
     id: "datadog-adapter",
-    name: "Datadog Unified Platform",
+    name: "Datadog",
     category: "metrics",
     mode: "connected",
-    status: "planned",
+    status: "implemented",
     tagline:
-      "APM traces, metric anomalies, monitor states, and deployment events.",
+      "Read-only logs, metrics and APM spans from approved templates over the official Datadog API (v0.9).",
     evidenceContributed: [
-      "Datadog Metric queries and monitor state transition events",
-      "APM service error tracking and deployment overlay markers",
+      "Error/warning and lifecycle logs per service (Log Management search, cursor-paginated with hard limits)",
+      "APM trace metrics: 5xx ratio, trace error ratio, p95 latency and request rate (metrics timeseries query); every returned point, nulls left out",
+      "Indexed APM error spans plus the other indexed spans of up to 10 of their traces: real parent/child links and dependencies, flagged partial when a parent was not indexed",
     ],
     prerequisites: [
-      "Datadog API Key and Application Key with read-only scopes",
-      "Datadog site domain (e.g. datadoghq.com, datadoghq.eu)",
+      "A Datadog API key and an application key scoped to logs_read_data, timeseries_query and apm_read",
+      "DATADOG_SITE set to one of the documented sites (datadoghq.com, us3/us5.datadoghq.com, datadoghq.eu, ap1/ap2/uk1.datadoghq.com, ddog-gov.com, us2.ddog-gov.com)",
+      "Services tagged with service: (unified service tagging); names must be lower-case slugs to be queried",
     ],
     configuration:
-      "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
+      "Set DATADOG_ENABLED=true, DATADOG_SITE, DATADOG_API_KEY and DATADOG_APP_KEY in the API environment (backend only; never NEXT_PUBLIC_*), optionally DATADOG_ENV and DATADOG_LOG_INDEXES, and restart the API. Requests go only to https://api.<site>. Without an account, make datadog-fixture serves synthetic Datadog responses on 127.0.0.1 (DATADOG_LOCAL_API_URL, loopback only). Verified only against that synthetic fixture so far, not a live organization.",
     exampleQuery: {
       language: "bash",
-      code: `# Executed against Datadog v2 API:
-GET /api/v2/events?filter[query]=source:github+service:ledger-service
-GET /api/v1/query?from=1700000000&to=1700001800&query=avg:trace.http.request.errors{service:transaction-api}`,
+      code: `# Built-in template http_5xx_ratio, rendered for one service:
+a = sum:trace.http.request.hits.by_http_status{service:orders-api,http.status_class:5xx}.as_count()
+b = sum:trace.http.request.hits{service:orders-api}.as_count()
+formula: a / b
+# POST /api/v2/query/timeseries  {"data": {"type": "timeseries_request", ...}}
+# Logs: POST /api/v2/logs/events/search  ·  Spans: POST /api/v2/spans/events/search`,
     },
     normalization:
-      "Events mapped to Evidence(kind='deployment') for change correlation scoring. Metrics normalized to MetricSeries.",
+      "Logs become LogRecords (status → level, dd.trace_id kept, credential-like values redacted, source datadog/<template>/<service>:entry N); metric points become MetricRecords with the template's unit (null intervals skipped and counted); spans become SpanRecords with trace, span and parent IDs, duration, and status error only when Datadog flags it (otherwise unset). Change history is not collected (Datadog events are not queried) and stays unknown.",
     troubleshooting: [
-      "Verify API/App key permissions with curl -X GET 'https://api.datadoghq.com/api/v1/validate'.",
+      "Test connection validates the API key (GET /api/v1/validate), then probes logs, metrics and spans: 'permission missing' names the permission the application key needs.",
+      "HTTP 429: OpsPilot retries at most twice when Datadog's X-RateLimit-Reset is 10 s or less, otherwise reports rate_limited. Span search allows 50 requests per minute per organization.",
+      "APM metrics are named after the span of your integration (trace.flask.request, trace.express.request, …): override the templates in TELEMETRY_TEMPLATES_FILE.",
     ],
-    targetNode: "Changes & Telemetry Agents",
+    targetNode: "Telemetry & Dependencies Agents (connected-telemetry snapshot)",
   },
   {
     id: "aws-cloudwatch",
@@ -433,7 +440,7 @@ GET /repos/sharma-prawal/opspilot-ai/commits/23c7ef2`,
     tagline:
       "Your own log or metric store behind the same read-only connector contract.",
     evidenceContributed: [
-      "LogRecord / MetricRecord evidence with provenance, like the Loki and Prometheus connectors",
+      "LogRecord / MetricRecord / SpanRecord evidence with provenance, like the Loki, Prometheus and Datadog connectors",
     ],
     prerequisites: [
       "A read-only HTTP API (or SDK) for the store",
@@ -553,9 +560,7 @@ export default function IntegrationsPage() {
         </p>
         <ul className="planned-provider-list">
           {INTEGRATIONS.filter((item) =>
-            ["datadog-adapter", "azure-monitor", "aws-cloudwatch"].includes(
-              item.id,
-            ),
+            ["azure-monitor", "aws-cloudwatch"].includes(item.id),
           ).map((item) => (
             <li key={item.id}>
               <span>{item.name}</span>
@@ -569,11 +574,9 @@ export default function IntegrationsPage() {
             {INTEGRATIONS.filter(
               (item) =>
                 item.status === "planned" &&
-                ![
-                  "datadog-adapter",
-                  "azure-monitor",
-                  "aws-cloudwatch",
-                ].includes(item.id),
+                !["datadog-adapter", "azure-monitor", "aws-cloudwatch"].includes(
+                  item.id,
+                ),
             ).map((item) => (
               <li key={item.id}>
                 <span>{item.name}</span>
@@ -611,8 +614,8 @@ export default function IntegrationsPage() {
               <code className="font-mono text-text">ToolGateway</code>,{" "}
               <code className="font-mono text-text">ChatModel</code>). Whether
               evidence arrives from our deterministic local simulator, uploaded
-              export files, or a read-only snapshot from Grafana Loki and
-              Prometheus (the connectors implemented in v0.6), it is normalized
+              export files, or a read-only snapshot from Grafana Loki,
+              Prometheus (v0.6) or Datadog (v0.9), it is normalized
               into persisted, source-attributed{" "}
               <code className="font-mono text-text">ops.evidence</code> items
               before reasoning occurs.

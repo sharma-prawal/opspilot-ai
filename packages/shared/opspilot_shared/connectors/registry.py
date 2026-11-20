@@ -9,16 +9,23 @@ import httpx
 from opspilot_shared.config import Settings
 from opspilot_shared.connectors.base import Limits
 from opspilot_shared.connectors.contract import ConnectorError, TelemetryConnector
+from opspilot_shared.connectors.datadog import DatadogConnector
 from opspilot_shared.connectors.loki import LokiConnector
 from opspilot_shared.connectors.prometheus import PrometheusConnector
 from opspilot_shared.connectors.templates import load_templates
 
 KNOWN = {
-    "loki": {"name": "Grafana Loki", "signal": "log", "env": "LOKI_URL"},
-    "prometheus": {"name": "Prometheus", "signal": "metric", "env": "PROMETHEUS_URL"},
+    "loki": {"name": "Grafana Loki", "signal": "log", "signals": ["log"], "env": "LOKI_URL"},
+    "prometheus": {"name": "Prometheus", "signal": "metric", "signals": ["metric"], "env": "PROMETHEUS_URL"},
+    "datadog": {
+        "name": "Datadog",
+        "signal": "log",
+        "signals": ["log", "metric", "span"],
+        "env": "DATADOG_ENABLED=true, DATADOG_SITE, DATADOG_API_KEY and DATADOG_APP_KEY",
+    },
 }
 # Shown in the UI and docs so planned work is never mistaken for an implemented connector.
-PLANNED = ("Azure Monitor", "Datadog", "Amazon CloudWatch", "custom adapters")
+PLANNED = ("Azure Monitor", "Amazon CloudWatch", "custom adapters")
 
 
 class ConnectorRegistry:
@@ -76,6 +83,22 @@ class ConnectorRegistry:
                 )
             except ConnectorError as exc:
                 problems["prometheus"] = exc.message
+        if settings.datadog_enabled:
+            try:
+                connectors["datadog"] = DatadogConnector(
+                    site=settings.datadog_site,
+                    api_key=settings.datadog_api_key.get_secret_value(),
+                    app_key=settings.datadog_app_key.get_secret_value(),
+                    env=settings.datadog_env,
+                    log_indexes=settings.datadog_log_indexes.split(","),
+                    max_spans=settings.datadog_max_spans,
+                    local_api_url=settings.datadog_local_api_url,
+                    templates=templates,
+                    limits=limits,
+                    transport=transports.get("datadog"),
+                )
+            except ConnectorError as exc:
+                problems["datadog"] = exc.message
         return cls(connectors, problems, template_problems)
 
     def get(self, connector_id: str) -> TelemetryConnector:
@@ -103,6 +126,7 @@ class ConnectorRegistry:
                         "kind": cid,
                         "name": meta["name"],
                         "signal": meta["signal"],
+                        "signals": meta["signals"],
                         "configured": False,
                         "problem": self._problems.get(cid),
                         "hint": f"set {meta['env']} (see .env.example)",

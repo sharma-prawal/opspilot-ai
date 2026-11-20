@@ -101,7 +101,11 @@ async def test_connectors_are_listed_without_secrets_and_tested(client: httpx.As
     t = await client.post("/api/v1/connectors/prometheus/test")
     assert t.status_code == 200 and t.json()["status"] == "auth_error"  # never an HTTP 401 for the operator
     assert SECRET_TOKEN not in t.text
-    assert (await client.post("/api/v1/connectors/datadog/test")).status_code == 422
+    dd = await client.post("/api/v1/connectors/datadog/test")  # v0.9: known connector, not configured here
+    assert (
+        dd.status_code == 200 and dd.json()["status"] == "not_configured" and "DATADOG_ENABLED" in dd.json()["message"]
+    )
+    assert (await client.post("/api/v1/connectors/splunk/test")).status_code == 422
     svc = await client.post("/api/v1/connectors/loki/services", json=WINDOW)
     assert svc.json()["services"] == ["checkout-api", "payment-service", "search-api"]
     anon = await client.post("/api/v1/connectors/loki/test", headers={"Authorization": ""})

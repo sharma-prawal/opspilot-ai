@@ -19,7 +19,7 @@ test("overview home page renders primary content and operating modes without err
   await page.getByRole("button", { name: /^Uploaded files/ }).click();
   await expect(page.getByRole("link", { name: "Analyze your files" })).toBeVisible();
   await page.getByRole("button", { name: /^Connected telemetry/ }).click();
-  await expect(page.getByRole("link", { name: "Use Loki / Prometheus" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Use Loki / Prometheus / Datadog" })).toBeVisible();
   await page.getByRole("button", { name: /^Simulator/ }).click();
   await expect(page.getByLabel("Scenario")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Runtime health" })).toBeVisible();

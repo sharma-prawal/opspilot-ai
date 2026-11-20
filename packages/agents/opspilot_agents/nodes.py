@@ -30,12 +30,14 @@ from opspilot_agents.analysis import (
     lexical_overlap_bonus,
     mean,
 )
+from opspilot_agents.claims import CHANGE_TERMS, check_hypotheses, is_change_observation, summary_warnings
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import (
     PlanOutput,
     RcaOutput,
     applicable_actions,
+    is_connected,
     is_read_only,
     plan_messages,
     rca_messages,
@@ -525,6 +527,44 @@ class InvestigationNodes:
             errors = [p for p in patterns if p.level == "ERROR"]
             if errors:
                 findings.append(f"top error: {errors[0].sample[:160]} (x{errors[0].count})")
+
+        if is_connected(state["incident"]):
+            # v0.9: version, start-up and configuration lines are INFO, so the WARN+ search above never sees them.
+            # They are change *observations* (not a change history); without them the model only knew that change
+            # history was unknown and still concluded that nothing changed.
+            rlife = await calls.one(
+                "search_logs", {**base, "min_level": "INFO", "limit": 100, "contains_any": list(CHANGE_TERMS)}
+            )
+            lines = [
+                e
+                for e in ((rlife.data or {}).get("entries", []) if rlife and rlife.ok else [])
+                if e["level"] in ("INFO", "DEBUG") and is_change_observation(e["message"])
+            ]
+            for p in cluster_logs(lines, top_n=4):
+                eid, ev = _evidence(
+                    id=f"ev-chg-{short_hash(svc, p.level, p.signature)}",
+                    kind=EvidenceKind.LOG_PATTERN,
+                    source_tool="search_logs",
+                    collected_by="telemetry",
+                    service=svc,
+                    relevance=0.75,
+                    observed_at=p.first_seen,
+                    summary=(
+                        f"{svc} possible change event in logs ({p.level} x{p.count}, first {_hhmm(p.first_seen)}): "
+                        f"{p.sample[:300]} (an observation, not a complete change history)"
+                    ),
+                    data={
+                        "level": p.level,
+                        "count": p.count,
+                        "signature": p.signature,
+                        "sample": p.sample,
+                        "first_seen": _iso(p.first_seen),
+                        "last_seen": _iso(p.last_seen),
+                        "attributes": p.attributes,
+                        "change_observation": True,
+                    },
+                )
+                evidence[eid] = ev
 
         if rhealth and rhealth.ok and rhealth.data:
             h = rhealth.data
@@ -1049,6 +1089,7 @@ class InvestigationNodes:
         hyps.sort(key=lambda item: -item["confidence"])
         for i, item in enumerate(hyps, start=1):
             item["rank"] = i
+        check_hypotheses(hyps, state)  # v0.9: flag "no change occurred" claims made without change history
         update: Update = {"llm_calls": [out.record.model_dump(mode="json")]}
         if not hyps:
             return {
@@ -1071,6 +1112,7 @@ class InvestigationNodes:
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
+                **({"evidence_warnings": w} if (w := summary_warnings(value.summary, state)) else {}),
                 "round": round_no,
                 "model": self.d.chat.model_name,
             },
