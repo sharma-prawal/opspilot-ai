@@ -23,6 +23,29 @@ export const DEMO_DATADOG = {
   time: "2026-11-15T14:05",
 };
 
+/**
+ * v0.9: service names for connected telemetry are kept exactly (trimmed, lower-cased), never rewritten into another
+ * name: Datadog service tags may contain '.' and '_' (billing.worker_v2). Loki/Prometheus still accept slugs only and
+ * the API says so. The API validates and escapes again.
+ */
+export const CONNECTED_SERVICE_PATTERN = /^[a-z][a-z0-9._-]{1,62}$/;
+
+export function connectedService(raw: string): string | null {
+  const s = raw.trim().toLowerCase();
+  return CONNECTED_SERVICE_PATTERN.test(s) ? s : null;
+}
+
+export function parseConnectedServices(raw: string): { services: string[]; invalid: string[] } {
+  const services: string[] = [];
+  const invalid: string[] = [];
+  for (const p of raw.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean)) {
+    const s = connectedService(p);
+    if (!s) invalid.push(p);
+    else if (!services.includes(s)) services.push(s);
+  }
+  return { services, invalid };
+}
+
 export const SIGNAL_LABEL: Record<TelemetrySignal, string> = { log: "Logs", metric: "Metrics", span: "APM spans" };
 
 /** Signals a connector can return (v0.6 connectors have exactly one). */

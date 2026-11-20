@@ -8,7 +8,7 @@ import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/
 import { SeriesChart } from "@/components/visuals";
 import { api } from "@/lib/api";
 import {
-  DEMO_CONNECTED, DEMO_DATADOG, SIGNAL_LABEL, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, signalsOf,
+  DEMO_CONNECTED, DEMO_DATADOG, SIGNAL_LABEL, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, signalsOf,
   templateSignal, utcIso, windowProblem,
 } from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
@@ -16,7 +16,6 @@ import { ModelName } from "@/lib/models";
 import type {
   ConnectedPreview, ConnectedRequest, ConnectionStatus, ConnectorId, ConnectorInfo, NormalizedRecord, TelemetrySignal,
 } from "@/lib/types";
-import { normalizeService, parseServices } from "@/lib/uploads";
 import { SourceTabs } from "./tabs";
 
 const input =
@@ -162,8 +161,8 @@ export function ConnectedView() {
   const maxHours = configured[0]?.limits?.max_window_hours ?? 6;
   const isOn = (c: ConnectorInfo) => c.configured && (enabled[c.id] ?? true);
   const templatesOf = (c: ConnectorInfo) => chosen[c.id] ?? (c.templates ?? []).filter((t) => t.default).map((t) => t.id);
-  const primary = normalizeService(service);
-  const others = parseServices(affected);
+  const primary = connectedService(service);
+  const others = parseConnectedServices(affected);
   const invalidate = () => setPreview(null);
 
   const problems: string[] = [];
@@ -306,7 +305,7 @@ export function ConnectedView() {
           <div className="space-y-6 lg:col-span-2">
             <Card title="1. Incident and window" subtitle="Times are UTC. The agent treats this text as data, not instructions."
               actions={
-                <div className="flex flex-wrap gap-2">
+                <div className="flex max-w-[16rem] flex-wrap justify-end gap-2 sm:max-w-none">
                   {v06Demo && <Button size="sm" variant="secondary" onClick={() => loadDemo()}>Use the local demo incident</Button>}
                   {ddFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_DATADOG)}>Use the Datadog fixture incident</Button>}
                 </div>
@@ -324,7 +323,7 @@ export function ConnectedView() {
                       onChange={(e) => { setDescription(e.target.value); invalidate(); }} />
                   </Field>
                 </div>
-                <Field label="Affected service" htmlFor="cn-svc" hint="Value of the connector's service label (Datadog: service tag).">
+                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; '.' and '_' allowed). Loki/Prometheus: slugs only.">
                   <input id="cn-svc" className={input} value={service} placeholder="checkout-api" list="cn-services"
                     aria-invalid={!!service && !primary} onChange={(e) => { setService(e.target.value); invalidate(); }} />
                 </Field>

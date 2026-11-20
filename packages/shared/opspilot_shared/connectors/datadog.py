@@ -52,9 +52,9 @@ from opspilot_shared.connectors.contract import (
     SignalStatus,
 )
 from opspilot_shared.connectors.http import is_loopback
-from opspilot_shared.connectors.templates import _SERVICE, datadog_metric_parts
+from opspilot_shared.connectors.templates import DD_SERVICE, datadog_metric_parts, dd_escape, dd_service_value
 from opspilot_shared.uploads.model import LogRecord, MetricRecord, SpanRecord
-from opspilot_shared.uploads.parse import infer_level, log_line_fields, map_level, normalize_service, scrub
+from opspilot_shared.uploads.parse import infer_level, log_line_fields, map_level, scrub
 
 # Documented Datadog sites: site parameter -> (API host, web app host). https://docs.datadoghq.com/getting_started/site/
 SITES: dict[str, tuple[str, str]] = {
@@ -232,11 +232,15 @@ class DatadogConnector(HttpConnector):
         }
 
     def selector(self, service: str, signal: Signal) -> str:
-        if not _SERVICE.match(service):
-            raise ConnectorError("invalid_request", "service must be a lower-case slug such as checkout-api")
-        if signal == "metric":
+        if not DD_SERVICE.match(service):
+            raise ConnectorError(
+                "invalid_request",
+                "service must be a lower-case Datadog service name (letters, digits, '.', '_', '-') such as orders-api",
+            )
+        if signal == "metric":  # tag scope inside {...}: the validated value cannot contain , { } : or spaces
             return f"service:{service}" + (f",env:{self.env}" if self.env else "")
-        return f"service:{service}" + (f" env:{self.env}" if self.env else "")
+        # search syntax: special characters escaped as documented (e.g. '-' becomes '\\-')
+        return f"service:{dd_escape(service)}" + (f" env:{dd_escape(self.env)}" if self.env else "")
 
     def render(self, t: QueryTemplate, service: str) -> str:
         return t.query.replace("$selector", self.selector(service, t.returns))
@@ -450,13 +454,15 @@ class DatadogConnector(HttpConnector):
             count = _count(b)
             if raw == "(no service)":
                 notes.append(f"{count or 'some'} log(s) in the window have no service tag; they cannot be queried")
-            elif isinstance(raw, str) and _SERVICE.match(raw):
-                found.append(raw)
+            elif dd_service_value(raw):
+                found.append(str(raw).strip())
             elif isinstance(raw, str):
                 unusable.append(raw[:60])
         if unusable:
             notes.append(
-                f"not usable as OpsPilot service names (lower-case slugs only): {', '.join(sorted(unusable)[:10])}"
+                "not usable as OpsPilot service names (lower-case letters, digits, '.', '_', '-'; "
+                "up to 63 characters): "
+                f"{', '.join(sorted(unusable)[:10])}"
             )
         if len(buckets) >= MAX_DISCOVERED:
             notes.append(f"only the {MAX_DISCOVERED} services with the most logs are listed")
@@ -521,7 +527,7 @@ class DatadogConnector(HttpConnector):
             f = log_line_fields(message if isinstance(message, str) and message else "(empty message)")
             prov.redactions += f["redactions"]
             nested = _flat(a.get("attributes"))
-            svc = normalize_service(a.get("service"))
+            svc = dd_service_value(a.get("service"))
             status = str(a.get("status") or "").strip().lower()
             level = _LOG_LEVELS.get(status) or map_level(status) or f["level"]
             attrs: dict[str, Any] = {"datadog.log_id": log_id} if log_id else {}
@@ -641,7 +647,7 @@ class DatadogConnector(HttpConnector):
         points.sort(key=lambda p: p[0])
         out: list[MetricRecord] = []
         for n, (ts, value, raw_ts, labels, unit) in enumerate(points, start=1):
-            label_svc = normalize_service(labels.get("service"))
+            label_svc = dd_service_value(labels.get("service"))
             out.append(
                 MetricRecord(
                     ts=ts,
@@ -719,7 +725,7 @@ class DatadogConnector(HttpConnector):
         out: list[SpanRecord] = []
         partial = 0
         for n, (ts, start_raw, a, matched_error, event_id) in enumerate(rows, start=1):
-            svc = normalize_service(a.get("service"))
+            svc = dd_service_value(a.get("service"))
             parent = str(a.get("parent_id") or "")
             parent_id = None if parent in ("", "0") else parent[:64]
             end = _parse_ts(a.get("end_timestamp"))

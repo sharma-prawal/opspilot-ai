@@ -41,7 +41,7 @@ END = datetime(2026, 11, 15, 15, 0, tzinfo=UTC)
 DEPLOY = datetime(2026, 11, 15, 13, 58, 40, tzinfo=UTC)
 ONSET = datetime(2026, 11, 15, 14, 2, tzinfo=UTC)
 INCIDENT_TIME = "2026-11-15T14:05:00Z"
-SERVICES = ("orders-api", "inventory-service", "notification-worker")
+SERVICES = ("orders-api", "inventory-service", "notification-worker", "billing.worker_v2")
 ENV = "prod"
 FAKE_SECRET = "sk_live_FIXTURE0000000000000000"  # noqa: S105 - synthetic value, shown redacted by OpsPilot
 
@@ -218,6 +218,8 @@ def build() -> Data:
                 "warn",
                 f"slow reservation: waited {int(db_ms)}ms for stock_levels lock",
             )
+        if n % 30 == 0:  # a service name with '.' and '_' (valid Datadog service tag), healthy, warns occasionally
+            log(t, "billing.worker_v2", "warn" if n % 90 == 0 else "info", f"invoice batch {n} exported in 1.2s")
         if n % 40 == 0:
             log(t, "notification-worker", "info", f"sent batch of {rng.randrange(20, 60)} notifications")
             span(
@@ -327,7 +329,9 @@ def timeseries(body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 def _matches(item: dict[str, Any], query: str) -> bool:
     a = item["attributes"]
     q = query
-    for key, val in re.findall(r"(service|env):([\w.-]+)", q):
+    # values may be escaped as Datadog's search syntax documents (orders\-api); unescape before comparing
+    for key, raw in re.findall(r"(service|env):((?:\\.|[\w.])+)", q):
+        val = re.sub(r"\\(.)", r"\1", raw)
         tagval = (
             a.get("service")
             if key == "service"
@@ -344,7 +348,7 @@ def _matches(item: dict[str, Any], query: str) -> bool:
     m = re.search(r"trace_id:\(([^)]*)\)", q)
     if m and a.get("trace_id") not in {w.strip() for w in m.group(1).split("OR")}:
         return False
-    rest = re.sub(r"(service|env|status|trace_id):(\([^)]*\)|[\w.-]+)", "", q)
+    rest = re.sub(r"(service|env|status|trace_id):(\([^)]*\)|(?:\\.|[\w.])+)", "", q)
     words = re.search(r"\(([^)]*)\)", rest)
     if words:
         terms = [w.strip().lower() for w in words.group(1).split("OR")]

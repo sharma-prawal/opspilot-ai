@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from opspilot_agents.claims import change_observations
 from opspilot_agents.impact import assess_impact
 from opspilot_agents.remediation import AMBIGUITY_MARGIN, MIN_ROLLBACK_CORRELATION
 
@@ -135,12 +136,23 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
         }
     )
     change_history_unknown = bool(unread) and not changes
+    observed = change_observations(evidence) if change_history_unknown else []
     if change_history_unknown:
         notes.insert(
             0,
             "change history (deployments, config changes) could not be read: whether anything changed in the window "
             "is UNKNOWN; do not state that no change occurred",
         )
+        if observed:  # v0.9: logs that show a change are evidence that one occurred, even without a change history
+            shown = "; ".join(
+                f"{o['service']} at {str(o['first_seen'])[11:16]}Z: {o['line'][:120]} ({o['evidence_id']})"
+                for o in observed[:3]
+            )
+            notes.insert(
+                1,
+                f"the logs show possible change events in the window: {shown}. Treat them as observed events and "
+                "weigh them as candidate causes; never write that no deployment or configuration change occurred",
+            )
 
     queues = [
         {
@@ -179,4 +191,6 @@ def evidence_digest(state: Mapping[str, Any]) -> dict[str, Any]:
         digest["change_history"] = (
             f"unavailable ({', '.join(unread)} failed); changes_by_correlation is empty because nothing could be read"
         )
+        if observed:
+            digest["observed_change_events"] = observed[:5]
     return digest

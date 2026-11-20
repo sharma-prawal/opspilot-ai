@@ -260,7 +260,16 @@ uploads (`is_read_only`, D113):
 - `search_logs` also returns error spans as derived entries, as it does for uploaded traces.
 - The prompt note names the signals actually collected and warns that indexed traces may be partial.
 - The report banner, provenance table (site, signal, Log Explorer link) and next steps name Datadog.
-- Loki/Prometheus prompts and reports are unchanged.
+- Loki/Prometheus prompt notes and report banners are unchanged.
+
+**Evidence states (all connected snapshots, D125).**
+
+- The telemetry agent also reads INFO lifecycle lines (version, start-up, configuration) as change observations
+  (`ev-chg-…`).
+- When change history is unknown, the digest lists them as possible change events.
+- `claims.check_hypotheses` flags any hypothesis or summary claiming that no change occurred
+  (`evidence_warnings`).
+- The report adds an *Evidence coverage* table: observed, contradicting, searched-none-found, not collected.
 
 ## Outcomes
 

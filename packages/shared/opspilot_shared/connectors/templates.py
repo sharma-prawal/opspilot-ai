@@ -34,7 +34,28 @@ from pydantic import ValidationError
 from opspilot_shared.connectors.contract import ConnectorError, ConnectorKind, QueryTemplate
 
 _LABEL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
-_SERVICE = re.compile(r"^[a-z][a-z0-9-]{1,62}$")  # ServiceName: no quote, backslash or brace can reach a query
+_SERVICE = re.compile(r"^[a-z][a-z0-9-]{1,62}$")  # Loki/Prometheus: no quote, backslash or brace can reach a query
+# v0.9 Datadog service tag values: lower-case letters, digits, '.', '_' and '-' (Datadog lowercases span and metric
+# tags;
+# ':' and '/' are allowed by Datadog but excluded here because they would break source references). Search values are
+# additionally escaped with ``dd_escape``.
+DD_SERVICE = re.compile(r"^[a-z][a-z0-9._-]{1,62}$")
+# Characters Datadog's search syntax treats as special (docs: logs/explorer/search_syntax), escaped with a backslash.
+_DD_SPECIAL = set('+-=&|><!(){}[]^"\u201c\u201d~*?:\\/ ')
+
+
+def dd_escape(value: str) -> str:
+    """A value as a literal term in Datadog log/span search syntax: every documented special character escaped."""
+    return "".join(f"\\{c}" if c in _DD_SPECIAL else c for c in value)
+
+
+def dd_service_value(raw: object) -> str | None:
+    """A Datadog service name exactly as returned (never rewritten into another name), or None if not usable."""
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip()
+    return value if DD_SERVICE.match(value) else None
+
 
 BUILT_IN: tuple[QueryTemplate, ...] = (
     QueryTemplate(

@@ -129,6 +129,7 @@ export interface ConnectedPreview {
 export interface Hypothesis {
   rank: number; title: string; category: string; description: string; confidence: number;
   supporting_evidence_ids: string[]; contradicting_evidence_ids: string[];
+  evidence_warnings?: string[]; // v0.9: deterministic evidence-state check (e.g. "no change" without change history)
 }
 
 export interface ProposedAction {

@@ -138,7 +138,7 @@ async def test_datadog_is_listed_tested_and_discovered_without_secrets(
 
     s = await client.post("/api/v1/connectors/datadog/services", json=WINDOW)
     assert s.status_code == 200
-    assert s.json()["services"] == ["inventory-service", "notification-worker", "orders-api"]
+    assert s.json()["services"] == ["billing.worker_v2", "inventory-service", "notification-worker", "orders-api"]
     assert any("no service tag" in n for n in s.json()["notes"])
     anon = await client.post("/api/v1/connectors/datadog/test", headers={"Authorization": ""})
     assert anon.status_code == 401
@@ -245,3 +245,24 @@ async def test_loki_prometheus_and_datadog_together(client: httpx.AsyncClient) -
     assert q["datadog/errors_warnings/orders-api"]["status"] == "empty"  # the fixture holds 2026-11-15 only
     dup = [{"connector": "datadog", "templates": ["errors_warnings"]}] * 2
     assert (await client.post("/api/v1/incidents/connected/preview", json=preview(sources=dup))).status_code == 422
+
+
+async def test_dotted_service_names_and_injection_attempts_at_the_api(client: httpx.AsyncClient) -> None:
+    dotted = preview(
+        service="billing.worker_v2", affected_services=[], sources=[{"connector": "datadog", "templates": ["all_logs"]}]
+    )
+    r = await client.post("/api/v1/incidents/connected/preview", json=dotted)
+    assert r.status_code == 200, r.text
+    q = r.json()["queries"][0]
+    assert q["id"] == "datadog/all_logs/billing.worker_v2" and q["query"] == "service:billing.worker_v2"
+    assert q["status"] == "ok" and r.json()["collected"]["log"] == ["billing.worker_v2"]
+    for evil in ("orders-api OR service:*", "orders-api status:error", 'x" OR "y', "svc*", "svc:prod", "Orders"):
+        bad = preview(service=evil, affected_services=[])
+        assert (await client.post("/api/v1/incidents/connected/preview", json=bad)).status_code == 422, evil
+    loki = preview(
+        service="billing.worker_v2",
+        affected_services=[],
+        sources=[{"connector": "loki", "templates": ["errors_warnings"]}],
+    )
+    r = await client.post("/api/v1/incidents/connected/preview", json=loki)
+    assert r.status_code == 422 and "lower-case slug" in r.json()["error"]["message"]  # Loki unchanged

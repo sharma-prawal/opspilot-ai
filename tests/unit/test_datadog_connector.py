@@ -155,11 +155,81 @@ def test_selector_cannot_carry_query_syntax() -> None:
     t = next(t for t in c.templates() if t.id == "http_5xx_ratio")
     assert "{service:orders-api,env:prod,http.status_class:5xx}" in c.render(t, "orders-api")
     logs = next(t for t in c.templates() if t.id == "errors_warnings")
-    assert c.render(logs, "orders-api").startswith("service:orders-api env:prod status:(")
-    for evil in ("orders-api OR service:*", "a}", 'x" OR "', "*"):
-        with pytest.raises(ConnectorError) as exc:
-            c.render(logs, evil)
-        assert exc.value.kind == "invalid_request"
+    # search syntax: '-' is a documented special character, so it is escaped
+    assert c.render(logs, "orders-api").startswith("service:orders\\-api env:prod status:(")
+    evil_values = (
+        "orders-api OR service:*",
+        "a}",
+        'x" OR "',
+        "*",
+        "svc*",
+        "svc)",
+        "svc:prod",
+        "svc/1",
+        "svc\\",
+        "a.b OR c",
+        "Orders-API",  # Datadog lowercases service tags; mixed case would silently match nothing
+        "a" * 64,
+        "-leading",
+        "1numeric",
+        "svc,env:dev",
+        "svc\nstatus:error",
+    )
+    for evil in evil_values:
+        for template in (logs, t):
+            with pytest.raises(ConnectorError) as exc:
+                c.render(template, evil)
+            assert exc.value.kind == "invalid_request", evil
+
+
+@pytest.mark.parametrize(
+    ("service", "search", "scope"),
+    [
+        ("orders-api", "service:orders\\-api", "{service:orders-api}"),
+        ("billing.worker_v2", "service:billing.worker_v2", "{service:billing.worker_v2}"),
+        ("web_store", "service:web_store", "{service:web_store}"),
+        ("api.v2-internal", "service:api.v2\\-internal", "{service:api.v2-internal}"),
+    ],
+)
+def test_legitimate_datadog_service_names_are_escaped_not_rewritten(service: str, search: str, scope: str) -> None:
+    c = dd_conn(FakeDatadog())
+    logs = next(t for t in c.templates() if t.id == "errors_warnings")
+    spans = next(t for t in c.templates() if t.id == "error_spans")
+    metric = next(t for t in c.templates() if t.id == "p95_latency_ms")
+    assert c.render(logs, service).startswith(search + " status:(")
+    assert c.render(spans, service) == f"{search} status:error"
+    assert scope in c.render(metric, service)
+
+
+def test_escaping_covers_every_documented_special_character() -> None:
+    from opspilot_shared.connectors.templates import dd_escape
+
+    special = '+-=&|><!(){}[]^"~*?:\\/ '
+    assert dd_escape(special) == "".join(f"\\{ch}" for ch in special)
+    assert dd_escape("billing.worker_v2") == "billing.worker_v2"
+
+
+async def test_dotted_service_is_discovered_queried_and_kept_exactly() -> None:
+    fake = FakeDatadog()
+    c = dd_conn(fake)
+    services, notes = await c.discover(W)  # type: ignore[attr-defined]
+    assert "billing.worker_v2" in services and any("Legacy_Billing" in n for n in notes)
+    t = next(t for t in c.templates() if t.id == "all_logs")
+    res = await c.fetch(t, "billing.worker_v2", W)
+    assert res.provenance.status == "ok" and res.provenance.id == "datadog/all_logs/billing.worker_v2"
+    assert {r.service for r in res.logs} == {"billing.worker_v2"}  # never rewritten to billing-worker-v2
+    assert all(r.service_source == "record" for r in res.logs)
+    assert res.logs[0].source.startswith("datadog/all_logs/billing.worker_v2:entry ")
+
+
+async def test_loki_and_prometheus_still_accept_slugs_only() -> None:
+    from opspilot_shared.connectors.templates import render
+
+    loki = next(t for t in load_templates(None)[0] if t.connector == "loki")
+    assert render(loki, label="service_name", service="checkout-api").startswith('{service_name="checkout-api"}')
+    for value in ("billing.worker_v2", "web_store"):
+        with pytest.raises(ConnectorError, match="lower-case slug"):
+            render(loki, label="service_name", service=value)
 
 
 # ------------------------------------------------------------------------------------- read-only surface
@@ -282,8 +352,8 @@ async def test_snapshot_normalizes_logs_metrics_and_spans_with_provenance() -> N
     q = {p.id: p for p in snap.queries}
     logs_q = q["datadog/errors_warnings/orders-api"]
     assert logs_q.signal == "log" and logs_q.site == "datadoghq.com" and logs_q.endpoint == LOGS_SEARCH
-    assert logs_q.query.startswith("service:orders-api status:(") and logs_q.limit == 2000 and logs_q.pages == 1
-    assert logs_q.link and logs_q.link.startswith("https://app.datadoghq.com/logs?query=service%3Aorders-api")
+    assert logs_q.query.startswith("service:orders\\-api status:(") and logs_q.limit == 2000 and logs_q.pages == 1
+    assert logs_q.link and logs_q.link.startswith("https://app.datadoghq.com/logs?query=service%3Aorders%5C-api")
     assert API_KEY not in logs_q.link and APP_KEY not in logs_q.link
     assert q["datadog/http_5xx_ratio/orders-api"].link is None  # no unverified URL scheme for metrics
     log = next(r for r in d.logs if r.service == "orders-api" and r.level == "ERROR" and r.trace_id)
@@ -417,7 +487,7 @@ async def test_service_discovery_is_bounded_and_explicit_about_gaps() -> None:
     fake = FakeDatadog()
     c = dd_conn(fake)
     services, notes = await c.discover(W)  # type: ignore[attr-defined]
-    assert services == SERVICES_SORTED
+    assert services == sorted([*SERVICES, "billing.worker_v2"])
     assert any("no service tag" in n for n in notes) and any("Legacy_Billing" in n for n in notes)
     body = next(r["body"] for r in fake.requests if r["path"] == LOGS_AGGREGATE)
     assert body["group_by"][0]["facet"] == "service" and body["group_by"][0]["limit"] == 50
@@ -439,3 +509,22 @@ async def test_empty_window_is_no_data_not_an_error() -> None:
 def test_template_model_accepts_signal_only_for_known_values() -> None:
     with pytest.raises(ValueError):
         QueryTemplate(id="x_y", connector="datadog", label="x", query="$selector", signal="trace")  # type: ignore[arg-type]
+
+
+async def test_span_templates_are_service_scoped_and_need_no_operation_name() -> None:
+    """Span search works for any integration: no built-in span template names an operation (trace.http.request,
+    operation_name, resource_name). Only APM *metric* templates depend on the span name, documented as such."""
+    fake = FakeDatadog()
+    c = dd_conn(fake)
+    span_templates = [t for t in c.templates() if t.returns == "span"]
+    assert {t.id for t in span_templates} == {"error_spans", "service_spans"}
+    for t in span_templates:
+        assert t.query.startswith("$selector")
+        assert not any(op in t.query for op in ("trace.", "operation_name", "resource_name", "@"))
+    worker = next(t for t in span_templates if t.id == "service_spans")
+    res = await c.fetch(worker, "notification-worker", W)  # a worker with only non-HTTP spans (send_batch)
+    assert res.provenance.status == "ok" and {s.name for s in res.spans} == {"send_batch"}
+    body = next(r["body"] for r in fake.requests if r["path"] == SPANS_SEARCH)
+    assert body["data"]["attributes"]["filter"]["query"] == "service:notification\\-worker"
+    metric_ops = {t.id for t in c.templates() if t.returns == "metric" and "trace.http.request" in t.query}
+    assert metric_ops == {"http_5xx_ratio", "trace_error_ratio", "p95_latency_ms", "http_requests_per_min"}

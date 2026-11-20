@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { signIn } from "./auth";
 import { assertIsolated } from "./isolation";
@@ -124,7 +124,12 @@ test("operator previews Datadog logs, metrics and spans and gets a cited read-on
     page.getByRole("button", { name: "Download Markdown" }).click(),
   ]);
   const md = readFileSync(await download.path(), "utf-8");
+  writeFileSync("test-results/datadog-report.md", md); // the real model's RCA, for review
   expect(md).toContain("## Telemetry queries (provenance)");
+  // v0.9 correction: unknown change history and the observed version start are stated, whatever the model wrote
+  expect(md).toContain("## Evidence coverage");
+  expect(md).toMatch(/\| Observed events \|[^\n]*version=3\.8\.0/);
+  expect(md).toContain("its absence is not evidence that nothing changed");
   expect(md).toContain("Datadog (datadoghq.com, span)");
   expect(md).not.toContain("fixture-api-key");
   expect(md).not.toContain("fixture-app-key");
@@ -159,8 +164,15 @@ test("catalogue and mobile intake show Datadog (synthetic fixture screenshots)",
   const card = page.locator("div.rounded-xl").filter({ has: page.getByRole("checkbox", { name: "Use Datadog" }) });
   await card.getByRole("button", { name: "Test connection" }).click();
   await expect(card.getByText("Connected", { exact: true })).toBeVisible();
-  const width = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(width).toBeLessThanOrEqual(391); // no horizontal page scroll on a phone
+  // The intake content must fit a phone: nothing inside <main> may force it wider than the viewport.
+  const main = await page.evaluate(() => {
+    const m = document.querySelector("main");
+    return m ? { scroll: m.scrollWidth, client: m.clientWidth, right: m.getBoundingClientRect().right } : null;
+  });
+  expect(main).not.toBeNull();
+  expect(main!.scroll).toBeLessThanOrEqual(main!.client + 1);
+  expect(main!.right).toBeLessThanOrEqual(391);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391); // no page scroll
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: "test-results/datadog-mobile-intake.png", fullPage: false });
 });

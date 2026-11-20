@@ -6,6 +6,15 @@ report and deletion path as uploads and the Loki/Prometheus connectors ([CONNECT
 evidence provider only. It is read-only, it has no Datadog-specific agent, and OpsPilot never changes anything in
 Datadog.
 
+> **Status at a glance.**
+> - **Implemented and fixture-tested:** logs, APM trace metrics, indexed APM spans, service discovery,
+>   per-product connection test, the read-only POST allowlist, rate-limit handling, dotted/underscored service
+>   names with documented escaping, and evidence-state handling in the RCA (unknown change history vs observed
+>   change events).
+> - **Verified against a real Datadog organization:** none.
+> - **Unsupported or deferred:** Datadog Events/Change Tracking, personal/service access tokens, trace and metric
+>   deep links, service names with `:` `/` or upper case, online-archive/Flex log tiers.
+>
 > **Verification status.** The connector was tested against a **synthetic contract fixture**
 > (`scripts/datadog_fixture.py`). The fixture answers with the request and response structures documented in the
 > Datadog API reference. It has **not** been verified against a live Datadog organization: no account was available
@@ -87,7 +96,7 @@ it cannot tell a read-only key from an admin key, so least privilege is your con
    `service` tag), up to 3 other services and the incident time. The window defaults to 3 h before to 30 min after.
 3. **Find services in this window** (optional) runs one log aggregate over the `service` facet for the window. It
    returns at most 50 services, by log count. It also tells you about logs without a service tag and about service
-   names that are not valid OpsPilot slugs (lower-case letters, digits, hyphens), which cannot be queried. You can
+   names OpsPilot cannot query (it accepts lower-case letters, digits, `.`, `_` and `-`, up to 63 characters). You can
    always type the service yourself.
 4. **Choose templates** grouped by signal (logs, metrics, APM spans). You never type a query.
 5. **Preview returned evidence** shows per-query status, records per signal, the services each signal was collected
@@ -117,6 +126,12 @@ it cannot tell a read-only key from an admin key, so least privilege is your con
 | `cpu_user_pct` | metric | `avg:system.cpu.user{$selector}` (hosts must carry the service tag) | `cpu_user_pct` (percent) |
 | `error_spans` ✓ | span | `$selector status:error`, then the other indexed spans of up to 10 of those traces | SpanRecord |
 | `service_spans` | span | `$selector` | SpanRecord |
+
+**Span search needs no operation name.** `error_spans` and `service_spans` are scoped by the `service` tag (and
+`status:error`) only, so they work for any integration, including workers whose spans are not `trace.http.request`
+(tested with the fixture's `send_batch` worker spans). Only the APM *metric* templates name an operation, because
+Datadog trace metrics are named per operation (`trace.<operation>.hits`); there is no operation-independent trace
+metric to query instead.
 
 **Metric names differ between services.** APM trace metrics are named after the span of the service's integration
 (`trace.flask.request`, `trace.express.request`, `trace.servlet.request`, …). Add or override templates in
@@ -162,6 +177,39 @@ Every record keeps where it came from. Nothing is invented:
   - for log queries, a Log Explorer link (`https://<app host>/logs?query=…`, the documented `query` parameter). No
     link is built for metrics or spans, because no stable URL scheme for them was verified.
 
+## Evidence states in the RCA
+
+A missing change history is never read as "nothing changed". The investigation keeps four evidence states apart:
+
+| State | Example | How it is used |
+|---|---|---|
+| Observed events | `starting inventory-service version=3.8.0 reservation_lock_mode=table` in the collected logs | collected as change observations (`ev-chg-…`), listed in the evidence digest as possible change events, citable |
+| Contradicting evidence | evidence the model cites against a hypothesis | shown under "Contradicting evidence" |
+| Searched, nothing found | `datadog/lifecycle/orders-api` returned no records | "no data", which is absence of evidence only |
+| Not collected / unavailable | deployment and configuration-change history (no Datadog events) | stated as **unknown** in the digest and the report |
+
+The pieces that enforce this:
+
+1. For connected snapshots, the telemetry agent also reads INFO lines that mention a version, start-up, deployment,
+   rollout, release, restart, migration or configuration. The WARN+ search never saw them.
+2. When change history is unknown, the digest names the observed change events and says never to write that no
+   change occurred.
+3. A deterministic check (`opspilot_agents/claims.py`) flags any hypothesis or summary that asserts no change
+   occurred, or that changes are ruled out, while change history was not collected. It does not flag gaps stated as
+   such, like "change history unavailable to rule out …". The flag is shown in the report and the UI. The hypothesis
+   is never silently edited or dropped.
+4. The report adds an **Evidence coverage** table with the four states.
+
+Real-model result (`qwen3.5:9b-q4_K_M`, synthetic fixture, development testing only):
+
+- Before the correction, the second hypothesis read "No internal deployment or configuration change caused the
+  fault" (85%).
+- After it, two runs ranked "inventory-service deployment (version 3.8.0) with reservation_lock_mode=table
+  introduced a fault causing lock contention and timeouts" first (65%), citing the observed start and config lines,
+  with no negative change claim.
+
+The check remains in place for runs where a model still makes one.
+
 ## Security controls
 
 | Control | Where |
@@ -169,7 +217,7 @@ Every record keeps where it came from. Nothing is invented:
 | Fixed destination: `https://api.<site>` from the site allowlist; no host, URL or path accepted from any request | `connectors/datadog.py` (`SITES`, `resolve_site`) |
 | Read-only surface: `GET /api/v1/validate`, and `POST` only to the four documented search/query paths; no PUT/PATCH/DELETE method exists; Loki/Prometheus have no POST allowlist and cannot POST | `connectors/http.py` (`ReadOnlyHttp.post_json`), `DatadogConnector.allowed_post_paths` |
 | No redirects, no proxy/netrc/env settings (`trust_env=False`); a redirect is an error | `ReadOnlyHttp` |
-| Deterministic queries: template IDs only; the service is a validated slug (no quote, colon, brace or `OR` can reach a query); unknown request fields (`url`, `site`, `method`, `query`, `path`) are 422 | `templates.py`, `datadog.py` (`selector`), `schemas.py` |
+| Deterministic queries: template IDs only. The service must match `[a-z][a-z0-9._-]{1,62}` (no space, quote, colon, slash, brace, comma, wildcard or `OR` can reach a query), and in log/span search syntax every character Datadog documents as special is escaped with `\` (`orders-api` → `service:orders\-api`; `.` and `_` are not special). Metric tag scopes use the validated value as is. Unknown request fields (`url`, `site`, `method`, `query`, `path`) are 422 | `templates.py` (`DD_SERVICE`, `dd_escape`), `datadog.py` (`selector`), `schemas.py` |
 | Bounds: window ≤ 6 h, not in the future; ≤ 4 services, ≤ 40 queries per snapshot; ≤ 1000 records per page, ≤ 5 pages, ≤ 2000 lines / 2000 spans per query; ≤ 20 series; 5 MiB per response; 10 s timeout | `base.py`, `snapshot.py`, `datadog.py` |
 | Concurrency: at most 4 queries per snapshot, at most 2 Datadog requests in flight per connector | `snapshot.py`, `datadog.py` |
 | Rate limits: on 429 or 503, at most 2 retries, and only when `X-RateLimit-Reset` / `Retry-After` is ≤ 10 s (1 s default for 503); otherwise `rate_limited` is reported with the wait; never a loop | `ReadOnlyHttp._send` |
@@ -207,7 +255,8 @@ relayed as an HTTP 401 to the operator.
   - partial traces: about 1 trace in 7 is missing its inventory-service span;
   - missing metric series: notification-worker has no APM HTTP metrics, and `cpu_user_pct` has no data;
   - a 3-minute `null` gap in orders-api metrics;
-  - logs without a service tag, and a non-slug service name (`Legacy_Billing`);
+  - logs without a service tag, an upper-case service name OpsPilot does not query (`Legacy_Billing`), and a
+    valid dotted/underscored one (`billing.worker_v2`);
   - a fake credential in one log line, which OpsPilot redacts.
 - **Failure modes** (tests): `Fixture.fail[path]` = 403, 404, 429 (with `X-RateLimit-*` headers), 500, `"timeout"`,
   `"malformed"` or `"not_json"`. A wrong key gets 403.
@@ -272,8 +321,8 @@ indexes. Check your contract for API-usage limits, and do not enable products ju
   query. Its search syntax (`trace_id:(<id> OR <id> …)`) and the built-in queries (`status:(…)`, the
   `trace.http.request*` metrics, `http.status_class:5xx`) follow Datadog's documented query syntax and metric names.
   They were exercised only by the fixture, which models that syntax, and not by Datadog itself.
-- Service names must be lower-case slugs (`[a-z][a-z0-9-]`); Datadog services with dots or underscores cannot be
-  queried yet.
+- Service names: lower-case letters, digits, `.`, `_` and `-` (≤ 63 characters). Names with `:` or `/` (allowed by
+  Datadog tags) or upper case are not queried. Loki/Prometheus still accept slugs only.
 - Log discovery shows services that have indexed logs in the window; APM-only services must be typed in.
 - Built-in APM metric templates assume `trace.http.request`. Other integrations need templates.
 - `meta.status: timeout` results are kept but flagged as partial. Online-archive and Flex log tiers are not queried.

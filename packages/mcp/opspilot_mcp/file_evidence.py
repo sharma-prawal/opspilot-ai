@@ -470,6 +470,10 @@ def search_logs(a: dict[str, Any], d: Dataset) -> dict[str, Any]:
         ]
     if contains:
         entries = [e for e in entries if contains in e["message"].lower()]
+    terms = a.get("contains_any")  # v0.9: any of a few fixed terms (set by the investigation code, never the model)
+    if isinstance(terms, list) and terms:
+        wanted = [str(t).lower()[:40] for t in terms[:12] if str(t).strip()]
+        entries = [e for e in entries if any(t in e["message"].lower() for t in wanted)]
     entries.sort(key=lambda e: e["ts"], reverse=True)
     return {"entries": entries[:limit], "total_matched": len(entries), "truncated": len(entries) > limit}
 

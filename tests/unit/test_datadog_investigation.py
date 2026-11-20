@@ -151,3 +151,68 @@ async def test_missing_span_permission_keeps_logs_and_metrics_and_leaves_traces_
     md = state["report"]["markdown"]
     assert "Inspect traces for the failing requests in Datadog APM; no spans were collected." in md
     assert "permission_denied" in md or "error, 0 record(s)" in md
+
+
+# ------------------------------------------------------------------ v0.9 correction: unsupported "no change" claims
+def claims_no_change(messages: list[Any]) -> dict[str, Any]:
+    """The second hypothesis of the first real qwen3.5:9b-q4_K_M run on the fixture, verbatim."""
+    out = lock_rca(messages)
+    first = out["hypotheses"][0]
+    out["hypotheses"].append(
+        {
+            "title": "No internal deployment or configuration change caused the fault; the root cause lies outside "
+            "our control",
+            "category": "dependency_degradation",
+            "description": "No deployment events were recorded, so the incident was not caused by a change.",
+            "confidence": 0.85,
+            "supporting_evidence_ids": first["supporting_evidence_ids"][:1],
+        }
+    )
+    return out
+
+
+async def test_unknown_change_history_with_version_start_is_not_read_as_no_change() -> None:
+    fake = FakeDatadog()
+    provider, inc_id, _ = await dd_incident(fake)
+    prompts: list[str] = []
+
+    def capture(messages: list[Any]) -> dict[str, Any]:
+        prompts.append("\n".join(str(m.get("content", "")) if isinstance(m, dict) else str(m) for m in messages))
+        return claims_no_change(messages)
+
+    state, tools = await run(provider, inc_id, capture)
+    ev = state["evidence"]
+    # the INFO version-start line is collected as an observed change event (it was invisible to the WARN+ search)
+    observed = [e for e in ev.values() if e["data"].get("change_observation")]
+    assert any("version=3.8.0" in e["data"]["sample"] and e["service"] == "inventory-service" for e in observed)
+    life = [r for r in tools.records if r.tool == "search_logs" and r.ok and "contains_any" in r.record.arguments]
+    assert life and all(r.record.server == CONNECTED_SERVER for r in life)
+    # the model is told both facts: change history unknown AND a change observed in the logs
+    assert "whether anything changed in the window is UNKNOWN" in prompts[-1]
+    assert "the logs show possible change events in the window: inventory-service at 13:58Z" in prompts[-1]
+    assert '"observed_change_events"' in prompts[-1]
+
+    hyps = {h["title"][:20]: h for h in state["rca"]["hypotheses"]}
+    flagged = hyps["No internal deployme"]
+    assert flagged["evidence_warnings"] and "Unsupported claim" in flagged["evidence_warnings"][0]
+    assert "version=3.8.0" in flagged["evidence_warnings"][0] and "unknown" in flagged["evidence_warnings"][0]
+    assert not hyps["Lock contention on s"].get("evidence_warnings")  # supported hypotheses are untouched
+    assert flagged["confidence"] == 0.85  # annotated, never silently edited, dropped or re-ranked
+
+    md = state["report"]["markdown"]
+    assert "> ⚠ Unsupported claim ('No internal deployment or configuration change')" in md
+    assert "## Evidence coverage" in md
+    coverage = md.split("## Evidence coverage", 1)[1].split("\n## ", 1)[0]
+    assert "| Observed events |" in coverage and "version=3.8.0" in coverage
+    assert "| Not collected / unavailable |" in coverage and "**unknown**" in coverage
+    assert "its absence is not evidence that nothing changed" in coverage
+    assert "| Searched, nothing found |" in coverage and "datadog/" in coverage  # empty queries are listed
+    assert "| Contradicting evidence |" in coverage
+
+
+async def test_without_a_change_line_the_warning_says_absence_only() -> None:
+    fake = FakeDatadog()
+    provider, inc_id, _ = await dd_incident(fake, tuple(t for t in DEFAULT if t != "lifecycle"))
+    state, _ = await run(provider, inc_id, claims_no_change)
+    flagged = next(h for h in state["rca"]["hypotheses"] if h.get("evidence_warnings"))
+    assert "absence of evidence only" in flagged["evidence_warnings"][0]

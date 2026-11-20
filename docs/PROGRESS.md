@@ -615,7 +615,7 @@ Not done (next session, in order):
     most 2 requests in flight, cursor pagination with page and record ceilings.
 - Pipeline: templates name their `signal`; provenance adds `signal`, `site`, `link` and `pages`; snapshots add
   `spans` and `collected.span`. The stored-evidence provider, prompt note, report banner, provenance table and next
-  steps name Datadog. Loki/Prometheus wording is unchanged (tested byte for byte).
+  steps name Datadog. Loki/Prometheus note and banner wording is unchanged (tested).
 - Web (Visual Experience 2.0 kept):
   - Datadog in the provider cards (templates grouped by signal, per-signal test badges, *synthetic fixture* label,
     fixture demo incident);
@@ -646,4 +646,38 @@ Not done (next session, in order):
   - Datadog Events/Change Tracking deferred;
   - official `make evaluate` not re-run: simulator path unchanged;
   - draft release notes `docs/releases/V0.9.0_NOTES.md`; not tagged or published.
+
+## Status — 2026-11-20, v0.9.0 Datadog correctness and compatibility pass (same branch, not pushed)
+
+- **Unsupported negative change claims (D125).**
+  - Connected investigations collect INFO version, start-up and config lines as change observations.
+  - The digest lists them when change history is unknown.
+  - `claims.py` flags hypotheses or summaries claiming that no change occurred (annotate only, no gate change).
+  - The report adds an *Evidence coverage* table.
+  - Real `qwen3.5:9b-q4_K_M` on the fixture:
+    - before: hypothesis 2 "No internal deployment or configuration change caused the fault" (85%);
+    - after, two E2E runs: hypothesis 1 "inventory-service deployment (version 3.8.0) with
+      reservation_lock_mode=table introduced a fault…" (65%), citing the observed lines; no negative change claim
+      and no warning.
+  - The first after-run also exposed a false positive ("change history unavailable to rule out recent changes");
+    it is fixed and covered by a test.
+- **Service names (D126).**
+  - `.` and `_` are accepted for Datadog; values are escaped per Datadog's documented search syntax and kept
+    exactly (web form included).
+  - Loki/Prometheus stay slug-only.
+  - The fixture adds `billing.worker_v2`.
+- **Span templates.** Confirmed operation-independent (test); only APM metric templates use `trace.http.request`.
+- **Mobile.** The two demo buttons forced a 418 px intake at 390 px when Loki/Prometheus and the Datadog fixture were
+  both configured. The button group now wraps; the test asserts no page-level horizontal scroll.
+- **Verified.**
+  - `make lint` clean (mypy 111 files);
+  - pytest 474 passed / 3 skipped (live-model opt-in);
+  - web 71 passed; `pnpm build` OK;
+  - Playwright with `E2E_DATADOG=1 E2E_TELEMETRY=1`: 10 passed (auth ×3, Loki/Prometheus, Datadog error states,
+    Datadog journey with the real model, Datadog catalogue/mobile, simulator INC-001 with verified recovery,
+    overview, upload);
+  - the not-configured Datadog path passes without the fixture;
+  - screenshots refreshed.
+- Still open: live Datadog verification; Datadog events deferred; `make evaluate` not re-run (simulator path
+  unchanged: the new evidence and checks apply only to connected snapshots or when change history is unknown).
 

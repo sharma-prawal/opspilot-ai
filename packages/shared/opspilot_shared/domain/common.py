@@ -14,7 +14,11 @@ def _ensure_utc(value: datetime) -> datetime:
 
 
 UtcDatetime = Annotated[datetime, AfterValidator(_ensure_utc)]
-ServiceName = Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{1,62}$", description="Service slug")]
+# v0.9: dots and underscores are accepted (Datadog service tags such as ``billing.worker_v2``). Every query builder
+# validates again for its own backend: Loki/Prometheus selectors still accept slugs only, Datadog escapes its values.
+ServiceName = Annotated[
+    str, Field(pattern=r"^[a-z][a-z0-9._-]{1,62}$", description="Service name: lower-case letters, digits, . _ -")
+]
 
 
 class Contract(BaseModel):

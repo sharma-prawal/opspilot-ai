@@ -96,6 +96,10 @@ Full detail: [CONNECTORS.md](../integrations/CONNECTORS.md#security). Decisions 
 
 Full detail: [DATADOG.md](../integrations/DATADOG.md#security-controls). Decisions D119–D124.
 
+- **Query construction.** Service names must match `[a-z][a-z0-9._-]{1,62}`. In log/span search syntax every
+  documented special character is escaped with `\`; metric tag scopes take only the validated value. Injection
+  attempts (`OR`, wildcards, quotes, colons, braces, slashes, commas, newlines) are rejected with 422 and tested at
+  the connector and the API (D126).
 - **Destination.** Only `https://api.<DATADOG_SITE>`, for a site in the documented allowlist (`SITES`). Any other
   value is refused at start-up: hosts, URLs, look-alike domains, link-local addresses. Requests cannot name a host,
   path, method, query or site; such fields are 422. `DATADOG_LOCAL_API_URL` (synthetic fixture) is refused unless it

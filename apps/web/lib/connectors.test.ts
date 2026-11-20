@@ -44,3 +44,17 @@ describe("v0.9 Datadog helpers", () => {
     expect(templateSignal({ ...base, connector: "datadog", signal: "span" })).toBe("span");
   });
 });
+
+describe("v0.9 connected service names", () => {
+  it("keeps Datadog service names exactly instead of rewriting them", async () => {
+    const { connectedService, parseConnectedServices } = await import("./connectors");
+    expect(connectedService(" Billing.Worker_v2 ")).toBe("billing.worker_v2");
+    expect(connectedService("orders-api")).toBe("orders-api");
+    for (const bad of ["orders-api OR service:*", "svc*", "svc:prod", "a b", "svc/1", "-x", "1x", "a".repeat(64)]) {
+      expect(connectedService(bad), bad).toBeNull();
+    }
+    expect(parseConnectedServices("web_store, api.v2-internal, bad*name")).toEqual({
+      services: ["web_store", "api.v2-internal"], invalid: ["bad*name"],
+    });
+  });
+});

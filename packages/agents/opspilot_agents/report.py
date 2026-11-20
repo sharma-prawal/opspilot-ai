@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from opspilot_agents.claims import change_history_unread, change_observations
 from opspilot_agents.prompts import connected_sources, is_connected, is_read_only
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
@@ -247,6 +248,9 @@ def render_report(state: dict[str, Any]) -> str:
         ]
     if rca.get("summary"):
         lines += ["## Summary", "", rca["summary"], ""]
+        lines += [f"> ⚠ {w}" for w in rca.get("evidence_warnings") or []] + (
+            [""] if rca.get("evidence_warnings") else []
+        )
         if rca.get("impact"):
             imp = rca["impact"]
             lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
@@ -273,6 +277,8 @@ def render_report(state: dict[str, Any]) -> str:
                     for i in h["contradicting_evidence_ids"]
                     if i in ev
                 ]
+            for w in h.get("evidence_warnings") or []:  # v0.9: deterministic evidence-state check (claims.py)
+                lines += ["", f"> ⚠ {w}"]
             lines.append("")
     if rca.get("citation_violations"):
         lines += [
@@ -299,7 +305,7 @@ def render_report(state: dict[str, Any]) -> str:
     if uploaded:
         lines += _uploaded_sections(state, rca, ev)
         if is_connected(inc):
-            lines += _query_section(inc)
+            lines += _coverage_section(state) + _query_section(inc)
         return "\n".join(lines + _trailer(state, rca, ev)) + "\n"
 
     lines += ["## Remediation", ""]
@@ -370,6 +376,43 @@ def _source(e: dict[str, Any]) -> str | None:
 def _cite(e: dict[str, Any]) -> str:
     src = _source(e)
     return f" _(source: {_one_line(str(src), 120)})_" if src else ""
+
+
+def _coverage_section(state: dict[str, Any]) -> list[str]:
+    """v0.9: what the evidence shows, contradicts, did not find, and could not see (connected snapshots)."""
+    inc = state.get("incident") or {}
+    ev = state.get("evidence") or {}
+    hyps = (state.get("rca") or {}).get("hypotheses") or []
+    observed = change_observations(ev)
+    contra = sorted({i for h in hyps for i in h.get("contradicting_evidence_ids") or [] if i in ev})
+    empty = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "empty"]
+    failed = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "error"]
+    unread = change_history_unread(state)
+    gaps = [_one_line(e["summary"], 140) for e in ev.values() if e["kind"] == "tool_error"]
+    not_collected = []
+    if unread:
+        not_collected.append(
+            "deployment and configuration-change history (not part of the snapshot): whether anything changed is "
+            "**unknown**; its absence is not evidence that nothing changed"
+        )
+    not_collected += [f"query `{q}` failed" for q in failed]
+    not_collected += [g for g in gaps if "change" not in g.lower() and "deploy" not in g.lower()][:6]
+    rows = [
+        (
+            "Observed events",
+            "; ".join(
+                f"`{o['evidence_id']}` {o['service']} {str(o['first_seen'])[11:16]}Z: {_one_line(o['line'], 90)}"
+                for o in observed[:4]
+            )
+            or "no change event (version, start-up, configuration line) in the collected logs",
+        ),
+        ("Contradicting evidence", ", ".join(f"`{i}`" for i in contra) or "none cited by the model"),
+        ("Searched, nothing found", ", ".join(f"`{q}`" for q in empty) or "every query returned records"),
+        ("Not collected / unavailable", "; ".join(not_collected) or "none"),
+    ]
+    lines = ["## Evidence coverage", "", "| State | Evidence |", "|---|---|"]
+    lines += [f"| {k} | {v.replace('|', '/')} |" for k, v in rows]
+    return [*lines, ""]
 
 
 def _query_section(inc: dict[str, Any]) -> list[str]:

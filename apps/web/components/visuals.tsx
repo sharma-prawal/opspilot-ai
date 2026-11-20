@@ -260,10 +260,18 @@ export function HypothesisComparison({
                 <span className="text-danger">
                   {contradicting.length} contradicting
                 </span>
+                {!!h.evidence_warnings?.length && (
+                  <span className="text-warn">unsupported claim</span>
+                )}
               </div>
               {h.rank === selected && (
                 <div className="hypothesis-detail">
                   <p>{h.description}</p>
+                  {h.evidence_warnings?.map((w) => (
+                    <p key={w} role="note" className="mt-1 text-xs text-warn">
+                      ⚠ {w}
+                    </p>
+                  ))}
                   <div className="flex flex-wrap gap-2">
                     {supporting.map((id) => (
                       <button

@@ -216,7 +216,10 @@ fixture*; see the guide for the settings).
 - **Truthful evidence.** Metric `null` intervals are left out, never filled in. Spans are `error` only when Datadog
   flags them, otherwise `unset`. Spans whose parent was not indexed mark their trace as partial. Missing permissions
   leave that signal *unknown* while the others are still analysed. Change events are not collected, so change
-  history stays unknown.
+  history stays unknown. Version, start-up and configuration log lines are kept as observed change events, and an
+  RCA that claims "no change occurred" without change history is flagged.
+- **Service names** may contain `.` and `_` (e.g. `billing.worker_v2`). They are escaped per Datadog's search
+  syntax and never rewritten.
 - **Verified.** Tested only against the synthetic contract fixture, which uses Datadog's documented request and
   response shapes. **Not yet verified against a live Datadog organization.**
 
