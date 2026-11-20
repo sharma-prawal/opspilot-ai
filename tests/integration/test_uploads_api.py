@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import stat
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -261,3 +262,81 @@ async def test_concurrent_reference_allocation_is_unique(session_factory) -> Non
         await s.execute(text("DELETE FROM ops.incidents WHERE id = ANY(:ids)"), {"ids": ids})
         nxt = await repo.next_incident_reference(s, day)
     assert int(nxt.rsplit("-", 1)[1]) > max(int(r.rsplit("-", 1)[1]) for r in refs)  # deletions never rewind it
+
+
+async def test_files_stored_by_one_checkout_are_deleted_by_another(
+    app_client: httpx.AsyncClient,
+    session_factory,  # type: ignore[no-untyped-def]
+    settings,  # type: ignore[no-untyped-def]
+) -> None:
+    """v0.9.1: two API processes from different worktrees share UPLOAD_DIR, so deletion finds the files."""
+    from opspilot_api.services.uploads import UploadService
+
+    inc = (await app_client.post("/api/v1/incidents/upload", json=incident())).json()
+    ds = (await app_client.get(f"/api/v1/incidents/{inc['id']}/dataset")).json()
+    stored = Path(app_client.upload_dir) / ds["dataset_id"]  # type: ignore[attr-defined]
+    assert stored.is_dir()
+    other_checkout = UploadService(session_factory, settings.model_copy(update={"upload_dir": app_client.upload_dir}))  # type: ignore[attr-defined]
+    out = await other_checkout.discard(uuid.UUID(inc["id"]), actor="test")
+    assert out["files_removed"] is True and "legacy_files_kept" not in out and not stored.exists()
+
+
+async def test_legacy_location_is_reported_never_deleted_and_migrates_verified(
+    app_client: httpx.AsyncClient,
+    session_factory,  # type: ignore[no-untyped-def]
+    settings,  # type: ignore[no-untyped-def]
+    tmp_path: Path,
+) -> None:
+    """A dataset stored under an older checkout's var/uploads (v0.9.0 default) keeps working: deleting it removes its
+    records and any copy in UPLOAD_DIR, reports the legacy copy and never deletes it; migrate-storage copies it in."""
+    from opspilot_api.services.upload_storage import UploadStorage
+    from opspilot_api.services.uploads import UploadService
+
+    inc = (await app_client.post("/api/v1/incidents/upload", json=incident())).json()
+    ds = (await app_client.get(f"/api/v1/incidents/{inc['id']}/dataset")).json()
+    legacy = Path(app_client.upload_dir) / ds["dataset_id"]  # type: ignore[attr-defined]  # recorded storage_dir
+    shared = UploadStorage(tmp_path / "shared-root")
+    async with session_factory() as s:
+        recorded = (
+            await s.execute(
+                text("select storage_dir from ops.uploaded_datasets where id = :i"), {"i": ds["dataset_id"]}
+            )
+        ).scalar_one()
+    assert recorded == str(legacy)
+    assert shared.locate(ds["dataset_id"], recorded) == {
+        "path": str(shared.root / ds["dataset_id"]),
+        "present": False,
+        "legacy_path": str(legacy),
+        "legacy_present": True,
+    }
+    moved = shared.migrate(ds["dataset_id"], recorded, apply=True)
+    assert moved["status"] == "copied" and len(moved["files"]) == 4
+    async with session_factory() as s:  # migration never changes database rows
+        assert (
+            await s.execute(
+                text("select storage_dir from ops.uploaded_datasets where id = :i"), {"i": ds["dataset_id"]}
+            )
+        ).scalar_one() == recorded
+
+    new_checkout = UploadService(session_factory, settings.model_copy(update={"upload_dir": shared.root}))
+    out = await new_checkout.discard(uuid.UUID(inc["id"]), actor="test")
+    assert out["files_removed"] is True and not (shared.root / ds["dataset_id"]).exists()
+    assert out["legacy_files_kept"] == str(legacy) and len(list(legacy.iterdir())) == 4  # original never deleted
+    assert (await app_client.get(f"/api/v1/incidents/{inc['id']}")).status_code == 404
+
+
+async def test_missing_raw_files_do_not_block_deletion(
+    app_client: httpx.AsyncClient,
+    session_factory,  # type: ignore[no-untyped-def]
+    settings,  # type: ignore[no-untyped-def]
+    tmp_path: Path,
+) -> None:
+    from opspilot_api.services.uploads import UploadService
+
+    inc = (await app_client.post("/api/v1/incidents/upload", json=incident())).json()
+    svc = UploadService(session_factory, settings.model_copy(update={"upload_dir": tmp_path / "empty-root"}))
+    out = await svc.discard(
+        uuid.UUID(inc["id"]), actor="test"
+    )  # neither this root nor anything else has the files: still OK
+    assert out["files_removed"] is False
+    assert (await app_client.get(f"/api/v1/incidents/{inc['id']}")).status_code == 404
