@@ -8,8 +8,8 @@ import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/
 import { SeriesChart } from "@/components/visuals";
 import { api } from "@/lib/api";
 import {
-  DEMO_CONNECTED, DEMO_DATADOG, SIGNAL_LABEL, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, signalsOf,
-  templateSignal, utcIso, windowProblem,
+  DEMO_AZURE, DEMO_CONNECTED, DEMO_DATADOG, TABLE_STATE, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, queryStatusLabel,
+  signalLabel, signalsOf, templateSignal, utcIso, windowProblem,
 } from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
 import { ModelName } from "@/lib/models";
@@ -38,13 +38,14 @@ function recordText(r: NormalizedRecord): string {
     const dur = typeof r.duration_ms === "number" ? ` · ${Math.round(r.duration_ms)} ms` : "";
     const parent = r.parent_span_id ? "" : " · root";
     const partial = r.attributes?.parent_missing ? " · parent not in snapshot (partial trace)" : "";
-    return `${r.status === "error" ? "ERROR " : ""}${r.name}${dur}${parent}${partial}${r.status_message ? ` — ${r.status_message}` : ""}`;
+    const sampled = typeof r.attributes?.["azure.item_count"] === "number" ? ` · represents ${r.attributes["azure.item_count"]} sampled items` : "";
+    return `${r.status === "error" ? "ERROR " : ""}${r.name}${dur}${parent}${partial}${sampled}${r.status_message ? ` — ${r.status_message}` : ""}`;
   }
   return "";
 }
 
 const TABS: { key: TelemetrySignal; label: string }[] = [
-  { key: "log", label: "Logs" }, { key: "metric", label: "Metrics" }, { key: "span", label: "Spans" },
+  { key: "log", label: "Logs" }, { key: "metric", label: "Metrics" }, { key: "span", label: "Spans / requests" },
 ];
 
 function ConnectorCard({
@@ -64,7 +65,7 @@ function ConnectorCard({
             aria-label={`Use ${c.name}`} />
           {c.name}
         </label>
-        {signals.map((sig) => <Badge key={sig}>{SIGNAL_LABEL[sig].toLowerCase()}</Badge>)}
+        {signals.map((sig) => <Badge key={sig}>{signalLabel(sig, c.id).toLowerCase()}</Badge>)}
         {c.fixture && <Badge tone="warn" className="text-[10px]">synthetic fixture</Badge>}
         {!c.configured ? (
           <Badge tone="neutral">Not configured</Badge>
@@ -86,12 +87,20 @@ function ConnectorCard({
         </p>
       ) : (
         <>
+          {c.workspace_id ? (
+            <p className="mt-1 text-[11px] text-muted">
+              workspace <span className="font-mono">{c.workspace_id}</span> · <span className="font-mono">{c.endpoint}</span>
+              {" "}· auth: {c.auth} · service = <span className="font-mono">{c.service_label}</span> (case-insensitive)
+              {c.permissions?.role ? <> · needs {c.permissions.role}</> : null}
+            </p>
+          ) : (
           <p className="mt-1 text-[11px] text-muted">
             <span className="font-mono">{c.endpoint}</span>{c.site ? <> · site <span className="font-mono">{c.site}</span></> : null}
             {" "}· auth: {c.auth}
             {c.tenant ? <> · tenant <span className="font-mono">{c.tenant}</span></> : null} · service {c.site ? "tag" : "label"}{" "}
             <span className="font-mono">{c.service_label}</span>{c.env ? <> · env <span className="font-mono">{c.env}</span></> : null}
           </p>
+          )}
           {status && status.status !== "ok" && (
             <p role="alert" className={`mt-2 text-xs ${status.status === "partial" ? "text-warn" : "text-danger"}`}>{status.message}</p>
           )}
@@ -100,7 +109,16 @@ function ConnectorCard({
             <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`${c.name} signal availability`}>
               {Object.entries(status.signals).map(([sig, st]) => st && (
                 <li key={sig} title={st.message}>
-                  <Badge tone={SIGNAL_STATE[st.status].tone}>{SIGNAL_LABEL[sig as TelemetrySignal]}: {SIGNAL_STATE[st.status].label}</Badge>
+                  <Badge tone={SIGNAL_STATE[st.status].tone}>{signalLabel(sig as TelemetrySignal, c.id)}: {SIGNAL_STATE[st.status].label}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          {status?.tables && (
+            <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label={`${c.name} table availability`}>
+              {Object.entries(status.tables).map(([table, st]) => (
+                <li key={table} title={st.message}>
+                  <Badge tone={TABLE_STATE[st.status].tone} className="font-mono text-[10px]">{table}: {TABLE_STATE[st.status].label}</Badge>
                 </li>
               ))}
             </ul>
@@ -111,7 +129,7 @@ function ConnectorCard({
               <div key={sig} className="space-y-1.5">
                 {groups.length > 1 && (
                   <p className="pt-1 text-[11px] font-semibold text-text-muted">
-                    {SIGNAL_LABEL[sig]}{c.permissions?.[sig] ? <span className="font-normal text-muted"> · needs <span className="font-mono">{c.permissions[sig]}</span></span> : null}
+                    {signalLabel(sig, c.id)}{c.permissions?.[sig] ? <span className="font-normal text-muted"> · needs <span className="font-mono">{c.permissions[sig]}</span></span> : null}
                   </p>
                 )}
             {items.map((t) => (
@@ -242,9 +260,10 @@ export function ConnectedView() {
     setIncidentTime(demo.time);
   }
   // The local demo incidents only exist in the local test setups: Loki/Prometheus (`make telemetry-up`) and the
-  // synthetic Datadog fixture (DATADOG_LOCAL_API_URL). Never offered against a real Datadog site.
+  // synthetic Datadog/Azure Monitor fixtures (loopback only). Never offered against a real Datadog site or workspace.
   const ddFixture = configured.some((c) => c.id === "datadog" && c.fixture);
-  const v06Demo = configured.some((c) => c.id !== "datadog");
+  const azFixture = configured.some((c) => c.id === "azure_monitor" && c.fixture);
+  const v06Demo = configured.some((c) => c.id === "loki" || c.id === "prometheus");
 
   const busy = previewM.isPending || create.isPending;
   const samples = preview?.samples[tab] ?? [];
@@ -263,7 +282,7 @@ export function ConnectedView() {
         badge={<Badge tone="cyan">Connected telemetry</Badge>}
         subtitle={
           <span>
-            Query your configured Grafana Loki, Prometheus or Datadog for one incident window with approved templates,
+            Query your configured Grafana Loki, Prometheus, Datadog or Azure Monitor for one incident window with approved templates,
             check what came back, then investigate with the local model{" "}
             <ModelName kind="llm" className="font-mono text-xs text-text" /> — read-only: it suggests
             remediation but never executes it.
@@ -294,10 +313,11 @@ export function ConnectedView() {
             }
           >
             <strong className="text-text">No connector is configured.</strong> Set <code className="font-mono">LOKI_URL</code>,{" "}
-            <code className="font-mono">PROMETHEUS_URL</code> and/or <code className="font-mono">DATADOG_ENABLED</code> with
-            the Datadog site and keys in the API environment (see .env.example) and restart the API. For local test setups
-            with synthetic data run <code className="font-mono">make telemetry-up</code> or{" "}
-            <code className="font-mono">make datadog-fixture</code>.
+            <code className="font-mono">PROMETHEUS_URL</code>, <code className="font-mono">DATADOG_ENABLED</code> with
+            the Datadog site and keys, and/or <code className="font-mono">AZURE_MONITOR_ENABLED</code> with a workspace ID
+            and credentials in the API environment (see .env.example) and restart the API. For local test setups
+            with synthetic data run <code className="font-mono">make telemetry-up</code>,{" "}
+            <code className="font-mono">make datadog-fixture</code> or <code className="font-mono">make azure-fixture</code>.
           </Empty>
         </Card>
       ) : (
@@ -308,6 +328,7 @@ export function ConnectedView() {
                 <div className="flex max-w-[16rem] flex-wrap justify-end gap-2 sm:max-w-none">
                   {v06Demo && <Button size="sm" variant="secondary" onClick={() => loadDemo()}>Use the local demo incident</Button>}
                   {ddFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_DATADOG)}>Use the Datadog fixture incident</Button>}
+                  {azFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_AZURE)}>Use the Azure fixture incident</Button>}
                 </div>
               }>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -323,7 +344,7 @@ export function ConnectedView() {
                       onChange={(e) => { setDescription(e.target.value); invalidate(); }} />
                   </Field>
                 </div>
-                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; '.' and '_' allowed). Loki/Prometheus: slugs only.">
+                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; Azure: AppRoleName, case-insensitive; '.' and '_' allowed). Loki/Prometheus: slugs only.">
                   <input id="cn-svc" className={input} value={service} placeholder="checkout-api" list="cn-services"
                     aria-invalid={!!service && !primary} onChange={(e) => { setService(e.target.value); invalidate(); }} />
                 </Field>
@@ -451,13 +472,14 @@ export function ConnectedView() {
                       {preview.queries.map((q) => (
                         <tr key={q.id} className="align-top">
                           <td className="py-2 pr-3"><span className="font-mono text-text">{q.id}</span>
+                            {q.tables?.length ? <span className="block text-[10px] text-muted">tables: {q.tables.join(", ")}</span> : null}
                             <code className="mt-0.5 block max-w-sm break-all font-mono text-[10px] text-muted">{q.query}</code>
                             {q.link?.startsWith("https://") && (
                               <a href={q.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent hover:underline">Open in Datadog ↗</a>
                             )}</td>
                           <td className="pr-3">
                             <Badge tone={q.status === "ok" ? "success" : q.status === "empty" ? "neutral" : "danger"}>
-                              {q.status === "error" ? q.error?.kind.replace("_", " ") : q.status === "empty" ? "no data" : `${q.returned} records`}
+                              {queryStatusLabel(q)}
                             </Badge>
                             {q.truncated && <Badge tone="warn" className="ml-1">truncated</Badge>}
                           </td>
@@ -530,9 +552,10 @@ export function ConnectedView() {
             <Card title="Not available from connected telemetry">
               <p className="text-xs leading-relaxed text-text-muted">
                 Deployment and config-change history, live health, runtime configuration, datastore and queue state;
-                traces too, unless Datadog APM spans are collected (indexed spans only, so a trace can be partial). The
-                agent treats what is missing as unknown and the report lists it as a gap. Connectors for Azure Monitor,
-                CloudWatch and custom sources are planned, not implemented.
+                traces too, unless Datadog APM spans or Application Insights requests/dependencies are collected (a
+                bounded, possibly sampled set, so a trace can be partial). The agent treats what is missing as unknown
+                and the report lists it as a gap. Connectors for CloudWatch and custom sources are planned, not
+                implemented.
               </p>
             </Card>
           </div>

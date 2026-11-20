@@ -7,6 +7,8 @@ Ollama/LLM internals) are strictly excluded from the web process environment.
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -304,3 +306,26 @@ def test_spawn_web_server_detaches_and_isolates_descendants(tmp_path: Path, monk
         SENTINEL_PROM_PASS,
     } & set(report["values"])
     assert not leaked, "backend secret value reached the web process"
+
+
+def test_exec_mode_used_by_the_e2e_stack_passes_only_the_web_allowlist() -> None:
+    """v0.10: Playwright starts ``next dev`` through ``web_env --exec``; the E2E API's backend credentials, present in
+    the Playwright process, never reach the web process."""
+    env = {**make_sample_root_env(), "PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/tmp")}
+    probe = "import json, os; print(json.dumps({'keys': sorted(os.environ), 'values': sorted(os.environ.values())}))"
+    out = subprocess.run(
+        [sys.executable, "-m", "opspilot_shared.web_env", "--exec", sys.executable, "-c", probe],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    report = json.loads(out.stdout)
+    keys = set(report["keys"])
+    assert keys >= WEB_REQUIRED_VARS
+    assert keys <= WEB_ALLOWLIST | {"PWD", "SHLVL", "_", "__CF_USER_TEXT_ENCODING", "__PYVENV_LAUNCHER__"}
+    assert not any(is_backend_only(k) for k in keys)
+    assert not {SENTINEL_DB_PASS, SENTINEL_MCP_READ_PASS, SENTINEL_SIGNING_KEY} & set(report["values"])
+    config = (Path(__file__).resolve().parents[2] / "apps/web/playwright.config.ts").read_text()
+    assert "opspilot_shared.web_env --exec pnpm exec next dev" in config

@@ -62,8 +62,8 @@ export interface UploadedDataset {
   created_at: string; retention_days: number;
 }
 
-// ---- v0.6 connected observability (Datadog: v0.9) -----------------------------------------------------------
-export type ConnectorId = "loki" | "prometheus" | "datadog";
+// ---- v0.6 connected observability (Datadog: v0.9, Azure Monitor: v0.10) ---------------------------------------
+export type ConnectorId = "loki" | "prometheus" | "datadog" | "azure_monitor";
 export type TelemetrySignal = "log" | "metric" | "span";
 
 export interface QueryTemplate {
@@ -80,18 +80,22 @@ export interface ConnectorInfo {
   problem?: string | null; hint?: string;
   // v0.9 Datadog
   site?: string; fixture?: boolean; env?: string | null; log_indexes?: string[];
-  permissions?: Partial<Record<TelemetrySignal, string>>; read_only_endpoints?: string[];
-  limits_extra?: { max_spans_per_query: number; max_pages_per_query: number };
+  permissions?: Partial<Record<TelemetrySignal | "role", string>>; read_only_endpoints?: string[];
+  limits_extra?: { max_spans_per_query?: number; max_pages_per_query?: number; max_records_per_query?: number;
+    max_operations_expanded?: number; server_wait_seconds?: number; queries_in_flight?: number };
+  // v0.10 Azure Monitor (workspace ID and auth mode only: never a credential)
+  workspace_id?: string; auth_mode?: string; cloud?: string; tables?: string[];
 }
 
 export interface ConnectorList { connectors: ConnectorInfo[]; template_problems: string[]; planned: string[]; max_queries: number }
 
 export type ConnectionState =
-  "ok" | "partial" | "not_configured" | "auth_error" | "rate_limited" | "unavailable" | "error";
+  "ok" | "partial" | "not_configured" | "auth_error" | "permission_denied" | "rate_limited" | "unavailable" | "error";
 export type SignalState = "ok" | "permission_denied" | "unsupported" | "rate_limited" | "unavailable" | "error";
 export interface ConnectionStatus { connector: string; status: ConnectionState; message: string; version?: string | null;
   latency_ms?: number | null; checked_at?: string;
-  signals?: Partial<Record<TelemetrySignal, { status: SignalState; message: string }>> | null }
+  signals?: Partial<Record<TelemetrySignal, { status: SignalState; message: string }>> | null;
+  tables?: Record<string, { status: SignalState; message: string }> | null }
 
 export interface DiscoveredServices {
   connector: string; services: string[]; error: { kind: string; message: string } | null; notes?: string[];
@@ -103,6 +107,7 @@ export interface QueryProvenance {
   status: "ok" | "empty" | "error"; error: { kind: string; message: string } | null; returned: number; rejected: number;
   redactions: number; truncated: boolean; series: number | null; unit: string; fetched_at: string; duration_ms: number;
   issues: string[]; signal?: TelemetrySignal | null; site?: string | null; link?: string | null; pages?: number | null;
+  workspace?: string | null; tables?: string[] | null;
 }
 
 /** v0.9: metric points exactly as returned (never resampled); empty `points` when they cannot be charted. */
@@ -143,6 +148,8 @@ export interface InvestigationResult {
   rca?: {
     summary: string; hypotheses?: Hypothesis[]; evidence_gaps?: string[]; followups?: string[];
     citation_violations?: string[]; remediation?: Record<string, string | null>; round?: number;
+    evidence_warnings?: string[]; // v0.9/v0.10: deterministic notes on the summary's wording (claims.py)
+    impact?: { state: string; reasons?: string[] };
   };
   proposed_action?: ProposedAction | null;
   approval?: { decision: string; decided_by: string; comment?: string; decided_at: string } | null;
@@ -151,7 +158,7 @@ export interface InvestigationResult {
   rejected_proposals?: { proposal: Record<string, unknown>; reason: string; category?: string | null }[];
   remediation_plan?: (ProposedAction & { step: number; role: string; added_by?: string })[];
   suggested_remediation?: { step: number; action_type: string; parameters: Record<string, string>; rationale: string;
-                            risk: string; role: string }[];
+                            risk: string; role: string; limitations?: string[] }[];
   executions?: { step: number; status: string; message: string; action_type: string }[];
   outcome?: { code: string; summary: string; escalate: boolean; escalate_to?: string | null; reason: string;
               actions_executed: number; steps_planned: number; read_only?: boolean; suggested_steps?: number } | null;

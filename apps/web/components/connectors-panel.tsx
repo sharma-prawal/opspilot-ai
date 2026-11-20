@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge, Button, Card, ErrorNote } from "./ui";
 import { api } from "@/lib/api";
-import { SIGNAL_LABEL, SIGNAL_STATE, STATE_LABEL, signalsOf } from "@/lib/connectors";
+import { SIGNAL_STATE, STATE_LABEL, TABLE_STATE, signalLabel, signalsOf } from "@/lib/connectors";
 import type { ConnectionStatus, ConnectorId, TelemetrySignal } from "@/lib/types";
 
-/** Live state of the configured read-only connectors (v0.6; Datadog v0.9), with a connection test per connector. */
+/** Live state of the configured read-only connectors (v0.6; Datadog v0.9; Azure Monitor v0.10), with a connection
+ * test per connector. */
 export function ConnectorsPanel() {
   const q = useQuery({ queryKey: ["connectors"], queryFn: api.connectors });
   const [statuses, setStatuses] = useState<
@@ -59,7 +60,7 @@ export function ConnectorsPanel() {
                     <span className="connector-provider-name">
                       <strong>{c.name}</strong>
                       <small>
-                        {signalsOf(c).map((sig) => SIGNAL_LABEL[sig]).join(" · ")} · Read-only
+                        {signalsOf(c).map((sig) => signalLabel(sig, c.id)).join(" · ")} · Read-only
                       </small>
                     </span>
                     {c.fixture && <Badge tone="warn">Synthetic fixture</Badge>}
@@ -89,6 +90,23 @@ export function ConnectorsPanel() {
                       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-text-muted">
                         <dt>Endpoint</dt>
                         <dd className="font-mono text-text">{c.endpoint}</dd>
+                        {c.workspace_id && (
+                          <>
+                            <dt>Workspace</dt>
+                            <dd className="font-mono">
+                              {c.workspace_id}
+                              {c.fixture ? " (requests go to the local synthetic fixture)" : ""}
+                            </dd>
+                            <dt>Cloud</dt>
+                            <dd>{c.cloud}</dd>
+                            <dt>Tables</dt>
+                            <dd className="font-mono">{c.tables?.join(", ")}</dd>
+                            <dt>Minimum role</dt>
+                            <dd>{c.permissions?.role}</dd>
+                            <dt>Read-only calls</dt>
+                            <dd className="font-mono">{c.read_only_endpoints?.join(" · ")}</dd>
+                          </>
+                        )}
                         {c.site && (
                           <>
                             <dt>Site</dt>
@@ -123,8 +141,12 @@ export function ConnectorsPanel() {
                                   sig === "log"
                                     ? `${c.limits!.max_log_lines_per_query} lines`
                                     : sig === "metric"
-                                      ? `${c.limits!.max_series_per_query} series`
-                                      : `${c.limits_extra?.max_spans_per_query ?? "?"} spans`,
+                                      ? c.workspace_id
+                                        ? "1 series"
+                                        : `${c.limits!.max_series_per_query} series`
+                                      : c.workspace_id
+                                        ? `${c.limits_extra?.max_records_per_query ?? "?"} records`
+                                        : `${c.limits_extra?.max_spans_per_query ?? "?"} spans`,
                                 )
                                 .join(" · ")}
                               /query · {c.limits.timeout_seconds} s timeout
@@ -162,11 +184,22 @@ export function ConnectorsPanel() {
                             v && (
                               <li key={sig} title={v.message}>
                                 <Badge tone={SIGNAL_STATE[v.status].tone}>
-                                  {SIGNAL_LABEL[sig as TelemetrySignal]}: {SIGNAL_STATE[v.status].label}
+                                  {signalLabel(sig as TelemetrySignal, c.id)}: {SIGNAL_STATE[v.status].label}
                                 </Badge>
                               </li>
                             ),
                         )}
+                      </ul>
+                    )}
+                    {st?.tables && (
+                      <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label={`${c.name} tables`}>
+                        {Object.entries(st.tables).map(([table, v]) => (
+                          <li key={table} title={v.message}>
+                            <Badge tone={TABLE_STATE[v.status].tone}>
+                              {table}: {TABLE_STATE[v.status].label}
+                            </Badge>
+                          </li>
+                        ))}
                       </ul>
                     )}
                   </div>
@@ -268,14 +301,42 @@ export function ConnectorsPanel() {
                 synthetic Datadog API responses on 127.0.0.1 (see docs/integrations/DATADOG.md).
               </li>
             </ol>
+            <p className="mt-3 font-semibold text-text">Azure Monitor / Application Insights (v0.10)</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-4">
+              <li>
+                Use a workspace-based Application Insights resource and note its Log Analytics{" "}
+                <strong className="text-text">workspace ID</strong> (a GUID). Assign the identity{" "}
+                <code className="font-mono">Log Analytics Data Reader</code> on that workspace only.
+              </li>
+              <li>
+                In <code className="font-mono">.env</code> (backend only):{" "}
+                <code className="font-mono">AZURE_MONITOR_ENABLED=true</code>,{" "}
+                <code className="font-mono">AZURE_MONITOR_WORKSPACE_ID</code> and{" "}
+                <code className="font-mono">AZURE_MONITOR_AUTH_MODE</code>:{" "}
+                <code className="font-mono">service_principal</code> (with{" "}
+                <code className="font-mono">AZURE_TENANT_ID</code>,{" "}
+                <code className="font-mono">AZURE_CLIENT_ID</code>,{" "}
+                <code className="font-mono">AZURE_CLIENT_SECRET</code>),{" "}
+                <code className="font-mono">managed_identity</code> or{" "}
+                <code className="font-mono">azure_cli</code> (development). Restart the API.
+              </li>
+              <li>
+                Test connection: it obtains a token, runs one workspace query and probes the four
+                Application Insights tables, so a missing table or role shows separately.
+              </li>
+              <li>
+                Without a subscription: <code className="font-mono">make azure-fixture</code> serves
+                synthetic Logs API responses on 127.0.0.1 (see docs/integrations/AZURE_MONITOR.md).
+              </li>
+            </ol>
             <p className="mt-2">
               <strong className="text-text">Verified:</strong> local Loki 3.5.0
-              and Prometheus 3.5.0 containers with synthetic data; Datadog only
-              against the synthetic contract fixture.{" "}
+              and Prometheus 3.5.0 containers with synthetic data; Datadog and
+              Azure Monitor only against their synthetic contract fixtures.{" "}
               <strong className="text-text">Not verified:</strong> remote or
               cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos,
               managed Prometheus); only bearer and basic auth are supported; a
-              live Datadog organization (not yet tested).
+              live Datadog organization or Azure workspace (not yet tested).
               Details: docs/integrations/CONNECTORS.md.
             </p>
           </details>

@@ -715,3 +715,86 @@ Not done (next session, in order):
 - Procedure: `docs/maintenance/UPLOAD_STORAGE.md`. No migration, schema or model change. The E2E stack keeps its
   isolated `E2E_UPLOAD_DIR`.
 
+
+## Status — 2026-11-20, v0.10.0 Azure Monitor / Application Insights (`feature/azure-monitor-v0.10.0`, not pushed)
+
+- Base: `origin/main` = `1c30e88` (v0.9.0 plus the shared upload-storage fix, D127). Isolated worktree
+  `../opspilot-ai-azure`. Implementation commit `80f3dd0`; this entry records the completion and verification pass.
+  No migration, schema, model, safety-policy or approval change. Nothing pushed, merged, tagged or released.
+- Connector (`opspilot_shared/connectors/azure_monitor.py`, D128–D132):
+  - one read-only call, `POST https://api.loganalytics.azure.com/v1/workspaces/<GUID>/query` (public cloud), as
+    the connector's whole allowlist; loopback-only fixture override in `fixture` auth mode;
+  - explicit `azure-identity` credential per `AZURE_MONITOR_AUTH_MODE` (service principal, managed identity, Azure
+    CLI); token cache, refresh and 401 retry; tokens scrubbed, `AADSTS`-only errors;
+  - 13 fixed KQL templates over `AppTraces`, `AppExceptions`, `AppRequests`, `AppDependencies`; validated, quoted
+    service names and operation IDs; operator template rules; bounded window, rows, bins, run time, size and
+    concurrency;
+  - per-table connection test; discovery by `AppRoleName`; partial results, 204, missing tables, sampling and
+    partial correlation surfaced, never filled in; dependency targets are not observed services.
+- Web (Visual Experience 2.0 kept): Azure in the connected intake and the Integrations catalogue, request/dependency
+  preview, provenance with workspace and tables, report banner and next steps. BFF allows
+  `connectors/azure_monitor/(test|services)`, operator-only.
+- Fixes in the completion pass:
+  - **Sampled records flagged (D132).** Only sampled metric bins were flagged; trace, exception, request and
+    dependency queries with `ItemCount > 1` now note it, and *Evidence coverage* names them ("record counts understate
+    event counts"). Regression tests in the connector and investigation suites.
+  - **Capped log search no longer presented as the first error (D134).** Found in the real-model run: for uploads and
+    connected snapshots, a truncated WARN+ search is labelled "earliest returned … earlier occurrences may exist" in
+    evidence and the timeline. Simulator wording is byte-identical (no `make evaluate` impact). Regression test.
+  - **E2E web process allowlist (D133).** Playwright now starts Next.js through `web_env --exec`, so the E2E API's
+    database/MCP/signing credentials no longer reach the web process. Security test with sentinel values.
+  - **E2E specs.** An ambiguous "synthetic fixture" locator in the Azure journey was made exact. The Datadog and
+    Loki/Prometheus journeys now also uncheck Azure Monitor: with every fixture on, Azure had joined the Datadog
+    snapshot and failed its banner assertion. No assertion was weakened.
+- Verified (isolated stack: `opspilot_test`, API 8100, web 3100, Azure fixture 8129; test credentials read
+  key-by-key from the main checkout's `.env` with the user's authorization, never copied or printed):
+  - `make lint` clean (mypy `--strict` 113 files, import-linter 4/4, ESLint, tsc);
+  - pytest 576 passed / 3 skipped (live-model opt-in); web 73 passed; `pnpm build` OK;
+  - Playwright with `E2E_AZURE=1 E2E_DATADOG=1 E2E_TELEMETRY=1`: 13 passed, 5 skipped by design (two
+    not-configured tests, three opt-in screenshot tests); without fixtures: 6 passed (Azure and Datadog not
+    configured, auth, overview);
+  - screenshots (synthetic fixture data) in `docs/images/azure/`.
+- Real-model result (two Azure journey runs, `qwen3.5:9b-q4_K_M`; development testing, not an evaluation): top
+  hypothesis both times was the observed `db.pool.max_size=5` configuration line exhausting payment-service's pool
+  (95%), cited. No recovery, remediation or "nothing changed" claim. Residual model wording: the 2.14.0 start-up line
+  is called "the deployment" in hypothesis 2; the summary states the cause as fact; the suggested (not executed)
+  restart would not by itself fix the configuration. Not addressed: no prompt or model change.
+- Not done / open:
+  - **no real Azure tenant or workspace used**: authentication, API compatibility and queries are not
+    live-verified (procedure in `docs/integrations/AZURE_MONITOR.md`);
+  - native Azure Monitor resource metrics, sovereign clouds and change history are deferred;
+  - `make evaluate` not re-run (the simulator path is unchanged);
+  - draft notes `docs/releases/V0.10.0_NOTES.md`; not tagged or published.
+
+## Status — 2026-11-20, v0.10.0 RCA truthfulness corrections (same branch, not pushed)
+
+- Final bounded pass on `e54488b`, requested before release approval. Model output is never edited.
+- **Claim calibration (D135).**
+  - Uploaded and connected reports open with *How to read this report*: observed facts, evidence-supported
+    hypotheses, verified causal conclusions (none in a read-only analysis), unknowns.
+  - `claims.py` adds deterministic notes, in the report and the workbench, when a summary or hypothesis:
+    - states a cause as established;
+    - calls an observed start-up or configuration log line a deployment or configuration change while change
+      history was not collected;
+    - says "ongoing" (anchored to the end of the snapshot window).
+  - The impact line reads "Impact at the end of the collected snapshot window (…) … not the current live state".
+  - A suggested `restart_service` carries a limitation when the leading hypothesis is a configuration problem.
+  - Simulator investigations are not annotated: prompts, outputs and `make evaluate` are unaffected.
+- **Empty Azure results (D136).** An empty Azure query is "No accessible matching records — access/coverage not
+  independently verified" in provenance, the preview and incident badges, its own *Evidence coverage* row and the
+  provenance table; the connection test says "no accessible records". 401/403, `PartialError` and missing tables
+  are unchanged. Loki/Prometheus/Datadog empty results keep their wording.
+- Tests: `tests/unit/test_claim_calibration.py` (16, including real-run phrasings), a connector test (empty vs 403
+  vs `PartialError` vs probe), web `queryStatusLabel` tests, and Azure E2E assertions on the report and preview.
+- Verified (isolated stack, as before):
+  - `make lint` clean (mypy 113 files, import-linter 4/4, ESLint, tsc);
+  - pytest 593 passed / 3 skipped; web 75 passed; `pnpm build` OK;
+  - Playwright with all fixtures: 13 passed, 5 skipped by design; Azure journey re-run after the last change:
+    3 passed, 1 skipped by design; without fixtures: 6 passed, 6 skipped by design;
+  - screenshots in `docs/images/azure/` refreshed.
+- Real-model run (`qwen3.5:9b-q4_K_M`, final RCA): the model's text matched the previous run. The summary's "The
+  root cause is a configuration change" now carries the established-cause, change-indicator and snapshot-window
+  notes; hypotheses 1–2 carry change-indicator notes; the restart suggestion shows its limitation; seven empty Azure
+  queries are listed as no accessible matching records.
+- Still open: live Azure verification; deferred native metrics, sovereign clouds and change history; the
+  calibration is English pattern matching (unrecognized phrasings are not flagged); not tagged or released.

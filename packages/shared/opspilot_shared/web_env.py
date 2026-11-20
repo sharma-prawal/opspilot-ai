@@ -83,6 +83,9 @@ BACKEND_DENYLIST_PREFIXES: tuple[str, ...] = (
     "PROMETHEUS_",
     "DATADOG_",
     "DD_",
+    "AZURE_",  # v0.10: Azure Monitor settings and Microsoft Entra credentials
+    "MSAL_",
+    "IDENTITY_",  # managed identity endpoint/header variables
     "TELEMETRY_",
     "OTEL_",
     "LANGGRAPH_",
@@ -172,7 +175,17 @@ def spawn_web_server(
     return proc.pid
 
 
+def exec_web(argv: list[str]) -> None:
+    """Replace this process with ``argv`` run in the allowlisted web environment (v0.10: the isolated Playwright
+    stack starts ``next dev`` this way, so backend credentials it was given for the E2E API never reach Next.js)."""
+    if not argv:
+        raise SystemExit("usage: python -m opspilot_shared.web_env --exec <command> [args...]")
+    os.execvpe(argv[0], argv, build_web_env())  # noqa: S606 - fixed command from the Playwright config
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--exec":
+        exec_web(sys.argv[2:])
     host_arg = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
     port_arg = int(sys.argv[2]) if len(sys.argv) > 2 else 3000
     spawn_web_server(host=host_arg, port=port_arg)

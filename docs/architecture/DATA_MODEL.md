@@ -108,6 +108,9 @@ erDiagram
   - `records.spans` holds `SpanRecord`s (`source` = `datadog/<template>/<service>:span N`, trace/span/parent IDs,
     `parent_missing` for partial traces);
   - `collected` gains a `span` entry when a span-capable connector was selected.
+- v0.10 Azure Monitor snapshots use the same row and columns (no migration): each query adds `workspace` and
+  `tables`; `source` = `azure_monitor/<template>/<service>:entry|point|span N`; records keep `azure.app_role_name`,
+  `azure.item_count` (when not 1), `dependency.target` and `parent_missing` as attributes.
 - Deleted with the incident, like uploads.
 
 ## Status enumerations

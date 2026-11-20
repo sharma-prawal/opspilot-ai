@@ -1,5 +1,8 @@
-// Client helpers for connected observability (v0.6; Datadog v0.9). The API validates everything again.
-import type { ChartSeries, ConnectionState, ConnectorInfo, QueryProvenance, QueryTemplate, SignalState, TelemetrySignal } from "./types";
+// Client helpers for connected observability (v0.6; Datadog v0.9; Azure Monitor v0.10). The API validates everything
+// again.
+import type {
+  ChartSeries, ConnectionState, ConnectorId, ConnectorInfo, QueryProvenance, QueryTemplate, SignalState, TelemetrySignal,
+} from "./types";
 
 /** The synthetic incident served by `make telemetry-up` (scripts/generate_telemetry.py). */
 export const DEMO_CONNECTED = {
@@ -21,6 +24,17 @@ export const DEMO_DATADOG = {
   affected: "inventory-service",
   severity: "SEV2",
   time: "2026-11-15T14:05",
+};
+
+/** The incident of the synthetic Azure Monitor fixture (scripts/azure_monitor_fixture.py, `make azure-fixture`). */
+export const DEMO_AZURE = {
+  title: "Orders failing with 502s",
+  description:
+    "orders-api failed-request alert fired at 10:35 UTC; checkout cannot complete payments. (Synthetic Azure Monitor fixture data, not a real workspace.)",
+  service: "orders-api",
+  affected: "payment-service, inventory-service",
+  severity: "SEV2",
+  time: "2026-11-16T10:35",
 };
 
 /**
@@ -47,6 +61,24 @@ export function parseConnectedServices(raw: string): { services: string[]; inval
 }
 
 export const SIGNAL_LABEL: Record<TelemetrySignal, string> = { log: "Logs", metric: "Metrics", span: "APM spans" };
+
+/** Signal names per provider: Azure Monitor's span signal is Application Insights requests and dependencies. */
+export function signalLabel(sig: TelemetrySignal, connector?: ConnectorId | string): string {
+  if (connector === "azure_monitor") {
+    return { log: "Traces & exceptions", metric: "KQL metrics", span: "Requests & dependencies" }[sig];
+  }
+  return SIGNAL_LABEL[sig];
+}
+
+/** Table availability from a connection test (v0.10 Azure Monitor). */
+export const TABLE_STATE: Record<SignalState, { label: string; tone: "success" | "danger" | "warn" | "neutral" }> = {
+  ok: { label: "present", tone: "success" },
+  permission_denied: { label: "access denied", tone: "danger" },
+  unsupported: { label: "not in workspace", tone: "neutral" },
+  rate_limited: { label: "throttled", tone: "warn" },
+  unavailable: { label: "unavailable", tone: "warn" },
+  error: { label: "error", tone: "danger" },
+};
 
 /** Signals a connector can return (v0.6 connectors have exactly one). */
 export function signalsOf(c: ConnectorInfo): TelemetrySignal[] {
@@ -117,6 +149,7 @@ export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "succes
   ok: { label: "Connected", tone: "success" },
   partial: { label: "Partly readable", tone: "warn" },
   auth_error: { label: "Authentication failed", tone: "danger" },
+  permission_denied: { label: "Permission missing", tone: "danger" },
   rate_limited: { label: "Rate-limited", tone: "warn" },
   unavailable: { label: "Unavailable", tone: "warn" },
   error: { label: "Error", tone: "danger" },
@@ -124,11 +157,26 @@ export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "succes
 };
 
 /** User-facing explanation for a failed query, by error kind. */
+/** v0.10: an empty Azure Monitor answer cannot be told apart from data the identity may not read (restricted tables
+ * answer with zero rows), so it is never shown as "no data". */
+export const AZURE_EMPTY_LABEL = "no accessible records";
+
+export function queryStatusLabel(q: Pick<QueryProvenance, "status" | "connector" | "returned" | "error">): string {
+  if (q.status === "error") return q.error?.kind.replace("_", " ") ?? "error";
+  if (q.status === "empty") return q.connector === "azure_monitor" ? AZURE_EMPTY_LABEL : "no data";
+  return `${q.returned} records`;
+}
+
 export function queryErrorHint(q: QueryProvenance): string {
   switch (q.error?.kind) {
     case "auth_error": return "Authentication failed: check the read-only credentials or tenant in the API settings.";
-    case "permission_denied": return "The credentials were accepted but may not read this product: grant the read permission shown.";
-    case "unsupported": return "This product is not available for the account or site.";
+    case "permission_denied": return q.connector === "azure_monitor"
+      ? "The identity may not query this workspace: assign Log Analytics Data Reader on it."
+      : "The credentials were accepted but may not read this product: grant the read permission shown.";
+    case "unsupported": return q.connector === "azure_monitor"
+      ? "This table is not in the workspace, so this signal stays unknown for the service."
+      : "This product is not available for the account or site.";
+    case "not_found": return "The workspace or API path was not found: check the configured identifier.";
     case "rate_limited": return "The provider rate-limited the query; retry later or select fewer templates or services.";
     case "unavailable": case "timeout": return "The backend is unavailable or did not answer in time.";
     case "query_error": return "The backend rejected the template's query: it may not fit this backend's metric names.";

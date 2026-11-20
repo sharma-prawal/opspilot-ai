@@ -897,9 +897,22 @@ function InvestigationWorkspace({ id }: { id: string }) {
                   ? "Compare the explanations and inspect their source evidence below."
                   : "Findings will appear as the investigation progresses.")}
           </p>
+          {/* v0.10: deterministic notes on the model's wording stay visible next to the conclusion (read-only RCAs:
+              unsupported certainty, log lines presented as change history, "ongoing" = end of the evidence window) */}
+          {!!rca?.evidence_warnings?.length && (
+            <ul className="mt-2 space-y-1" aria-label="Notes on the analysis summary">
+              {rca.evidence_warnings.map((w) => (
+                <li key={w} role="note" className="text-xs text-warn">
+                  ⚠ {w}
+                </li>
+              ))}
+            </ul>
+          )}
           {rca?.summary && (
             <details className="compact-disclosure mt-3">
-              <summary>Full analysis summary</summary>
+              <summary>
+                {readOnly ? "Full analysis summary (model-written hypothesis, not a verified cause)" : "Full analysis summary"}
+              </summary>
               <p className="mt-2">{rca.summary}</p>
             </details>
           )}
@@ -1253,6 +1266,11 @@ function InvestigationWorkspace({ id }: { id: string }) {
                             {p.rationale}
                           </p>
                         )}
+                        {p.limitations?.map((w) => (
+                          <p key={w} role="note" className="mt-1 font-sans text-warn">
+                            ⚠ Limitation: {w}
+                          </p>
+                        ))}
                       </li>
                     ))}
                   </ol>

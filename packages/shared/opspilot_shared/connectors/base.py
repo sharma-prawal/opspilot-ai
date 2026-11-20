@@ -80,6 +80,7 @@ class HttpConnector:
         header_credentials: bool = False,
         max_retries: int = 0,
         max_retry_wait: float = 0.0,
+        http_auth: httpx.Auth | None = None,
     ) -> None:
         self._auth_mode = "bearer token" if bearer_token else "basic auth" if username else "none"
         has_credentials = bool(bearer_token or username or password or header_credentials)
@@ -95,7 +96,7 @@ class HttpConnector:
             allowed_paths=self.allowed_paths(),
             allowed_post_paths=self.allowed_post_paths(),
             headers=hdrs,
-            auth=(username, password) if username and not bearer_token else None,
+            auth=http_auth or ((username, password) if username and not bearer_token else None),
             secrets=[bearer_token, password, *(hdrs.values() if headers else [])],
             timeout=limits.timeout,
             max_bytes=limits.max_response_bytes,

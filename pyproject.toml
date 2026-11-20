@@ -23,6 +23,7 @@ dependencies = [
   "opentelemetry-api>=1.45,<2",
   "opentelemetry-sdk>=1.45,<2",
   "pyyaml>=6.0,<7",
+  "azure-identity>=1.25,<2",
 ]
 
 [project.optional-dependencies]

@@ -24,6 +24,16 @@ export default defineConfig({
           timeout: 60_000,
         }]
       : []),
+    // v0.10: E2E_AZURE=1 serves the synthetic Azure Monitor Logs API fixture on loopback (never a real workspace).
+    ...(process.env.E2E_AZURE
+      ? [{
+          command: `uv run python ../../scripts/azure_monitor_fixture.py --port ${process.env.E2E_AZURE_PORT ?? 8129}`,
+          // 401 without a token = up
+          url: `http://127.0.0.1:${process.env.E2E_AZURE_PORT ?? 8129}/v1/workspaces/6f1c2a9e-4b7d-4e2a-9c3b-0a5d7e8f1001/query`,
+          reuseExistingServer: false,
+          timeout: 60_000,
+        }]
+      : []),
     {
       command: "../../scripts/e2e-api.sh",
       url: `${E2E_API_URL}/health/live`,
@@ -32,7 +42,9 @@ export default defineConfig({
       env: { E2E_API_PORT: String(E2E_API_PORT) },
     },
     {
-      command: `pnpm exec next dev --hostname 127.0.0.1 --port ${E2E_WEB_PORT}`,
+      // v0.10: started through the web-process allowlist (opspilot_shared.web_env), so the backend credentials the
+      // E2E API needs (database, MCP roles, signing key) never reach the Next.js process.
+      command: `uv run python -m opspilot_shared.web_env --exec pnpm exec next dev --hostname 127.0.0.1 --port ${E2E_WEB_PORT}`,
       url: E2E_WEB_URL,
       reuseExistingServer: false,
       timeout: 180_000,

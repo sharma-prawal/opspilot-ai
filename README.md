@@ -15,7 +15,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.9.0, experimental, local-first.** **Datadog** is a read-only evidence provider: logs, APM trace metrics, service discovery and APM span search feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.9.0_NOTES.md)). It is tested against a synthetic Datadog API fixture only; **no real Datadog organization has been used for validation**. Datadog change events are deferred. Connected-source reports now include observed change indicators and evidence coverage. The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.10.0 in development (not released; latest release v0.9.0), experimental, local-first.** v0.10 adds **Azure Monitor / Application Insights** as a read-only evidence provider (traces, exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace; [draft notes](docs/releases/V0.10.0_NOTES.md)). It is tested against a synthetic Logs API fixture only; **no real Azure tenant or workspace has been used for validation**. **Datadog** (v0.9) is a read-only evidence provider: logs, APM trace metrics, service discovery and APM span search feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.9.0_NOTES.md)). It is tested against a synthetic Datadog API fixture only; **no real Datadog organization has been used for validation**. Datadog change events are deferred. Connected-source reports now include observed change indicators and evidence coverage. The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog/Azure Monitor snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
@@ -38,6 +38,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
 | Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
 | Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ (v0.9) tested against a synthetic API fixture only; no real Datadog organization used for validation |
+| Azure Monitor / Application Insights as a read-only evidence provider: AppTraces, AppExceptions, AppRequests/AppDependencies (operation expansion, partial correlation flagged) and KQL-derived request/error/latency/dependency series; Microsoft Entra service principal, managed identity or Azure CLI; per-table connection test; bounded discovery; fixed destination | ✅ (v0.10, unreleased) tested against a synthetic Logs API fixture only; no real Azure workspace used for validation; native resource metrics deferred |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
@@ -119,8 +120,8 @@ OTLP traces; regenerate with `scripts/generate_upload_examples.py`). Download th
 Investigate real telemetry from **Grafana Loki** (logs) and **Prometheus** (metrics) with the same workflow: on
 **Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`) pick the configured sources, test the
 connection, give the affected service and an incident window, choose approved query templates, preview what came
-back, then start the read-only investigation. **Datadog** (v0.9) works the same way, see below. Azure Monitor,
-CloudWatch and custom adapters are **planned, not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has
+back, then start the read-only investigation. **Datadog** (v0.9) and **Azure Monitor** (v0.10) work the same way, see
+below. CloudWatch and custom adapters are **planned, not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has
 the interface contract for adding one.
 
 First run with the local demo stack (tested):
@@ -223,6 +224,37 @@ fixture*; see the guide for the settings).
 - **Verified.** Tested only against the synthetic contract fixture, which uses Datadog's documented request and
   response shapes. **Not yet verified against a live Datadog organization.**
 
+### Azure Monitor / Application Insights (v0.10, unreleased)
+
+Azure Monitor is a read-only evidence provider in the same workflow, over **one Log Analytics workspace** holding
+workspace-based Application Insights telemetry: **traces** (`AppTraces`), **exceptions** (`AppExceptions`),
+**requests and dependency calls** (`AppRequests`, `AppDependencies`, with the other records of up to 10 failed
+operations) and **KQL-derived metrics** (request rate, failed-request ratio, 5xx ratio, p95 duration, dependency
+failure ratio and p95). OpsPilot never writes to Azure. Full guide: [AZURE_MONITOR.md](docs/integrations/AZURE_MONITOR.md).
+
+```bash
+# .env (API only; never NEXT_PUBLIC_*). Grant only "Log Analytics Data Reader" on the workspace.
+AZURE_MONITOR_ENABLED=true
+AZURE_MONITOR_WORKSPACE_ID=<workspace GUID>
+AZURE_MONITOR_AUTH_MODE=service_principal   # or managed_identity, or azure_cli (development)
+AZURE_TENANT_ID=...
+AZURE_CLIENT_ID=...
+AZURE_CLIENT_SECRET=...
+```
+
+- **Fixed destination, one read-only call.** Microsoft Entra ID (`login.microsoftonline.com`) for tokens via the
+  official `azure-identity` credentials, and `POST https://api.loganalytics.azure.com/v1/workspaces/<id>/query`. No
+  credential chain, no browser sign-in, no Azure Resource Manager, no sovereign clouds.
+- **Approved KQL only.** Fixed templates over the four tables; the service is validated and quoted, rows, bins, window,
+  run time (`Prefer: wait`), response size and concurrency are bounded. Template files cannot add `union`, `join`,
+  cross-workspace functions or other tables.
+- **Truthful evidence.** Bins without records are absent, not zero; counts are `ItemCount`-weighted and sampled data
+  is flagged; partial results (`PartialError`) are kept but marked incomplete; status is `error`/`ok` only as `Success`
+  says; dependency targets are recorded names, not observed services. Change history is not collected.
+- **Verified.** Tested only against `make azure-fixture`, a synthetic fixture of the documented Logs API.
+  **Not yet verified against a real Azure workspace.** Screenshots of the fixture journey (synthetic data):
+  [docs/images/azure](docs/images/azure/README.md).
+
 ### v0.4 reasoning and model comparison
 
 [MODEL_COMPARISON_V0.4.md](docs/evaluation/MODEL_COMPARISON_V0.4.md) diagnoses the qwen3:8b traces (rollbacks
@@ -285,7 +317,10 @@ v0.2.1 received a **conditional** sign-off from the final independent verificati
    templates assume common metric names. The Datadog connector (v0.9) was tested only against a synthetic API
    fixture; no real Datadog organization has been used for validation. Datadog change events are not collected;
    only indexed APM spans are searchable, so traces may be partial; the built-in APM metric templates are
-   operation-specific (`trace.http.request`).
+   operation-specific (`trace.http.request`). The Azure Monitor connector (v0.10, unreleased) was tested only
+   against a synthetic Logs API fixture; no real Azure workspace has been used for validation. It reads workspace-based
+   Application Insights tables in the Azure public cloud only; native resource metrics and change history are not
+   collected, and sampled or partially correlated operations stay partial.
 2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
 3. **One execution owner per database.** A second API worker, CLI demo or evaluation run on the same database is
    refused. Multi-worker operation is unsupported.
@@ -364,6 +399,7 @@ Headless: `uv run opspilot investigate --scenario INC-003 --decision approve`. W
 | `make uploads-purge` / `uv run opspilot uploads list` | delete uploaded and connected incidents older than `UPLOAD_RETENTION_DAYS` (files or snapshots, records, checkpoints; stop the API first) / list uploads |
 | `make telemetry-up` / `make telemetry-down` | start / remove the local Loki + Prometheus test setup with synthetic telemetry (127.0.0.1, tmpfs, no volumes) |
 | `make datadog-fixture` | serve the synthetic Datadog API fixture on 127.0.0.1:8126 (fictional data; for the v0.9 connector without an account) |
+| `make azure-fixture` | serve the synthetic Azure Monitor Logs API fixture on 127.0.0.1:8128 (fictional data; for the v0.10 connector without a subscription) |
 | `make lint` | ruff, mypy --strict, import-linter, ESLint, tsc |
 | `make evaluate` | retrieval (development + held-out) and agent evaluation over all scenarios → `docs/evaluation/BASELINE.md` |
 

@@ -215,10 +215,35 @@ CONNECTED_TELEMETRY_NOTE = (
     "recommendation for a human reviewer: nothing will be executed. Use evidence_gaps to name the data that would "
     "confirm or rule out the top hypothesis.\n"
 )
-# v0.9: a snapshot that includes Datadog names the signals it actually holds. Loki/Prometheus snapshots keep the v0.6
-# note above byte for byte.
+# v0.9: a snapshot that includes Datadog (v0.10: or Azure Monitor) names the signals it actually holds. Loki/Prometheus
+# snapshots keep the v0.6 note above byte for byte; Datadog-only snapshots keep the v0.9 wording.
 _SIGNAL_NAMES = {"log": "logs", "metric": "metrics", "span": "APM spans"}
 _UNAVAILABLE = {"log": "logs", "metric": "metrics", "span": "traces"}
+PROVIDER_NAMES = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog", "azure_monitor": "Azure Monitor"}
+AZURE_SPAN_NOTE = (
+    "Application Insights request and dependency records (AppRequests, AppDependencies) can be sampled (ItemCount) "
+    "and their correlation (OperationId, ParentId) can be incomplete, so an operation can be partial (records marked "
+    "parent_missing); a dependency record that is absent is not evidence that a call did not happen, and a dependency "
+    "Target is a recorded name, not an observed service. "
+)
+AZURE_LOG_NOTE = (
+    "Azure Monitor metrics are derived from Application Insights records by KQL (bins without records are absent, not "
+    "zero). A lack of exception records is not evidence that no error occurred. "
+)
+
+
+def is_v06_only(kinds: list[str]) -> bool:
+    """Only Loki/Prometheus: the v0.6 wording applies unchanged."""
+    return set(kinds) <= {"loki", "prometheus"}
+
+
+def span_label(kinds: list[str]) -> str:
+    """How the span signal is named for these providers."""
+    if "azure_monitor" in kinds and "datadog" not in kinds:
+        return "Application Insights requests and dependencies"
+    if "azure_monitor" in kinds:
+        return "APM spans and Application Insights requests/dependencies"
+    return "APM spans"
 
 
 def connected_sources(incident: dict[str, Any] | None) -> tuple[list[str], list[str]]:
@@ -235,17 +260,22 @@ def connected_sources(incident: dict[str, Any] | None) -> tuple[list[str], list[
 
 def connected_note(incident: dict[str, Any] | None) -> str:
     kinds, signals = connected_sources(incident)
-    if "datadog" not in kinds:
+    if is_v06_only(kinds):
         return CONNECTED_TELEMETRY_NOTE
-    names = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}
-    have = ", ".join(_SIGNAL_NAMES[s] for s in ("log", "metric", "span") if s in signals) or "no usable signal"
+    names = PROVIDER_NAMES
+    labels = {**_SIGNAL_NAMES, "span": span_label(kinds)}
+    have = ", ".join(labels[s] for s in ("log", "metric", "span") if s in signals) or "no usable signal"
     missing = [_UNAVAILABLE[s] for s in ("log", "metric", "span") if s not in signals]
-    spans = (
-        "APM spans are the indexed sample Datadog retained, so a trace can be partial (spans marked "
-        "parent_missing); a span that is absent is not evidence that a call did not happen. "
-        if "span" in signals
-        else ""
-    )
+    spans = ""
+    if "span" in signals and "datadog" in kinds:
+        spans += (
+            "APM spans are the indexed sample Datadog retained, so a trace can be partial (spans marked "
+            "parent_missing); a span that is absent is not evidence that a call did not happen. "
+        )
+    if "span" in signals and "azure_monitor" in kinds:
+        spans += AZURE_SPAN_NOTE
+    if "azure_monitor" in kinds:
+        spans += AZURE_LOG_NOTE
     return (
         "Evidence source: a historical, read-only snapshot of telemetry queried from the user's observability "
         f"backends ({' and '.join(names.get(k, k) for k in kinds)}: {have}) for the incident window, not a live "
@@ -270,7 +300,8 @@ def is_read_only(incident: dict[str, Any] | None) -> bool:
 
 
 def is_connected(incident: dict[str, Any] | None) -> bool:
-    """v0.6: the incident is backed by a connector telemetry snapshot (Loki/Prometheus; Datadog since v0.9)."""
+    """v0.6: the incident is backed by a connector telemetry snapshot (Loki/Prometheus; Datadog since v0.9; Azure
+    Monitor since v0.10)."""
     return bool(incident) and (incident or {}).get("evidence_source") == "connector"
 
 

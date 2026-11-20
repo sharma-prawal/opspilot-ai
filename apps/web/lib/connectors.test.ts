@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultWindow, shiftLocal, utcIso, windowProblem } from "./connectors";
+import { AZURE_EMPTY_LABEL, defaultWindow, queryStatusLabel, shiftLocal, utcIso, windowProblem } from "./connectors";
 
 describe("connected telemetry helpers", () => {
   it("reads datetime-local values as UTC", () => {
@@ -56,5 +56,43 @@ describe("v0.9 connected service names", () => {
     expect(parseConnectedServices("web_store, api.v2-internal, bad*name")).toEqual({
       services: ["web_store", "api.v2-internal"], invalid: ["bad*name"],
     });
+  });
+});
+
+describe("v0.10 Azure Monitor helpers", () => {
+  it("names Azure signals after Application Insights and keeps other providers unchanged", async () => {
+    const { signalLabel, TABLE_STATE, STATE_LABEL, queryErrorHint } = await import("./connectors");
+    expect(signalLabel("span", "azure_monitor")).toBe("Requests & dependencies");
+    expect(signalLabel("log", "azure_monitor")).toBe("Traces & exceptions");
+    expect(signalLabel("span", "datadog")).toBe("APM spans");
+    expect(signalLabel("metric", "prometheus")).toBe("Metrics");
+    expect(TABLE_STATE.unsupported.label).toBe("not in workspace");
+    expect(STATE_LABEL.permission_denied.tone).toBe("danger");
+    const q = { connector: "azure_monitor", error: { kind: "permission_denied", message: "HTTP 403" } } as never;
+    expect(queryErrorHint(q)).toContain("Log Analytics Data Reader");
+    const dd = { connector: "datadog", error: { kind: "permission_denied", message: "HTTP 403" } } as never;
+    expect(queryErrorHint(dd)).toContain("read permission shown");
+  });
+
+  it("keeps Application Insights role names exactly (lower-cased), refusing names that cannot be queried", async () => {
+    const { connectedService, parseConnectedServices } = await import("./connectors");
+    expect(connectedService("Billing.Worker")).toBe("billing.worker");
+    expect(connectedService("Notification Worker")).toBeNull();
+    expect(parseConnectedServices("payment-service, inventory-service").services).toEqual(["payment-service", "inventory-service"]);
+  });
+});
+
+describe("query status labels (v0.10)", () => {
+  const base = { returned: 0, error: null } as const;
+  it("never shows an empty Azure Monitor answer as 'no data'", () => {
+    expect(queryStatusLabel({ ...base, status: "empty", connector: "azure_monitor" })).toBe(AZURE_EMPTY_LABEL);
+    expect(AZURE_EMPTY_LABEL).toBe("no accessible records");
+  });
+  it("keeps the other providers' labels", () => {
+    for (const connector of ["loki", "prometheus", "datadog"] as const)
+      expect(queryStatusLabel({ ...base, status: "empty", connector })).toBe("no data");
+    expect(queryStatusLabel({ status: "ok", connector: "azure_monitor", returned: 3, error: null })).toBe("3 records");
+    expect(queryStatusLabel({ status: "error", connector: "azure_monitor", returned: 0,
+      error: { kind: "permission_denied", message: "" } })).toBe("permission denied");
   });
 });

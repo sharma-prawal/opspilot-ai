@@ -30,7 +30,15 @@ from opspilot_agents.analysis import (
     lexical_overlap_bonus,
     mean,
 )
-from opspilot_agents.claims import CHANGE_TERMS, check_hypotheses, is_change_observation, summary_warnings
+from opspilot_agents.claims import (
+    CHANGE_TERMS,
+    calibrate_hypotheses,
+    calibration_summary_warnings,
+    check_hypotheses,
+    is_change_observation,
+    suggestion_limitations,
+    summary_warnings,
+)
 from opspilot_agents.impact import MIN_POINTS, assess_impact
 from opspilot_agents.ports import ToolGateway, ToolResult
 from opspilot_agents.prompts import (
@@ -499,7 +507,15 @@ class InvestigationNodes:
             findings.append(f"logs unavailable for {svc}")
         elif rlogs and rlogs.data:
             patterns = cluster_logs(rlogs.data["entries"])
+            # v0.10: a capped search returns only the most recent matches, so for uploads and connected snapshots the
+            # earliest *returned* entry is not called the first occurrence (simulator wording is unchanged).
+            capped = is_read_only(state["incident"]) and bool(rlogs.data.get("truncated"))
+            cap_note = (
+                f"; the search returned {len(rlogs.data['entries'])} of {rlogs.data['total_matched']} matching "
+                "entries, so earlier occurrences may exist"
+            )
             for p in patterns:
+                when = f"{'earliest returned' if capped else 'first'} {_hhmm(p.first_seen)}, last {_hhmm(p.last_seen)}"
                 eid, ev = _evidence(
                     id=f"ev-log-{short_hash(svc, p.level, p.signature)}",
                     kind=EvidenceKind.LOG_PATTERN,
@@ -508,10 +524,7 @@ class InvestigationNodes:
                     service=svc,
                     relevance=0.85 if p.level == "ERROR" else 0.3,
                     observed_at=p.first_seen,
-                    summary=(
-                        f"{svc} {p.level} x{p.count} (first {_hhmm(p.first_seen)}, last {_hhmm(p.last_seen)}): "
-                        f"{p.sample[:400]}"
-                    ),
+                    summary=f"{svc} {p.level} x{p.count} ({when}{cap_note if capped else ''}): {p.sample[:400]}",
                     data={
                         "level": p.level,
                         "count": p.count,
@@ -521,6 +534,7 @@ class InvestigationNodes:
                         "last_seen": _iso(p.last_seen),
                         "attributes": p.attributes,
                         "total_matched": rlogs.data["total_matched"],
+                        **({"search_truncated": True} if capped else {}),
                     },
                 )
                 evidence[eid] = ev
@@ -1090,6 +1104,7 @@ class InvestigationNodes:
         for i, item in enumerate(hyps, start=1):
             item["rank"] = i
         check_hypotheses(hyps, state)  # v0.9: flag "no change occurred" claims made without change history
+        calibrate_hypotheses(hyps, state)  # v0.10: read-only only: certainty and change-indicator wording
         update: Update = {"llm_calls": [out.record.model_dump(mode="json")]}
         if not hyps:
             return {
@@ -1112,11 +1127,16 @@ class InvestigationNodes:
                 "remediation_plan": [s.model_dump(exclude_none=True) for s in value.remediation_plan],
                 "escalation": value.escalation.model_dump(),
                 "citation_violations": sorted(set(violations)),
-                **({"evidence_warnings": w} if (w := summary_warnings(value.summary, state)) else {}),
+                **({"evidence_warnings": w} if (w := self._summary_notes(value.summary, state)) else {}),
                 "round": round_no,
                 "model": self.d.chat.model_name,
             },
         }
+
+    @staticmethod
+    def _summary_notes(summary: str, state: State) -> list[str]:
+        """v0.9 negative-change check plus v0.10 read-only calibration notes (claims.py); the summary is kept as is."""
+        return summary_warnings(summary, state) + calibration_summary_warnings(summary, state)
 
     # -- bounded follow-up ----------------------------------------------------------
     async def followup(self, state: State) -> Update:
@@ -1270,7 +1290,11 @@ class InvestigationNodes:
                 "plan_index": 0,
                 "proposed_action": None,
                 "suggested_remediation": [
-                    {k: v for k, v in p.items() if k not in ("action_id", "params_hash")} for p in plan
+                    {
+                        **{k: v for k, v in p.items() if k not in ("action_id", "params_hash")},
+                        **({"limitations": lim} if (lim := suggestion_limitations(p, state)) else {}),
+                    }
+                    for p in plan
                 ],
                 "rejected_proposals": rejected,
             }

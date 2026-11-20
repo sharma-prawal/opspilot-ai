@@ -6,8 +6,9 @@ provenance entry
 describing exactly what was asked and what came back. That is the whole surface: connectors never accept a free-form
 query, URL or path from a caller, never write to the backend, and report failures as typed ``ConnectorError``s.
 
-A connector serves one signal (Loki: logs, Prometheus: metrics) or several (Datadog: logs, metrics and APM spans);
-each template names the signal it returns. To add a provider (Azure Monitor, CloudWatch, a custom store), implement
+A connector serves one signal (Loki: logs, Prometheus: metrics) or several (Datadog: logs, metrics and APM spans;
+Azure Monitor since v0.10: Application Insights traces/exceptions, KQL-derived metrics, requests/dependencies); each
+template names the signal it returns. To add a provider (CloudWatch, a custom store), implement
 ``TelemetryConnector`` and register
 it in ``opspilot_shared.connectors.registry``; see docs/integrations/CONNECTORS.md.
 """
@@ -21,12 +22,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from opspilot_shared.uploads.model import LogRecord, MetricRecord, SpanRecord
 
-ConnectorKind = Literal["loki", "prometheus", "datadog"]
+ConnectorKind = Literal["loki", "prometheus", "datadog", "azure_monitor"]
 Signal = Literal["log", "metric", "span"]
 ErrorKind = Literal[
     "not_configured",  # the connector is not set up (no URL) or its configuration is invalid
     "auth_error",  # 401/403 or a missing tenant: check the read-only credentials
-    "permission_denied",  # v0.9: credentials accepted but not allowed to read this product (Datadog 403)
+    "permission_denied",  # v0.9: credentials accepted but not allowed to read this product (Datadog/Azure RBAC 403)
     "unsupported",  # v0.9: the product/API is not available for this account or site
     "unavailable",  # connection refused, DNS failure or a 5xx answer
     "timeout",  # no answer within TELEMETRY_TIMEOUT_SECONDS
@@ -43,11 +44,12 @@ ErrorKind = Literal[
 class ConnectorError(Exception):
     """A typed, credential-free connector failure."""
 
-    def __init__(self, kind: ErrorKind, message: str, *, status: int | None = None) -> None:
+    def __init__(self, kind: ErrorKind, message: str, *, status: int | None = None, code: str | None = None) -> None:
         super().__init__(message)
         self.kind: ErrorKind = kind
         self.message = message
         self.status = status  # HTTP status that caused it, when there was one
+        self.code = code  # v0.10: provider error code from the body (Azure OneAPI ``error.code``), when there was one
 
     def as_dict(self) -> dict[str, str]:
         return {"kind": self.kind, "message": self.message}
@@ -118,6 +120,8 @@ class QueryProvenance(BaseModel):
     site: str | None = Field(default=None, description="v0.9: provider site/region, e.g. datadoghq.eu")
     link: str | None = Field(default=None, description="v0.9: credential-free link to the query in the provider UI")
     pages: int | None = Field(default=None, description="v0.9: result pages fetched (paginated APIs)")
+    workspace: str | None = Field(default=None, description="v0.10: Log Analytics workspace ID that was queried")
+    tables: list[str] | None = Field(default=None, description="v0.10: source tables the query read (Azure Monitor)")
 
     @property
     def returns(self) -> Signal:
@@ -145,12 +149,15 @@ class SignalStatus(BaseModel):
 class ConnectionStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
     connector: str
-    status: Literal["ok", "partial", "not_configured", "auth_error", "rate_limited", "unavailable", "error"]
+    status: Literal[
+        "ok", "partial", "not_configured", "auth_error", "permission_denied", "rate_limited", "unavailable", "error"
+    ]
     message: str
     version: str | None = None
     latency_ms: float | None = None
     checked_at: datetime
     signals: dict[str, SignalStatus] | None = None  # v0.9 multi-signal providers: per-product read probe
+    tables: dict[str, SignalStatus] | None = None  # v0.10 Azure Monitor: per-table probe (present, missing, denied)
 
 
 @runtime_checkable

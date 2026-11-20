@@ -10,8 +10,15 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from opspilot_agents.claims import change_history_unread, change_observations
-from opspilot_agents.prompts import connected_sources, is_connected, is_read_only
+from opspilot_agents.claims import change_history_unread, change_observations, snapshot_end
+from opspilot_agents.prompts import (
+    PROVIDER_NAMES,
+    connected_sources,
+    is_connected,
+    is_read_only,
+    is_v06_only,
+    span_label,
+)
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
 
@@ -194,16 +201,16 @@ def render_report(state: dict[str, Any]) -> str:
     hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
     uploaded = is_read_only(inc)
-    if is_connected(inc) and "datadog" in connected_sources(inc)[0]:  # v0.9
+    if is_connected(inc) and not is_v06_only(connected_sources(inc)[0]):  # v0.9 Datadog, v0.10 Azure Monitor
         kinds, signals = connected_sources(inc)
-        held = ", ".join({"log": "logs", "metric": "metrics", "span": "APM spans"}[s] for s in signals) or "no data"
-        names = " and ".join(
-            {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}.get(k, k) for k in kinds
-        )
+        labels = {"log": "logs", "metric": "metrics", "span": span_label(kinds)}
+        held = ", ".join(labels[s] for s in ("log", "metric", "span") if s in signals) or "no data"
+        names = " and ".join(PROVIDER_NAMES.get(k, k) for k in kinds)
+        through = " or ".join(PROVIDER_NAMES.get(k, k) for k in kinds if k not in ("loki", "prometheus"))
         lines += [
             f"> **Connected telemetry — read-only analysis.** Findings come only from a snapshot of {names} telemetry "
             f"({held}) queried for the incident window (taken {_ts(inc.get('snapshot_at'))}). No action was executed "
-            "through Datadog or anywhere else and recovery was not verified; the historical data does not show the "
+            f"through {through} or anywhere else and recovery was not verified; the historical data does not show the "
             "current state.",
             "",
         ]
@@ -246,14 +253,28 @@ def render_report(state: dict[str, Any]) -> str:
             outcome["reason"],
             "",
         ]
+    if uploaded and (rca.get("summary") or hyps):  # v0.10: what kind of statement each part of the report makes
+        lines += _reading_guide(inc)
     if rca.get("summary"):
-        lines += ["## Summary", "", rca["summary"], ""]
+        lines += ["## Summary", ""]
+        if uploaded:
+            lines += ["_Written by the model; the notes below it are deterministic checks of its wording._", ""]
+        lines += [rca["summary"], ""]
         lines += [f"> ⚠ {w}" for w in rca.get("evidence_warnings") or []] + (
             [""] if rca.get("evidence_warnings") else []
         )
         if rca.get("impact"):
             imp = rca["impact"]
-            lines += [f"Impact at analysis time: **{imp['state']}** — {'; '.join(imp.get('reasons') or [])}.", ""]
+            reasons = "; ".join(imp.get("reasons") or [])
+            if uploaded:  # v0.10: the impact describes the collected evidence, not the live system
+                where = "collected snapshot window" if is_connected(inc) else "uploaded evidence"
+                lines += [
+                    f"Impact at the end of the {where} ({_ts(snapshot_end(state))}): **{imp['state']}** — {reasons}. "
+                    "This is not the current live state, which this analysis did not observe.",
+                    "",
+                ]
+            else:
+                lines += [f"Impact at analysis time: **{imp['state']}** — {reasons}.", ""]
     if hyps:
         lines += [
             "## Ranked hypotheses",
@@ -294,7 +315,12 @@ def render_report(state: dict[str, Any]) -> str:
         if e["kind"] == "metric_anomaly" and e["data"].get("onset"):
             timeline.append((e["data"]["onset"], e["summary"][:160]))
         if e["kind"] == "log_pattern" and e["data"]["level"] == "ERROR":
-            timeline.append((e["data"]["first_seen"], f"first error on {e['service']}: {e['data']['sample'][:120]}"))
+            first = (
+                f"earliest returned error on {e['service']} (log search capped; earlier errors may exist)"
+                if e["data"].get("search_truncated")
+                else f"first error on {e['service']}"
+            )
+            timeline.append((e["data"]["first_seen"], f"{first}: {e['data']['sample'][:120]}"))
     if inc.get("detected_at"):
         timeline.append((inc["detected_at"], "alert fired / incident detected"))
     if timeline:
@@ -378,6 +404,27 @@ def _cite(e: dict[str, Any]) -> str:
     return f" _(source: {_one_line(str(src), 120)})_" if src else ""
 
 
+AZURE_EMPTY_LABEL = "No accessible matching records — access/coverage not independently verified"
+
+
+def _reading_guide(inc: dict[str, Any]) -> list[str]:
+    """v0.10: read-only reports keep observed facts, hypotheses, verified conclusions and unknowns apart."""
+    source = "collected telemetry snapshot" if is_connected(inc) else "uploaded files"
+    return [
+        "## How to read this report",
+        "",
+        f"- **Observed facts:** the timeline and the evidence lines, each with its source reference in the {source}.",
+        "- **Evidence-supported hypotheses:** the summary and the ranked hypotheses are the model's explanations of "
+        "those facts; confidence is the model's own, uncalibrated estimate.",
+        "- **Verified causal conclusions:** none. A read-only analysis cannot verify a cause or a recovery; nothing "
+        "was executed.",
+        "- **Unknown or unavailable:** listed under "
+        + ("*Evidence coverage* and " if is_connected(inc) else "")
+        + "the next investigation steps; missing evidence is never treated as evidence of absence.",
+        "",
+    ]
+
+
 def _coverage_section(state: dict[str, Any]) -> list[str]:
     """v0.9: what the evidence shows, contradicts, did not find, and could not see (connected snapshots)."""
     inc = state.get("incident") or {}
@@ -385,7 +432,11 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     hyps = (state.get("rca") or {}).get("hypotheses") or []
     observed = change_observations(ev)
     contra = sorted({i for h in hyps for i in h.get("contradicting_evidence_ids") or [] if i in ev})
-    empty = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "empty"]
+    queries = inc.get("telemetry_queries") or []
+    empty = [q["id"] for q in queries if q.get("status") == "empty" and q.get("connector") != "azure_monitor"]
+    # v0.10: Azure answers protected or restricted tables with zero rows when the caller lacks data access, so an empty
+    # Azure query does not show that no such records exist.
+    az_empty = [q["id"] for q in queries if q.get("status") == "empty" and q.get("connector") == "azure_monitor"]
     failed = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "error"]
     unread = change_history_unread(state)
     gaps = [_one_line(e["summary"], 140) for e in ev.values() if e["kind"] == "tool_error"]
@@ -396,6 +447,10 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             "**unknown**; its absence is not evidence that nothing changed"
         )
     not_collected += [f"query `{q}` failed" for q in failed]
+    incomplete = [
+        q["id"] for q in inc.get("telemetry_queries") or [] if q.get("truncated") and q.get("status") != "error"
+    ]
+    sampled = [q for q in inc.get("telemetry_queries") or [] if q.get("sampled")]
     not_collected += [g for g in gaps if "change" not in g.lower() and "deploy" not in g.lower()][:6]
     rows = [
         (
@@ -411,9 +466,31 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             else "no change event (version, start-up, configuration line) in the collected logs",
         ),
         ("Contradicting evidence", ", ".join(f"`{i}`" for i in contra) or "none cited by the model"),
-        ("Searched, nothing found", ", ".join(f"`{q}`" for q in empty) or "every query returned records"),
+        (
+            "Searched, nothing found",
+            ", ".join(f"`{q}`" for q in empty) or ("none" if az_empty else "every query returned records"),
+        ),
         ("Not collected / unavailable", "; ".join(not_collected) or "none"),
     ]
+    if az_empty:
+        rows.insert(
+            3,
+            (
+                AZURE_EMPTY_LABEL,
+                ", ".join(f"`{q}`" for q in az_empty)
+                + " (Azure Monitor returns zero rows for restricted tables when data access is missing; this does not "
+                "show that no such records exist)",
+            ),
+        )
+    if incomplete or sampled:  # v0.10: partial, truncated or sampled results are evidence, but not complete evidence
+        parts = [f"`{q}` returned partial or truncated results" for q in incomplete]
+        parts += [
+            f"`{q['id']}` is sampled (ItemCount-weighted estimates)"
+            if q.get("signal") == "metric"
+            else f"`{q['id']}` holds sampled records (ItemCount > 1: record counts understate event counts)"
+            for q in sampled
+        ]
+        rows.append(("Incomplete or sampled", "; ".join(parts)))
     lines = ["## Evidence coverage", "", "| State | Evidence |", "|---|---|"]
     lines += [f"| {k} | {v.replace('|', '/')} |" for k, v in rows]
     return [*lines, ""]
@@ -433,11 +510,16 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
         "|---|---|---|---|---|",
     ]
     for q in queries:
-        res = f"{q.get('status')}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
+        status = q.get("status")
+        if status == "empty" and q.get("connector") == "azure_monitor":
+            status = "no accessible matching records (access not independently verified)"
+        res = f"{status}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
         step = f", step {q['step_seconds']} s" if q.get("step_seconds") else ""
         source = str(q.get("connector_name"))
         if q.get("site"):  # v0.9 Datadog: site and signal; a Log Explorer link when one was built
             source += f" ({q['site']}, {q.get('signal')})"
+        elif q.get("workspace"):  # v0.10 Azure Monitor: workspace, signal and source tables
+            source += f" (workspace {q['workspace']}, {q.get('signal')}, {', '.join(q.get('tables') or [])})"
         link = f" [open]({q['link']})" if str(q.get("link") or "").startswith("https://") else ""
         lines.append(
             f"| `{q.get('id')}` | {source} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
@@ -479,11 +561,46 @@ def _datadog_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
     return steps
 
 
+def _azure_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
+    """v0.10: follow-ups for an Azure Monitor snapshot, phrased for what it did and did not hold."""
+    inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    steps: list[str] = []
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Select the request-rate, failure-ratio and p95-duration templates for {svc}, or check that its "
+            "Application Insights role name (AppRoleName) matches; without them impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Check that {svc} sends traces and exceptions to this Log Analytics workspace for this window.")
+    steps.append(
+        "Review deployment and configuration-change history in your CD and config systems (or the Azure activity log "
+        "and release annotations, which this snapshot does not collect): change correlation was not possible."
+    )
+    if "span" in signals:
+        steps.append(
+            "Open the failing operations in Application Insights (transaction search by OperationId): the snapshot "
+            "holds a bounded, possibly sampled set of requests and dependencies, so operations may be partial."
+        )
+    else:
+        steps.append("Inspect the failing requests and dependencies in Application Insights; none were collected.")
+    steps.append(
+        f"Check the current health of {svc} in Azure Monitor: this analysis used a historical snapshot, not live state."
+    )
+    return steps
+
+
 def _connected_next_steps(state: dict[str, Any]) -> list[str]:
     inc = state.get("incident") or {}
     kinds_, signals_ = connected_sources(inc)
     if "datadog" in kinds_:
         return _datadog_next_steps(state, signals_)
+    if "azure_monitor" in kinds_:
+        return _azure_next_steps(state, signals_)
     svc = inc.get("service") or "the affected service"
     ev = list((state.get("evidence") or {}).values())
     kinds = {e["kind"] for e in ev}
@@ -571,6 +688,10 @@ def _uploaded_sections(state: dict[str, Any], rca: dict[str, Any], ev: dict[str,
             for p in suggested
         ]
         lines.append("")
+        for p in suggested:  # v0.10: what the step would not address under the leading hypothesis
+            lines += [f"> ⚠ Step {p.get('step')} (`{p['action_type']}`): {w}" for w in p.get("limitations") or []]
+        if any(p.get("limitations") for p in suggested):
+            lines.append("")
     else:
         lines.append(
             f"- No remediation step was supported well enough by the {_evidence_words(state.get('incident'))} "

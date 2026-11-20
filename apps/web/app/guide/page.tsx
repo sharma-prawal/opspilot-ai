@@ -433,8 +433,8 @@ make uploads-purge`}
     {
       number: 12,
       id: "connected-telemetry",
-      title: "12. Investigate with Loki, Prometheus & Datadog",
-      summary: "Connect read-only Grafana Loki, Prometheus or Datadog, preview telemetry and run a read-only investigation.",
+      title: "12. Investigate with Loki, Prometheus, Datadog & Azure Monitor",
+      summary: "Connect read-only Grafana Loki, Prometheus, Datadog or Azure Monitor, preview telemetry and run a read-only investigation.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
           <p>
@@ -442,7 +442,9 @@ make uploads-purge`}
             <strong className="text-text">Prometheus</strong> for metrics. They exist only when configured in the API
             environment, and OpsPilot contacts no other address. v0.9 adds <strong className="text-text">Datadog</strong>{" "}
             (logs, APM trace metrics and indexed APM spans) through the same templates, snapshot and read-only
-            investigation. Azure Monitor, CloudWatch and custom adapters are planned, not implemented.
+            investigation. v0.10 adds <strong className="text-text">Azure Monitor / Application Insights</strong> (traces,
+            exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace). CloudWatch and
+            custom adapters are planned, not implemented.
           </p>
           <p>First run with the local demo stack (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
           <CodeBlock
@@ -482,11 +484,23 @@ make stop && make dev`}
             each product separately. Without an account, <code className="font-mono">make datadog-fixture</code> serves synthetic
             Datadog responses on 127.0.0.1; see <code className="font-mono">docs/integrations/DATADOG.md</code>.
           </p>
+          <p>
+            <strong className="text-text">Azure Monitor.</strong> Set <code className="font-mono">AZURE_MONITOR_ENABLED=true</code>,{" "}
+            <code className="font-mono">AZURE_MONITOR_WORKSPACE_ID</code> (the Log Analytics workspace ID behind a workspace-based
+            Application Insights resource) and <code className="font-mono">AZURE_MONITOR_AUTH_MODE</code>:{" "}
+            <code className="font-mono">service_principal</code> with <code className="font-mono">AZURE_TENANT_ID</code>,{" "}
+            <code className="font-mono">AZURE_CLIENT_ID</code> and <code className="font-mono">AZURE_CLIENT_SECRET</code>;{" "}
+            <code className="font-mono">managed_identity</code>; or <code className="font-mono">azure_cli</code> for development.
+            Grant only <code className="font-mono">Log Analytics Data Reader</code> on that workspace and restart the API. Test
+            connection reports the token, the workspace and each Application Insights table separately. Without a subscription,{" "}
+            <code className="font-mono">make azure-fixture</code> serves synthetic Logs API responses on 127.0.0.1; see{" "}
+            <code className="font-mono">docs/integrations/AZURE_MONITOR.md</code>.
+          </p>
           <ul className="list-disc space-y-1 pl-4">
             <li><strong className="text-text">Read-only.</strong> No approval, no execution, no claim of verified recovery from historical data. The investigation reads only the stored snapshot.</li>
-            <li><strong className="text-text">Unknown stays unknown.</strong> Change history and live state are not in the connected telemetry (traces only when Datadog APM spans are collected, and then possibly partial); failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
-            <li><strong className="text-text">Bounded and safe.</strong> GET to fixed read endpoints (Datadog: plus POST to four documented search/query endpoints only), no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
-            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported. Datadog was tested only against the synthetic contract fixture, not a live organization.</li>
+            <li><strong className="text-text">Unknown stays unknown.</strong> Change history and live state are not in the connected telemetry (traces only when Datadog APM spans or Application Insights requests/dependencies are collected, and then possibly partial or sampled); failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
+            <li><strong className="text-text">Bounded and safe.</strong> GET to fixed read endpoints (Datadog: plus POST to four documented search/query endpoints only; Azure Monitor: POST to one workspace query endpoint only, approved KQL templates), no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
+            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported. Datadog and Azure Monitor were tested only against their synthetic contract fixtures, not a live organization or workspace.</li>
           </ul>
           <p>
             Details, all settings and the interface for adding a provider: <code className="font-mono">docs/integrations/CONNECTORS.md</code>.
@@ -550,8 +564,8 @@ make infra-down`}
           <ul className="list-disc pl-4 space-y-1 pt-1">
             <li><strong className="text-text">No Shell or Arbitrary Execution:</strong> Tools do not accept free-form bash commands, arbitrary file paths, or unstructured SQL.</li>
             <li><strong className="text-text">Uploaded Evidence Is Read-Only:</strong> Incidents created from your files are analyzed, never remediated. The parsers cover common shapes, not every log format; check the preview before analyzing.</li>
-            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus (v0.6) and Datadog (v0.9) connectors only read from the URLs or Datadog site you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
-            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs and the Datadog site API host you configure, if any.</li>
+            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus (v0.6), Datadog (v0.9) and Azure Monitor (v0.10) connectors only read from the URLs, Datadog site or Log Analytics workspace you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
+            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs, the Datadog site API host and, for Azure Monitor, Microsoft Entra ID and api.loganalytics.azure.com, if configured.</li>
             <li><strong className="text-text">Shared Operator Passphrase:</strong> The current release uses an environment-configured operator passphrase; multi-tenant enterprise SSO (OIDC/SAML) is scheduled for future milestones.</li>
           </ul>
         </div>

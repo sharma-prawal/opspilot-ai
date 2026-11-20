@@ -94,7 +94,7 @@ async def test_connectors_are_listed_without_secrets_and_tested(client: httpx.As
     by_id = {c["id"]: c for c in r.json()["connectors"]}
     assert by_id["loki"]["configured"] and by_id["prometheus"]["auth"] == "bearer token"
     assert {t["id"] for t in by_id["prometheus"]["templates"]} >= {"http_5xx_ratio", "db_pool_in_use"}
-    assert "Azure Monitor" in r.json()["planned"]
+    assert "Azure Monitor" not in r.json()["planned"]  # v0.10: implemented
 
     assert (await client.post("/api/v1/connectors/loki/test")).json()["status"] == "ok"
     fake.prom_token = "rotated-token-9999"  # the configured token is now wrong

@@ -420,9 +420,9 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
   // Diagram D: Source-Agnostic Evidence Ingestion & Extensibility
   "connected-telemetry": {
     id: "connected-telemetry",
-    name: "Connected Telemetry: Loki & Prometheus (v0.6)",
+    name: "Connected Telemetry: Loki, Prometheus (v0.6), Datadog (v0.9) & Azure Monitor (v0.10)",
     category: "Evidence Source",
-    role: "Runs operator-approved LogQL/PromQL templates for the incident's services over one bounded window, normalizes the results into the same records as uploads (keeping timestamps, units, labels and query provenance) and stores them as a snapshot. The investigation reads only that snapshot (server opspilot-connected-telemetry); runbook RAG stays on the MCP read server.",
+    role: "Runs operator-approved query templates (LogQL, PromQL, Datadog search/metrics, KQL over Application Insights tables) for the incident's services over one bounded window, normalizes the results into the same records as uploads (keeping timestamps, units, labels and query provenance) and stores them as a snapshot. The investigation reads only that snapshot (server opspilot-connected-telemetry); runbook RAG stays on the MCP read server.",
     sourcePath: "packages/shared/opspilot_shared/connectors · apps/api/opspilot_api/services/connected.py",
     inputs: ["Connector + template IDs (never query text or URLs)", "Service slugs and a window of at most 6 h"],
     outputs: ["LogRecord/MetricRecord with loki/<template>/<service>:entry N and prometheus/…:point N sources", "Per-query provenance (query, window, step/limit, status, counts)"],
@@ -435,7 +435,7 @@ const COMPONENT_DETAILS: Record<string, ComponentDetail> = {
     id: "src-ext-adapters",
     name: "Further Observability Adapters (planned)",
     category: "Adapter Seam",
-    role: "Planned, not implemented: CloudWatch, Azure Monitor, tracing backends, CI/CD change history and custom stores. Each would implement the TelemetryConnector contract already used by Loki, Prometheus and Datadog (docs/integrations/CONNECTORS.md).",
+    role: "Planned, not implemented: CloudWatch, tracing backends, CI/CD change history and custom stores. Each would implement the TelemetryConnector contract already used by Loki, Prometheus, Datadog and Azure Monitor (docs/integrations/CONNECTORS.md).",
     sourcePath: "packages/shared/opspilot_shared/connectors/contract.py (contract)",
     inputs: ["PromQL queries", "LogQL streams", "KQL exceptions", "OTLP trace spans"],
     outputs: ["Standardized MetricSeries", "Error signature clusters", "Call graph edges"],
@@ -959,11 +959,11 @@ const SOURCES_NODES: CustomNodeType[] = [
     type: "custom",
     position: { x: 320, y: 40 },
     data: {
-      label: "Prometheus & Loki (v0.6)",
+      label: "Loki · Prometheus · Datadog · Azure",
       category: "Source (Connected)",
       tone: "success",
       status: "implemented",
-      tech: "Approved LogQL/PromQL templates · read-only",
+      tech: "Approved LogQL/PromQL/Datadog/KQL templates · read-only",
       detailId: "connected-telemetry",
     },
   },
@@ -972,7 +972,7 @@ const SOURCES_NODES: CustomNodeType[] = [
     type: "custom",
     position: { x: 320, y: 170 },
     data: {
-      label: "Datadog / CloudWatch / Azure",
+      label: "CloudWatch / custom stores",
       category: "Source (Connected)",
       tone: "warn",
       status: "planned",
