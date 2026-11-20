@@ -118,7 +118,8 @@ async def test_datadog_is_listed_tested_and_discovered_without_secrets(
     r = await client.get("/api/v1/connectors")
     assert r.status_code == 200 and no_keys(r.text)
     by_id = {c["id"]: c for c in r.json()["connectors"]}
-    assert set(by_id) == {"loki", "prometheus", "datadog"} and all(c["configured"] for c in by_id.values())
+    assert {"loki", "prometheus", "datadog"} <= set(by_id)
+    assert all(by_id[k]["configured"] for k in ("loki", "prometheus", "datadog"))
     d = by_id["datadog"]
     assert d["site"] == "datadoghq.com" and d["signals"] == ["log", "metric", "span"] and d["fixture"] is False
     assert {t["signal"] for t in d["templates"]} == {"log", "metric", "span"}

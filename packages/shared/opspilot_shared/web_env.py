@@ -83,6 +83,9 @@ BACKEND_DENYLIST_PREFIXES: tuple[str, ...] = (
     "PROMETHEUS_",
     "DATADOG_",
     "DD_",
+    "AZURE_",  # v0.10: Azure Monitor settings and Microsoft Entra credentials
+    "MSAL_",
+    "IDENTITY_",  # managed identity endpoint/header variables
     "TELEMETRY_",
     "OTEL_",
     "LANGGRAPH_",

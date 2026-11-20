@@ -15,7 +15,10 @@ Guarantees, enforced here rather than by each connector:
   Retries are off by default; a connector may allow a few, only for HTTP 429/503, waiting at most ``max_retry_wait``
   seconds (the provider's ``X-RateLimit-Reset`` or ``Retry-After`` when it is shorter), never in a loop.
 - **Credential-free errors.** Error messages never include headers, and any configured secret value that a backend
-  echoes is replaced before the message leaves this module.
+  echoes is replaced before the message leaves this module. Short-lived bearer tokens obtained at request time
+  (Azure Monitor, v0.10) are registered with ``add_secret`` so they are scrubbed the same way.
+- **No content is not JSON.** HTTP 204 (Azure Monitor: the workspace has no data) returns ``None`` rather than a
+  decoding error; each connector decides what an empty answer means.
 """
 
 from __future__ import annotations
@@ -79,7 +82,7 @@ class ReadOnlyHttp:
         allowed_paths: Iterable[str],
         allowed_post_paths: Iterable[str] = (),
         headers: dict[str, str] | None = None,
-        auth: tuple[str, str] | None = None,
+        auth: tuple[str, str] | httpx.Auth | None = None,
         secrets: Iterable[str] = (),
         timeout: float = 10.0,
         max_bytes: int = 5 * 1024 * 1024,
@@ -96,11 +99,16 @@ class ReadOnlyHttp:
         self._sleep = sleep or asyncio.sleep
         self.retries = 0  # retries performed by this client (observability, tests)
         self._headers = {"Accept": "application/json", "User-Agent": "opspilot-connector/0.6", **(headers or {})}
-        self._auth = httpx.BasicAuth(*auth) if auth else None
+        self._auth: httpx.Auth | None = httpx.BasicAuth(*auth) if isinstance(auth, tuple) else auth
         self._secrets = [s for s in secrets if s and len(s) >= 4]
         self._timeout = httpx.Timeout(timeout, connect=min(5.0, timeout))
         self._max_bytes = max_bytes
         self._transport = transport
+
+    def add_secret(self, value: str) -> None:
+        """Scrub ``value`` from every later message (v0.10: access tokens obtained at request time)."""
+        if value and len(value) >= 4 and value not in self._secrets:
+            self._secrets = [*self._secrets[-7:], value]
 
     def clean(self, text: str, limit: int = 300) -> str:
         """Message safe to show and store: configured secrets and credential-like values removed, bounded."""
@@ -185,30 +193,47 @@ class ReadOnlyHttp:
         latency = round((time.perf_counter() - t0) * 1000, 1)
         text = bytes(buf).decode("utf-8", errors="replace")
         if status >= 400:
-            error = _status_error(status, self._backend_message(text))
+            detail, code = self._backend_message(text)
+            error = _status_error(status, detail, code)
             wait = _retry_wait(headers)
             if status == 429 and wait is not None:
                 error.message += f" (the provider allows the next request in {wait:g} s)"
             if status in (429, 503) and self._max_retries:
                 raise _Retryable(error, 1.0 if wait is None else wait)
             raise error
+        if status == 204:
+            return None, latency
         try:
             return json.loads(text), latency
         except json.JSONDecodeError as exc:
             raise ConnectorError("invalid_response", "the backend did not answer with JSON") from exc
 
-    def _backend_message(self, text: str) -> str:
+    def _backend_message(self, text: str) -> tuple[str, str | None]:
+        """(cleaned detail, provider error code or None)."""
         try:
             doc = json.loads(text)
         except json.JSONDecodeError:
             doc = None
+        code: str | None = None
         if isinstance(doc, dict):
             errors = doc.get("errors")  # Datadog: {"errors": ["..."]}
+            err = doc.get("error")
             if isinstance(errors, list) and errors:
                 text = "; ".join(str(e) for e in errors[:3])
+            elif isinstance(err, dict):  # Azure OneAPI: {"error": {"code", "message", "innererror": {...}}}
+                code = str(err.get("code") or "")[:60] or None
+                parts = [f"{code}: {err.get('message') or ''}" if code else str(err.get("message") or "")]
+                inner = err.get("innererror")
+                for _ in range(3):  # Log Analytics nests the useful detail (e.g. SEM0100 …) two levels down
+                    if not isinstance(inner, dict):
+                        break
+                    if inner.get("code") or inner.get("message"):
+                        parts.append(f"({inner.get('code') or ''}: {inner.get('message') or ''})")
+                    inner = inner.get("innererror")
+                text = " ".join(parts)
             else:
-                text = str(doc.get("error") or doc.get("message") or "")
-        return self.clean(text or "no details")
+                text = str(err or doc.get("message") or "")
+        return self.clean(text or "no details"), code
 
 
 _RATE_HEADERS = ("x-ratelimit-", "retry-after")
@@ -231,17 +256,22 @@ def _retry_wait(headers: dict[str, str]) -> float | None:
     return None
 
 
-def _status_error(status: int, detail: str) -> ConnectorError:
+def _status_error(status: int, detail: str, code: str | None = None) -> ConnectorError:
     if status in (401, 403):
         return ConnectorError(
-            "auth_error", f"HTTP {status}: {detail}. Check the read-only credentials or tenant", status=status
+            "auth_error",
+            f"HTTP {status}: {detail}. Check the read-only credentials or tenant",
+            status=status,
+            code=code,
         )
     if status == 404:
-        return ConnectorError("not_found", f"HTTP 404: {detail}. Check the base URL and path prefix", status=status)
+        return ConnectorError(
+            "not_found", f"HTTP 404: {detail}. Check the base URL and path prefix", status=status, code=code
+        )
     if status == 429:
-        return ConnectorError("rate_limited", f"HTTP 429: {detail}", status=status)
+        return ConnectorError("rate_limited", f"HTTP 429: {detail}", status=status, code=code)
     if status in (400, 422):
-        return ConnectorError("query_error", f"HTTP {status}: {detail}", status=status)
+        return ConnectorError("query_error", f"HTTP {status}: {detail}", status=status, code=code)
     if status >= 500:
-        return ConnectorError("unavailable", f"HTTP {status}: {detail}", status=status)
-    return ConnectorError("invalid_response", f"HTTP {status}: {detail}", status=status)
+        return ConnectorError("unavailable", f"HTTP {status}: {detail}", status=status, code=code)
+    return ConnectorError("invalid_response", f"HTTP {status}: {detail}", status=status, code=code)

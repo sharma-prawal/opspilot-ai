@@ -47,10 +47,10 @@ export function IntegrationMatrix() {
     {
       name: "Azure Monitor",
       icon: "connector",
-      signals: "No adapter yet",
-      state: "Planned",
-      access: "Unavailable",
-      auth: "Not implemented",
+      signals: "Traces · exceptions · requests/dependencies · KQL metrics",
+      state: "Implemented",
+      access: "Read-only (one workspace query POST)",
+      auth: "Entra service principal / managed identity / Azure CLI",
     },
     {
       name: "AWS CloudWatch",

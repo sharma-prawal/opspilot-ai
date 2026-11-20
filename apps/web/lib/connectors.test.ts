@@ -58,3 +58,26 @@ describe("v0.9 connected service names", () => {
     });
   });
 });
+
+describe("v0.10 Azure Monitor helpers", () => {
+  it("names Azure signals after Application Insights and keeps other providers unchanged", async () => {
+    const { signalLabel, TABLE_STATE, STATE_LABEL, queryErrorHint } = await import("./connectors");
+    expect(signalLabel("span", "azure_monitor")).toBe("Requests & dependencies");
+    expect(signalLabel("log", "azure_monitor")).toBe("Traces & exceptions");
+    expect(signalLabel("span", "datadog")).toBe("APM spans");
+    expect(signalLabel("metric", "prometheus")).toBe("Metrics");
+    expect(TABLE_STATE.unsupported.label).toBe("not in workspace");
+    expect(STATE_LABEL.permission_denied.tone).toBe("danger");
+    const q = { connector: "azure_monitor", error: { kind: "permission_denied", message: "HTTP 403" } } as never;
+    expect(queryErrorHint(q)).toContain("Log Analytics Data Reader");
+    const dd = { connector: "datadog", error: { kind: "permission_denied", message: "HTTP 403" } } as never;
+    expect(queryErrorHint(dd)).toContain("read permission shown");
+  });
+
+  it("keeps Application Insights role names exactly (lower-cased), refusing names that cannot be queried", async () => {
+    const { connectedService, parseConnectedServices } = await import("./connectors");
+    expect(connectedService("Billing.Worker")).toBe("billing.worker");
+    expect(connectedService("Notification Worker")).toBeNull();
+    expect(parseConnectedServices("payment-service, inventory-service").services).toEqual(["payment-service", "inventory-service"]);
+  });
+});

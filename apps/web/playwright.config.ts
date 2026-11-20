@@ -24,6 +24,16 @@ export default defineConfig({
           timeout: 60_000,
         }]
       : []),
+    // v0.10: E2E_AZURE=1 serves the synthetic Azure Monitor Logs API fixture on loopback (never a real workspace).
+    ...(process.env.E2E_AZURE
+      ? [{
+          command: `uv run python ../../scripts/azure_monitor_fixture.py --port ${process.env.E2E_AZURE_PORT ?? 8129}`,
+          // 401 without a token = up
+          url: `http://127.0.0.1:${process.env.E2E_AZURE_PORT ?? 8129}/v1/workspaces/6f1c2a9e-4b7d-4e2a-9c3b-0a5d7e8f1001/query`,
+          reuseExistingServer: false,
+          timeout: 60_000,
+        }]
+      : []),
     {
       command: "../../scripts/e2e-api.sh",
       url: `${E2E_API_URL}/health/live`,

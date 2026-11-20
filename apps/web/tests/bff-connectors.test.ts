@@ -1,4 +1,4 @@
-// v0.6/v0.9: connector routes contact the configured Loki/Prometheus/Datadog, so they are operator-only and limited
+// v0.6/v0.9/v0.10: connector routes contact the configured Loki/Prometheus/Datadog/Azure Monitor, so they are operator-only and limited
 // to the implemented connectors; the backend operator token never reaches the browser.
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -40,6 +40,8 @@ const ROUTES = [
   "api/v1/connectors/prometheus/services",
   "api/v1/connectors/datadog/test",
   "api/v1/connectors/datadog/services",
+  "api/v1/connectors/azure_monitor/test",
+  "api/v1/connectors/azure_monitor/services",
   "api/v1/incidents/connected/preview",
   "api/v1/incidents/connected",
 ];
@@ -63,6 +65,8 @@ describe("BFF connector routes", () => {
     for (const path of [
       "api/v1/connectors/splunk/test", "api/v1/connectors/loki/push", "api/v1/connectors/loki/test/x",
       "api/v1/connectors/datadog/query", "api/v1/connectors/datadog/test/x", "api/v1/connectors/datadog",
+      "api/v1/connectors/azure_monitor/query", "api/v1/connectors/azure_monitor/test/x", "api/v1/connectors/azure",
+      "api/v1/connectors/azure_monitor/workspaces",
     ]) {
       expect((await POST(req(path, "operator"), ctx(path))).status, path).toBe(404);
     }

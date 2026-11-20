@@ -107,6 +107,16 @@ class Settings(BaseSettings):
     datadog_log_indexes: str = ""  # optional comma-separated log indexes (default: all)
     datadog_max_spans: int = Field(default=500, ge=10, le=2000)  # per span query
     datadog_local_api_url: str = ""  # synthetic fixture only; loopback addresses only
+    # v0.10 Azure Monitor / Application Insights (read-only Log Analytics workspace queries). Credentials stay
+    # backend-only (never NEXT_PUBLIC_*, never in API responses, logs or snapshots). docs/integrations/AZURE_MONITOR.md
+    azure_monitor_enabled: bool = False
+    azure_monitor_auth_mode: str = "service_principal"  # service_principal | managed_identity | azure_cli | fixture
+    azure_monitor_workspace_id: str = ""  # Log Analytics workspace ID (a GUID), not a resource ID or URL
+    azure_tenant_id: str = ""  # Microsoft Entra tenant (directory) ID
+    azure_client_id: str = ""  # service principal app ID, or a user-assigned managed identity's client ID
+    azure_client_secret: SecretStr = SecretStr("")  # service principal only
+    azure_monitor_max_records: int = Field(default=500, ge=10, le=2000)  # per request/dependency query
+    azure_monitor_local_api_url: str = ""  # synthetic fixture only; loopback addresses only (auth mode "fixture")
     telemetry_templates_file: Path | None = None  # extra/overriding query templates (JSON), see docs
     telemetry_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     telemetry_max_window_hours: float = Field(default=6.0, gt=0, le=24)

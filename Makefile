@@ -49,6 +49,9 @@ telemetry-down: ## Remove the local Loki + Prometheus test containers (no volume
 datadog-fixture: ## Serve the synthetic Datadog API fixture on 127.0.0.1:8126 for the v0.9 connector (foreground)
 	uv run python scripts/datadog_fixture.py --port 8126
 
+azure-fixture: ## Serve the synthetic Azure Monitor Logs API fixture on 127.0.0.1:8128 for the v0.10 connector (foreground)
+	uv run python scripts/azure_monitor_fixture.py --port 8128
+
 uploads-purge: ## Delete uploaded incidents older than UPLOAD_RETENTION_DAYS (files, records, checkpoints; stop the API first)
 	uv run opspilot uploads purge $(ARGS)
 
@@ -85,4 +88,4 @@ evaluate: ## Retrieval benchmark + agent evaluation (TRIALS=3); renders docs/eva
 build-web: ## Production build of the web app
 	cd apps/web && pnpm build
 
-.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web uploads-purge telemetry-up telemetry-down datadog-fixture
+.PHONY: help bootstrap models doctor infra-up infra-down db-roles migrate ingest simulate investigate dev stop test test-live e2e lint format evaluate build-web uploads-purge telemetry-up telemetry-down datadog-fixture azure-fixture

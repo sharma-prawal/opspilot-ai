@@ -45,7 +45,7 @@ export function IncidentView() {
   });
 
   const i = incident.data;
-  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus, v0.9 Datadog snapshot
+  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus, v0.9 Datadog, v0.10 Azure snapshot
   const uploaded = i?.evidence_source === "upload" || connected; // read-only, stored evidence
   const active = invs.data?.some((v) =>
     ["queued", "running", "awaiting_approval"].includes(v.status)
@@ -129,7 +129,7 @@ export function IncidentView() {
       {connected && (
         <div className="rounded-xl border border-info/30 bg-info-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
           <strong>Connected telemetry — read-only analysis.</strong> The agent investigates only the telemetry
-          snapshot (Loki, Prometheus or Datadog) stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
+          snapshot (Loki, Prometheus, Datadog or Azure Monitor) stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
           execute it, and it never claims verified recovery from historical data.
         </div>
       )}
@@ -241,6 +241,12 @@ export function IncidentView() {
                             {q.truncated ? " · truncated" : ""}
                           </span>
                         </div>
+                        {q.workspace && (
+                          <span className="block text-[10px] text-muted">
+                            workspace <span className="font-mono">{q.workspace}</span>
+                            {q.tables?.length ? ` · ${q.tables.join(", ")}` : ""}
+                          </span>
+                        )}
                         <code className="block break-all font-mono text-[10px] text-muted">{q.query}</code>
                         {q.link?.startsWith("https://") && (
                           <a href={q.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent hover:underline">

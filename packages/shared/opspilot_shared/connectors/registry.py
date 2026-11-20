@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from opspilot_shared.config import Settings
+from opspilot_shared.connectors.azure_monitor import AzureMonitorConnector
 from opspilot_shared.connectors.base import Limits
 from opspilot_shared.connectors.contract import ConnectorError, TelemetryConnector
 from opspilot_shared.connectors.datadog import DatadogConnector
@@ -23,9 +24,16 @@ KNOWN = {
         "signals": ["log", "metric", "span"],
         "env": "DATADOG_ENABLED=true, DATADOG_SITE, DATADOG_API_KEY and DATADOG_APP_KEY",
     },
+    "azure_monitor": {
+        "name": "Azure Monitor",
+        "signal": "log",
+        "signals": ["log", "metric", "span"],
+        "env": "AZURE_MONITOR_ENABLED=true, AZURE_MONITOR_WORKSPACE_ID and an AZURE_MONITOR_AUTH_MODE with its "
+        "credentials",
+    },
 }
 # Shown in the UI and docs so planned work is never mistaken for an implemented connector.
-PLANNED = ("Azure Monitor", "Amazon CloudWatch", "custom adapters")
+PLANNED = ("Amazon CloudWatch", "custom adapters")
 
 
 class ConnectorRegistry:
@@ -99,6 +107,22 @@ class ConnectorRegistry:
                 )
             except ConnectorError as exc:
                 problems["datadog"] = exc.message
+        if settings.azure_monitor_enabled:
+            try:
+                connectors["azure_monitor"] = AzureMonitorConnector(
+                    workspace_id=settings.azure_monitor_workspace_id,
+                    auth_mode=settings.azure_monitor_auth_mode,
+                    tenant_id=settings.azure_tenant_id,
+                    client_id=settings.azure_client_id,
+                    client_secret=settings.azure_client_secret.get_secret_value(),
+                    max_records=settings.azure_monitor_max_records,
+                    local_api_url=settings.azure_monitor_local_api_url,
+                    templates=templates,
+                    limits=limits,
+                    transport=transports.get("azure_monitor"),
+                )
+            except ConnectorError as exc:
+                problems["azure_monitor"] = exc.message
         return cls(connectors, problems, template_problems)
 
     def get(self, connector_id: str) -> TelemetryConnector:

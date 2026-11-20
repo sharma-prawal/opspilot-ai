@@ -342,34 +342,39 @@ fields @timestamp, @message, @logStream
     name: "Azure Monitor & Application Insights",
     category: "metrics",
     mode: "connected",
-    status: "planned",
+    status: "implemented",
     tagline:
-      "App Insights telemetry, Kusto (KQL) queries, and Azure Resource health.",
+      "Read-only Application Insights traces, exceptions, requests and dependencies from one Log Analytics workspace, with KQL-derived metrics (v0.10).",
     evidenceContributed: [
-      "Application Insights exception telemetry and failed dependency calls",
-      "Kusto KQL query results on Log Analytics workspaces",
-      "Azure Resource Manager (ARM) health status",
+      "Warning/error and lifecycle traces (AppTraces) and exceptions with type, message, problem ID and up to 10 stack frames (AppExceptions)",
+      "KQL-derived series per time bin: request rate, failed-request ratio, HTTP 5xx ratio, p95 request duration, dependency failure ratio and p95 dependency duration (ItemCount-weighted; empty bins left out)",
+      "Failed requests plus the requests and dependency calls of up to 10 of their operations (OperationId/ParentId): observed caller → callee links, flagged partial when a parent record is missing",
     ],
     prerequisites: [
-      "Azure Service Principal with 'Monitoring Reader' role",
-      "AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, and Workspace ID",
+      "Workspace-based Application Insights (data in a Log Analytics workspace) and that workspace's ID (a GUID)",
+      "An identity with Log Analytics Data Reader (or Log Analytics Reader) on the workspace only; no Contributor or Owner role",
+      "Services identified by their cloud role name (AppRoleName); names with spaces, ':' or '/' cannot be queried",
     ],
     configuration:
-      "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
+      "Set AZURE_MONITOR_ENABLED=true, AZURE_MONITOR_WORKSPACE_ID and AZURE_MONITOR_AUTH_MODE in the API environment (backend only; never NEXT_PUBLIC_*): service_principal with AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET; managed_identity (optional AZURE_CLIENT_ID for a user-assigned identity); or azure_cli for development. Restart the API. Requests go only to https://api.loganalytics.azure.com (Azure public cloud). Without a subscription, make azure-fixture serves synthetic Logs API responses on 127.0.0.1. Verified only against that synthetic fixture so far, not a real workspace.",
     exampleQuery: {
       language: "text",
-      code: `// Kusto KQL query:
-exceptions
-| where timestamp between(datetime("2026-11-03T13:45Z") .. datetime("2026-11-03T14:15Z"))
-| where cloud_RoleName == "transaction-api"
-| summarize count() by type, outerMessage, bin(timestamp, 1m)`,
+      code: `// Built-in template request_failure_ratio, rendered for one service:
+AppRequests
+| where AppRoleName =~ "orders-api"
+| summarize value = todouble(sumif(ItemCount, Success == false)) / todouble(sum(ItemCount)),
+    records = count(), items = sum(ItemCount) by bin(TimeGenerated, 60s)
+| order by TimeGenerated asc
+// POST /v1/workspaces/<workspace ID>/query  {"query": ..., "timespan": "<start>/<end>"}`,
     },
     normalization:
-      "KQL tabular output normalized into ops.evidence items with exception categorization.",
+      "Traces and exceptions become LogRecords (SeverityLevel → level, OperationId kept, credential-like values redacted, exact AppRoleName kept, source azure_monitor/<template>/<service>:entry N); bins become MetricRecords with the template's unit; requests and dependencies become SpanRecords whose status is error/ok only as Success says (otherwise unset). Partial results (PartialError) are kept and marked incomplete. Change history is not collected (activity log and release annotations are not queried) and stays unknown.",
     troubleshooting: [
-      "Verify Service Principal role assignment in Azure Portal under Access Control (IAM).",
+      "Test connection obtains a Microsoft Entra token, runs one workspace query and probes AppTraces, AppExceptions, AppRequests and AppDependencies separately: 'not in workspace' means that table holds no data of that type.",
+      "HTTP 403 InsufficientAccessError: assign Log Analytics Data Reader on the workspace; new role assignments can take several minutes.",
+      "HTTP 429: OpsPilot retries at most twice when Retry-After is 10 s or less, otherwise reports rate_limited (the service allows 200 requests per 30 s and 5 concurrent queries per user).",
     ],
-    targetNode: "Telemetry & Dependencies Agents",
+    targetNode: "Telemetry & Dependencies Agents (connected-telemetry snapshot)",
   },
   {
     id: "tempo-jaeger-tracing",
@@ -560,7 +565,7 @@ export default function IntegrationsPage() {
         </p>
         <ul className="planned-provider-list">
           {INTEGRATIONS.filter((item) =>
-            ["azure-monitor", "aws-cloudwatch"].includes(item.id),
+            ["aws-cloudwatch"].includes(item.id),
           ).map((item) => (
             <li key={item.id}>
               <span>{item.name}</span>
@@ -615,7 +620,7 @@ export default function IntegrationsPage() {
               <code className="font-mono text-text">ChatModel</code>). Whether
               evidence arrives from our deterministic local simulator, uploaded
               export files, or a read-only snapshot from Grafana Loki,
-              Prometheus (v0.6) or Datadog (v0.9), it is normalized
+              Prometheus (v0.6), Datadog (v0.9) or Azure Monitor (v0.10), it is normalized
               into persisted, source-attributed{" "}
               <code className="font-mono text-text">ops.evidence</code> items
               before reasoning occurs.

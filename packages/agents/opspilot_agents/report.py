@@ -11,7 +11,14 @@ import re
 from typing import Any
 
 from opspilot_agents.claims import change_history_unread, change_observations
-from opspilot_agents.prompts import connected_sources, is_connected, is_read_only
+from opspilot_agents.prompts import (
+    PROVIDER_NAMES,
+    connected_sources,
+    is_connected,
+    is_read_only,
+    is_v06_only,
+    span_label,
+)
 from opspilot_agents.verification import CONTRACT as VERIFICATION_CONTRACT
 from opspilot_agents.verification import condition_key, required_conditions
 
@@ -194,16 +201,16 @@ def render_report(state: dict[str, Any]) -> str:
     hyps = rca.get("hypotheses") or []
     lines = [f"# RCA: {inc.get('reference', '')} — {inc.get('title', 'Incident')}", ""]
     uploaded = is_read_only(inc)
-    if is_connected(inc) and "datadog" in connected_sources(inc)[0]:  # v0.9
+    if is_connected(inc) and not is_v06_only(connected_sources(inc)[0]):  # v0.9 Datadog, v0.10 Azure Monitor
         kinds, signals = connected_sources(inc)
-        held = ", ".join({"log": "logs", "metric": "metrics", "span": "APM spans"}[s] for s in signals) or "no data"
-        names = " and ".join(
-            {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog"}.get(k, k) for k in kinds
-        )
+        labels = {"log": "logs", "metric": "metrics", "span": span_label(kinds)}
+        held = ", ".join(labels[s] for s in ("log", "metric", "span") if s in signals) or "no data"
+        names = " and ".join(PROVIDER_NAMES.get(k, k) for k in kinds)
+        through = " or ".join(PROVIDER_NAMES.get(k, k) for k in kinds if k not in ("loki", "prometheus"))
         lines += [
             f"> **Connected telemetry — read-only analysis.** Findings come only from a snapshot of {names} telemetry "
             f"({held}) queried for the incident window (taken {_ts(inc.get('snapshot_at'))}). No action was executed "
-            "through Datadog or anywhere else and recovery was not verified; the historical data does not show the "
+            f"through {through} or anywhere else and recovery was not verified; the historical data does not show the "
             "current state.",
             "",
         ]
@@ -396,6 +403,10 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             "**unknown**; its absence is not evidence that nothing changed"
         )
     not_collected += [f"query `{q}` failed" for q in failed]
+    incomplete = [
+        q["id"] for q in inc.get("telemetry_queries") or [] if q.get("truncated") and q.get("status") != "error"
+    ]
+    sampled = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("sampled")]
     not_collected += [g for g in gaps if "change" not in g.lower() and "deploy" not in g.lower()][:6]
     rows = [
         (
@@ -414,6 +425,10 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
         ("Searched, nothing found", ", ".join(f"`{q}`" for q in empty) or "every query returned records"),
         ("Not collected / unavailable", "; ".join(not_collected) or "none"),
     ]
+    if incomplete or sampled:  # v0.10: partial, truncated or sampled results are evidence, but not complete evidence
+        parts = [f"`{q}` returned partial or truncated results" for q in incomplete]
+        parts += [f"`{q}` is sampled (ItemCount-weighted estimates)" for q in sampled]
+        rows.append(("Incomplete or sampled", "; ".join(parts)))
     lines = ["## Evidence coverage", "", "| State | Evidence |", "|---|---|"]
     lines += [f"| {k} | {v.replace('|', '/')} |" for k, v in rows]
     return [*lines, ""]
@@ -438,6 +453,8 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
         source = str(q.get("connector_name"))
         if q.get("site"):  # v0.9 Datadog: site and signal; a Log Explorer link when one was built
             source += f" ({q['site']}, {q.get('signal')})"
+        elif q.get("workspace"):  # v0.10 Azure Monitor: workspace, signal and source tables
+            source += f" (workspace {q['workspace']}, {q.get('signal')}, {', '.join(q.get('tables') or [])})"
         link = f" [open]({q['link']})" if str(q.get("link") or "").startswith("https://") else ""
         lines.append(
             f"| `{q.get('id')}` | {source} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
@@ -479,11 +496,46 @@ def _datadog_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
     return steps
 
 
+def _azure_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
+    """v0.10: follow-ups for an Azure Monitor snapshot, phrased for what it did and did not hold."""
+    inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    steps: list[str] = []
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Select the request-rate, failure-ratio and p95-duration templates for {svc}, or check that its "
+            "Application Insights role name (AppRoleName) matches; without them impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Check that {svc} sends traces and exceptions to this Log Analytics workspace for this window.")
+    steps.append(
+        "Review deployment and configuration-change history in your CD and config systems (or the Azure activity log "
+        "and release annotations, which this snapshot does not collect): change correlation was not possible."
+    )
+    if "span" in signals:
+        steps.append(
+            "Open the failing operations in Application Insights (transaction search by OperationId): the snapshot "
+            "holds a bounded, possibly sampled set of requests and dependencies, so operations may be partial."
+        )
+    else:
+        steps.append("Inspect the failing requests and dependencies in Application Insights; none were collected.")
+    steps.append(
+        f"Check the current health of {svc} in Azure Monitor: this analysis used a historical snapshot, not live state."
+    )
+    return steps
+
+
 def _connected_next_steps(state: dict[str, Any]) -> list[str]:
     inc = state.get("incident") or {}
     kinds_, signals_ = connected_sources(inc)
     if "datadog" in kinds_:
         return _datadog_next_steps(state, signals_)
+    if "azure_monitor" in kinds_:
+        return _azure_next_steps(state, signals_)
     svc = inc.get("service") or "the affected service"
     ev = list((state.get("evidence") or {}).values())
     kinds = {e["kind"] for e in ev}
