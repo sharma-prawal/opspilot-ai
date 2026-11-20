@@ -124,6 +124,11 @@ async def test_azure_snapshot_is_analyzed_read_only_with_citations_and_dependenc
     assert "azure_monitor/" in anomaly["data"]["sources"]
     log = next(e for e in ev.values() if e["kind"] == "log_pattern" and e["service"] == "payment-service")
     assert log["data"]["attributes"]["source_ref"].startswith("azure_monitor/")
+    # payment-service has more WARN+ entries (traces, exceptions, failed requests/dependencies) than the 300-entry
+    # search returns: the earliest returned entry (≈10:49Z) must not be presented as the first error (10:31Z)
+    capped = [e for e in ev.values() if e["id"].startswith("ev-log-") and e["service"] == "payment-service"]
+    assert capped and all(e["data"].get("search_truncated") for e in capped)
+    assert all("earliest returned" in e["summary"] and "earlier occurrences may exist" in e["summary"] for e in capped)
     by_tool: dict[str, Any] = {}
     for r in tools.records:
         by_tool.setdefault(r.tool, []).append(r)
@@ -147,6 +152,11 @@ async def test_azure_snapshot_is_analyzed_read_only_with_citations_and_dependenc
     assert "Bearer" not in md and "opspilot-synthetic-fixture-token" not in md
     coverage = md.split("## Evidence coverage", 1)[1].split("\n## ", 1)[0]
     assert "| Incomplete or sampled |" in coverage and "sampled (ItemCount-weighted estimates)" in coverage
+    timeline = md.split("## Timeline", 1)[1].split("\n## ", 1)[0]
+    assert "earliest returned error on payment-service (log search capped" in timeline
+    assert "first error on payment-service" not in timeline
+    # sampled request/trace records (orders-api, ItemCount 2) are flagged too, not only KQL-derived metric bins
+    assert "holds sampled records (ItemCount > 1: record counts understate event counts)" in coverage
 
 
 async def test_prompt_names_azure_limits_while_v06_and_datadog_wording_is_unchanged() -> None:

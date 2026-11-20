@@ -1,4 +1,4 @@
-# Azure Monitor & Application Insights connector (v0.10)
+# Azure Monitor & Application Insights connector (v0.10, unreleased)
 
 > **Verification status.** Implemented and tested against a **synthetic Log Analytics Query API fixture only**
 > (`scripts/azure_monitor_fixture.py`), which follows the documented request and response shapes. **No real Azure
@@ -183,10 +183,11 @@ table(s), template ID and label, service, the exact KQL that ran, window, bin si
 
 ## Sampling, correlation and what the evidence cannot show
 
-- **Sampling.** Application Insights may keep one record for `ItemCount` items. Counts, rates and ratios are
-  `ItemCount`-weighted, and p95 uses `percentilew(DurationMs, ItemCount, 95)`. When any bin is sampled the query notes
-  it, the report's *Evidence coverage* adds an *Incomplete or sampled* row, and the preview shows "represents N sampled
-  items" on records.
+- **Sampling.** Application Insights may keep one record for `ItemCount` items. KQL counts, rates and ratios are
+  `ItemCount`-weighted, and p95 uses `percentilew(DurationMs, ItemCount, 95)`. Records are never multiplied or
+  invented. When any metric bin is sampled, or any trace, exception, request or dependency record has `ItemCount > 1`,
+  the query notes it ("record counts understate event counts"); the report's *Evidence coverage* adds an *Incomplete or
+  sampled* row naming those queries, and the preview shows "represents N sampled items" on records (D132).
 - **Partial operations.** Records whose `ParentId` is not among the records a query returned are marked
   `parent_missing`; nothing is reconstructed. Missing dependency records do not prove a call did not happen.
 - **Dependency edges.** `get_service_dependencies` reports `caller → callee` only for a recorded dependency whose
@@ -249,7 +250,8 @@ AZURE_MONITOR_LOCAL_API_URL=http://127.0.0.1:8128 \
 AZURE_MONITOR_WORKSPACE_ID=6f1c2a9e-4b7d-4e2a-9c3b-0a5d7e8f1001 make dev
 ```
 
-Then use **Use the Azure fixture incident** on the connected intake (incident 2026-11-16 10:35Z). Automated coverage:
+Then use **Use the Azure fixture incident** on the connected intake (incident 2026-11-16 10:35Z). Automated coverage
+(run `E2E_AZURE=1 make e2e` for the browser journeys; the API uses fixture port 8129 there):
 `tests/unit/test_azure_monitor_connector.py`, `tests/unit/test_azure_monitor_investigation.py`,
 `tests/integration/test_azure_monitor_api.py` and the Playwright journeys in `apps/web/e2e/azure.spec.ts`
 (`E2E_AZURE=1`). Screenshots in `docs/images/azure/` show synthetic fixture data only.
@@ -282,3 +284,6 @@ Not performed for this release. To verify against your own workspace without cha
   rows; OpsPilot cannot tell that apart from "no data" and reports it as `empty`.
 - **Role names** with spaces, `:` or `/` cannot be queried; mixed-case roles are matched case-insensitively.
 - **Service-side limits** (500,000 rows, ~100 MiB, 10 min) are far above OpsPilot's own bounds and never reached.
+
+Decisions: D128–D134 in [DECISIONS.md](../DECISIONS.md). Release notes (draft):
+[V0.10.0_NOTES.md](../releases/V0.10.0_NOTES.md).

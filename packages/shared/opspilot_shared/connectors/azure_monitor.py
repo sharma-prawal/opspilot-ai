@@ -810,6 +810,17 @@ class AzureMonitorConnector(HttpConnector):
         return attrs
 
     @staticmethod
+    def _note_sampled(records: list[LogRecord] | list[SpanRecord], prov: QueryProvenance) -> None:
+        """Records that stand for more than one telemetry item (Application Insights sampling, ItemCount > 1)."""
+        sampled = [int(r.attributes["azure.item_count"]) for r in records if r.attributes.get("azure.item_count")]
+        sampled = [n for n in sampled if n > 1]
+        if sampled:
+            prov.issues.append(
+                f"{len(sampled)} record(s) are sampled telemetry (ItemCount > 1, standing for {sum(sampled)} items): "
+                "record counts understate event counts and sampled operations can lack records"
+            )
+
+    @staticmethod
     def _service(row: dict[str, Any], prov: QueryProvenance) -> tuple[str | None, str]:
         svc = role_service(row.get("AppRoleName"))
         return (svc, "record") if svc else (None, "query")
@@ -873,6 +884,7 @@ class AzureMonitorConnector(HttpConnector):
                     attributes=attrs,
                 )
             )
+        self._note_sampled(out, prov)
         if incomplete_stacks:
             prov.issues.append(
                 f"{incomplete_stacks} exception(s) have an incomplete stack (more than 10 frames, or Application "
@@ -1078,6 +1090,7 @@ class AzureMonitorConnector(HttpConnector):
                     attributes=attrs,
                 )
             )
+        self._note_sampled(out, prov)
         if partial:
             prov.issues.append(
                 f"{partial} record(s) reference a parent (ParentId) that this query did not return: those "

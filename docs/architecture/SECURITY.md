@@ -128,6 +128,40 @@ Full detail: [DATADOG.md](../integrations/DATADOG.md#security-controls). Decisio
   - Log Explorer links contain the rendered query text (service, env, filters), never a key.
   - Not verified against a live Datadog organization.
 
+## Azure Monitor connector (v0.10, unreleased)
+
+Full detail: [AZURE_MONITOR.md](../integrations/AZURE_MONITOR.md). Decisions D128–D134.
+
+- **Destination.** Only `POST https://api.loganalytics.azure.com/v1/workspaces/<AZURE_MONITOR_WORKSPACE_ID>/query`
+  (Azure public cloud). The workspace ID must be a GUID; names, resource IDs and URLs are refused at start-up. No
+  setting accepts another host: `AZURE_MONITOR_LOCAL_API_URL` exists only for the synthetic fixture, needs
+  `AZURE_MONITOR_AUTH_MODE=fixture` and is refused unless it is a loopback address. Requests cannot name a host,
+  workspace, table, path or query; such fields are 422.
+- **Read-only surface.** The connector's POST allowlist is that one query path and its GET allowlist is empty. No
+  Azure Resource Manager, metrics, alert, diagnostic-setting, automation or ingestion API is reachable. The documented
+  minimum role (*Log Analytics Data Reader* on the workspace) is all that is needed.
+- **Query construction.** Templates are fixed KQL over `AppTraces`, `AppExceptions`, `AppRequests`, `AppDependencies`
+  (and `AppEvents` for operator templates). Service names must match `[a-z][a-z0-9._-]{1,62}` and are inserted as a
+  quoted KQL string literal (`AppRoleName =~ "<name>"`, `\` and `"` escaped, control characters refused). Operation
+  IDs used for expansion are validated and quoted the same way. Operator template files are checked: one approved
+  table followed by `| where $selector`, no `union`, `join`, `let`, cross-resource functions, `externaldata`,
+  `evaluate`, comments, `;` or control commands.
+- **Credentials.** One explicit `azure-identity` credential per `AZURE_MONITOR_AUTH_MODE` (service principal, managed
+  identity or Azure CLI for development); no `DefaultAzureCredential` chain and no interactive sign-in. Bearer tokens
+  are held in memory, registered with `ReadOnlyHttp` for scrubbing, and never logged or returned; credential errors
+  keep only their `AADSTS` code. `AZURE_`, `MSAL_` and `IDENTITY_` are on the web-process denylist. Since v0.10 the
+  isolated Playwright stack also starts Next.js through that allowlist (`web_env --exec`), so the E2E API's backend
+  credentials never reach the web process.
+- **Bounds.** Window ≤ 6 h sent as the documented `timespan`; `take`/`top` limits checked again after retrieval;
+  `Prefer: wait=<timeout>`; 5 MiB per answer; at most 2 queries in flight; at most 10 operations expanded per
+  `failed_requests` query; 429/503 retried at most twice and only when the wait is ≤ 10 s.
+- **Model isolation.** No Azure tool exists in LangGraph or MCP. The investigation reads the frozen snapshot, and the
+  model's text never reaches an Azure request.
+- **Residual risk.**
+  - Not verified against a real Azure tenant or workspace; tested only against a synthetic Logs API fixture.
+  - OpsPilot cannot verify that an identity is read-only: assign only *Log Analytics Data Reader* on the workspace.
+  - Queries are billed per the workspace's plan; OpsPilot bounds how many it runs but cannot see the cost.
+
 ## Safety gates on model proposals (Phase B)
 
 Prompt injection and over-eager models both show up as unwarranted proposals. Measured on the first live

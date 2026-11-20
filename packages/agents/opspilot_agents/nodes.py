@@ -499,7 +499,15 @@ class InvestigationNodes:
             findings.append(f"logs unavailable for {svc}")
         elif rlogs and rlogs.data:
             patterns = cluster_logs(rlogs.data["entries"])
+            # v0.10: a capped search returns only the most recent matches, so for uploads and connected snapshots the
+            # earliest *returned* entry is not called the first occurrence (simulator wording is unchanged).
+            capped = is_read_only(state["incident"]) and bool(rlogs.data.get("truncated"))
+            cap_note = (
+                f"; the search returned {len(rlogs.data['entries'])} of {rlogs.data['total_matched']} matching "
+                "entries, so earlier occurrences may exist"
+            )
             for p in patterns:
+                when = f"{'earliest returned' if capped else 'first'} {_hhmm(p.first_seen)}, last {_hhmm(p.last_seen)}"
                 eid, ev = _evidence(
                     id=f"ev-log-{short_hash(svc, p.level, p.signature)}",
                     kind=EvidenceKind.LOG_PATTERN,
@@ -508,10 +516,7 @@ class InvestigationNodes:
                     service=svc,
                     relevance=0.85 if p.level == "ERROR" else 0.3,
                     observed_at=p.first_seen,
-                    summary=(
-                        f"{svc} {p.level} x{p.count} (first {_hhmm(p.first_seen)}, last {_hhmm(p.last_seen)}): "
-                        f"{p.sample[:400]}"
-                    ),
+                    summary=f"{svc} {p.level} x{p.count} ({when}{cap_note if capped else ''}): {p.sample[:400]}",
                     data={
                         "level": p.level,
                         "count": p.count,
@@ -521,6 +526,7 @@ class InvestigationNodes:
                         "last_seen": _iso(p.last_seen),
                         "attributes": p.attributes,
                         "total_matched": rlogs.data["total_matched"],
+                        **({"search_truncated": True} if capped else {}),
                     },
                 )
                 evidence[eid] = ev

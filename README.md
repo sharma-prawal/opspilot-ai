@@ -252,7 +252,8 @@ AZURE_CLIENT_SECRET=...
   is flagged; partial results (`PartialError`) are kept but marked incomplete; status is `error`/`ok` only as `Success`
   says; dependency targets are recorded names, not observed services. Change history is not collected.
 - **Verified.** Tested only against `make azure-fixture`, a synthetic fixture of the documented Logs API.
-  **Not yet verified against a real Azure workspace.**
+  **Not yet verified against a real Azure workspace.** Screenshots of the fixture journey (synthetic data):
+  [docs/images/azure](docs/images/azure/README.md).
 
 ### v0.4 reasoning and model comparison
 

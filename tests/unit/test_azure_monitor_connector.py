@@ -656,6 +656,14 @@ async def test_snapshot_normalizes_every_signal_with_provenance() -> None:
     assert slow.spans and all(sp.status == "ok" for sp in slow.spans)  # Success == true is recorded as ok
     sampled = next(s for s in d.spans if s.service == "orders-api")
     assert sampled.attributes["azure.item_count"] == 2
+    sampled_q = [
+        q for q in snap.queries if any("record(s) are sampled telemetry (ItemCount > 1" in i for i in q.issues)
+    ]
+    assert sampled_q and {q.signal for q in sampled_q} <= {"log", "span"}  # record queries say they hold samples
+    assert "orders-api" in {q.service for q in sampled_q}
+    # only orders-api is sampled: a payment-service query is flagged only when its expanded operations hold
+    # orders-api records, and a payment-service-only query (its exceptions) never is
+    assert not any(q.id == "azure_monitor/exceptions/payment-service" for q in sampled_q)
     assert any(s.attributes.get("parent_missing") for s in d.spans)
 
     p95 = sorted(

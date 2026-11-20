@@ -262,6 +262,21 @@ uploads (`is_read_only`, D113):
 - The report banner, provenance table (site, signal, Log Explorer link) and next steps name Datadog.
 - Loki/Prometheus prompt notes and report banners are unchanged.
 
+**Azure Monitor snapshots (v0.10, unreleased, D128–D134)** take the same path as Datadog snapshots:
+
+- Application Insights requests and dependencies are spans: `OperationId` is the trace, `Id` the span, `ParentId` the
+  parent. `get_service_dependencies` reports an edge only when a dependency's child request belongs to another
+  `AppRoleName`; a dependency `Target` without its own telemetry (a database, an external API) is never an observed
+  service.
+- The prompt note names the signals collected and adds the Azure limits: sampling (`ItemCount`), partial correlation
+  (`parent_missing`), absent dependency records or exceptions are not evidence of absence, KQL metric bins without
+  records are absent rather than zero.
+- The report banner, provenance table (workspace, signal, source tables), *Evidence coverage* (partial, truncated and
+  sampled queries) and next steps name Azure Monitor. Change history stays unknown (D125).
+- For every uploaded or connected incident, a truncated WARN+ log search (300 entries, newest first) marks its log
+  patterns `search_truncated` and words their times as "earliest returned"; the report timeline does not call them
+  the first error (D134). Simulator incidents are unchanged.
+
 **Evidence states (all connected snapshots, D125).**
 
 - The telemetry agent also reads INFO lifecycle lines (version, start-up, configuration) as change observations

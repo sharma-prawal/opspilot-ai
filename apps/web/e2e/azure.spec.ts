@@ -92,7 +92,7 @@ test("operator previews Azure telemetry and gets a cited read-only RCA, exports 
 
   await page.goto("/incidents/new?source=connected");
   const card = azureCard(page);
-  await expect(card.getByText("synthetic fixture")).toBeVisible();
+  await expect(card.getByText("synthetic fixture", { exact: true })).toBeVisible();
   await card.getByRole("button", { name: "Test connection" }).click();
   await expect(card.getByText("Connected", { exact: true })).toBeVisible();
   for (const s of ["Traces & exceptions: readable", "KQL metrics: readable", "Requests & dependencies: readable",

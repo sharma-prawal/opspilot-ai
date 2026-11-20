@@ -301,7 +301,12 @@ def render_report(state: dict[str, Any]) -> str:
         if e["kind"] == "metric_anomaly" and e["data"].get("onset"):
             timeline.append((e["data"]["onset"], e["summary"][:160]))
         if e["kind"] == "log_pattern" and e["data"]["level"] == "ERROR":
-            timeline.append((e["data"]["first_seen"], f"first error on {e['service']}: {e['data']['sample'][:120]}"))
+            first = (
+                f"earliest returned error on {e['service']} (log search capped; earlier errors may exist)"
+                if e["data"].get("search_truncated")
+                else f"first error on {e['service']}"
+            )
+            timeline.append((e["data"]["first_seen"], f"{first}: {e['data']['sample'][:120]}"))
     if inc.get("detected_at"):
         timeline.append((inc["detected_at"], "alert fired / incident detected"))
     if timeline:
@@ -406,7 +411,7 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     incomplete = [
         q["id"] for q in inc.get("telemetry_queries") or [] if q.get("truncated") and q.get("status") != "error"
     ]
-    sampled = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("sampled")]
+    sampled = [q for q in inc.get("telemetry_queries") or [] if q.get("sampled")]
     not_collected += [g for g in gaps if "change" not in g.lower() and "deploy" not in g.lower()][:6]
     rows = [
         (
@@ -427,7 +432,12 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     ]
     if incomplete or sampled:  # v0.10: partial, truncated or sampled results are evidence, but not complete evidence
         parts = [f"`{q}` returned partial or truncated results" for q in incomplete]
-        parts += [f"`{q}` is sampled (ItemCount-weighted estimates)" for q in sampled]
+        parts += [
+            f"`{q['id']}` is sampled (ItemCount-weighted estimates)"
+            if q.get("signal") == "metric"
+            else f"`{q['id']}` holds sampled records (ItemCount > 1: record counts understate event counts)"
+            for q in sampled
+        ]
         rows.append(("Incomplete or sampled", "; ".join(parts)))
     lines = ["## Evidence coverage", "", "| State | Evidence |", "|---|---|"]
     lines += [f"| {k} | {v.replace('|', '/')} |" for k, v in rows]

@@ -42,7 +42,9 @@ export default defineConfig({
       env: { E2E_API_PORT: String(E2E_API_PORT) },
     },
     {
-      command: `pnpm exec next dev --hostname 127.0.0.1 --port ${E2E_WEB_PORT}`,
+      // v0.10: started through the web-process allowlist (opspilot_shared.web_env), so the backend credentials the
+      // E2E API needs (database, MCP roles, signing key) never reach the Next.js process.
+      command: `uv run python -m opspilot_shared.web_env --exec pnpm exec next dev --hostname 127.0.0.1 --port ${E2E_WEB_PORT}`,
       url: E2E_WEB_URL,
       reuseExistingServer: false,
       timeout: 180_000,
