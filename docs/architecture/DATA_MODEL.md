@@ -90,7 +90,7 @@ erDiagram
 - `ops.uploaded_datasets` (one per uploaded incident, `ON DELETE CASCADE`): `files` (per-file reports: sanitized
   name, size, SHA-256, format, record counts, rejected rows, issues), `summary` (counts, services, time range,
   samples, warnings), `records` (normalized logs, metrics, spans and events with `source`, `ts_original`, `tz`,
-  `service_source`), `affected_services`, `timezone`, `storage_dir` (raw copies under `UPLOAD_DIR`). Only the
+  `service_source`), `affected_services`, `timezone`, `storage_dir` (raw copies under `UPLOAD_DIR`; since v0.9.1 files are always located at `UPLOAD_DIR/<dataset id>`, and a recorded path elsewhere is a legacy location that is reported, never deleted). Only the
   application role can read it; the MCP roles have no grant.
 
 ## Connected telemetry snapshots (v0.6, migration 0011)

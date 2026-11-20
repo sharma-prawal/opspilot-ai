@@ -701,3 +701,17 @@ Not done (next session, in order):
 - Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.9.0` tag
   and GitHub release. Phase C1 evaluation and the simulator benchmark are not part of this release.
 
+## Status — 2026-11-20, worktree-independent upload storage (`fix/shared-upload-storage`, not pushed)
+
+- Finding from the v0.9.0 local sync: raw uploaded files lived under the primary checkout's `var/uploads` while the
+  API ran from another worktree with its own `var/uploads`.
+- Fix (D127):
+  - `UPLOAD_DIR` defaults to a shared absolute directory outside every checkout;
+  - `UploadStorage` is the single resolver for store, locate and delete (UUID-validated, no symlinks, direct
+    containment);
+  - deletion stays inside the root and reports legacy copies;
+  - new `opspilot uploads migrate-storage [--apply]` (SHA-256 verified copy, originals kept, rows unchanged);
+  - `uploads list` shows each dataset's location.
+- Procedure: `docs/maintenance/UPLOAD_STORAGE.md`. No migration, schema or model change. The E2E stack keeps its
+  isolated `E2E_UPLOAD_DIR`.
+

@@ -101,15 +101,49 @@ def _sanitize_secrets(args: argparse.Namespace) -> None:
 
 def _uploads(args: argparse.Namespace) -> None:
     """List or purge uploaded incidents (v0.5). Purging also deletes their investigation checkpoints, which needs the
-    execution-owner lock: stop the API first (or delete single incidents from the web UI while it runs)."""
+    execution-owner lock: stop the API first (or delete single incidents from the web UI while it runs).
+
+    ``migrate-storage`` (v0.9.1) copies raw files recorded in another location (e.g. an older checkout's
+    ``var/uploads``) into ``UPLOAD_DIR``, verified by SHA-256. Dry run unless ``--apply``; it never deletes the
+    originals and never changes database rows. It only reads the database, so the API may keep running."""
     from sqlalchemy import select
 
     from opspilot_api.checkpointing import checkpointer_pool
     from opspilot_api.ownership import ExecutionOwnership
+    from opspilot_api.services.upload_storage import UploadStorage
     from opspilot_api.services.uploads import UploadService
     from opspilot_shared.db.models import OpsIncident, OpsUploadedDataset
 
     settings = get_settings()
+    storage = UploadStorage(settings.upload_dir)
+
+    async def rows_of(infra: Any) -> list[Any]:
+        async with infra.session_factory() as s:
+            return list(
+                (
+                    await s.execute(
+                        select(OpsIncident, OpsUploadedDataset)
+                        .join(OpsUploadedDataset, OpsUploadedDataset.incident_id == OpsIncident.id)
+                        .where(OpsIncident.evidence_source == "upload")
+                        .order_by(OpsIncident.created_at)
+                    )
+                ).all()
+            )
+
+    async def migrate_storage(infra: Any) -> None:
+        results = [
+            {"incident": inc.reference, **storage.migrate(ds.id, ds.storage_dir, apply=args.apply)}
+            for inc, ds in await rows_of(infra)
+        ]
+        counts: dict[str, int] = {}
+        for r in results:
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        print(
+            json.dumps(
+                {"upload_dir": str(storage.root), "applied": args.apply, "summary": counts, "datasets": results},
+                indent=2,
+            )
+        )
 
     async def listing(infra: Any) -> None:
         async with infra.session_factory() as s:
@@ -127,10 +161,11 @@ def _uploads(args: argparse.Namespace) -> None:
                 "created_at": inc.created_at.isoformat(),
                 "files": [f["name"] for f in ds.files],
                 "records": ds.summary.get("records"),
+                **({"storage": storage.locate(ds.id, ds.storage_dir)} if inc.evidence_source == "upload" else {}),
             }
             for inc, ds in rows
         ]
-        print(json.dumps({"upload_dir": str(settings.upload_dir), "uploads": items}, indent=2))
+        print(json.dumps({"upload_dir": str(storage.root), "uploads": items}, indent=2))
 
     async def purge(infra: Any) -> None:
         ownership = ExecutionOwnership(settings)
@@ -146,7 +181,8 @@ def _uploads(args: argparse.Namespace) -> None:
         finally:
             await ownership.release()
 
-    asyncio.run(_with_infra(purge if args.action == "purge" else listing))
+    actions = {"purge": purge, "list": listing, "migrate-storage": migrate_storage}
+    asyncio.run(_with_infra(actions[args.action]))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -195,7 +231,8 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=_sanitize_secrets)
 
     p = sub.add_parser("uploads", help="list uploaded incidents, or purge those older than the retention period")
-    p.add_argument("action", choices=["list", "purge"])
+    p.add_argument("action", choices=["list", "purge", "migrate-storage"])
+    p.add_argument("--apply", action="store_true", help="migrate-storage: copy (default: dry run)")
     p.add_argument("--older-than-days", type=int, default=None, help="default: UPLOAD_RETENTION_DAYS")
     p.set_defaults(fn=_uploads)
 

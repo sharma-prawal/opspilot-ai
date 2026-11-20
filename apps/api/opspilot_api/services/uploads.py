@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opspilot_api import repositories as repo
 from opspilot_api.services.incidents import to_contract
+from opspilot_api.services.upload_storage import StorageError, UploadStorage
 from opspilot_shared.config import Settings
 from opspilot_shared.db.models import ACTIVE_INVESTIGATION_STATUSES, OpsIncident, OpsInvestigation, OpsUploadedDataset
 from opspilot_shared.domain.common import utcnow
@@ -124,7 +125,7 @@ class UploadService:
         provider: Any | None = None,
     ) -> None:
         self._sf = session_factory
-        self._root = Path(settings.upload_dir)
+        self.storage = UploadStorage(settings.upload_dir)  # v0.9.1: one resolver for store, locate and delete
         self._retention = settings.upload_retention_days
         self._checkpointer = checkpointer
         self._provider = provider
@@ -215,20 +216,20 @@ class UploadService:
 
     def _store_files(self, dataset_id: uuid.UUID, req: Any, d: Dataset) -> Path | None:
         """Raw copies under UPLOAD_DIR/<dataset id>/ with server-generated names (never a user-supplied path)."""
-        root = self._root.resolve()
-        target = (root / str(dataset_id)).resolve()
-        if target.parent != root:
-            raise ValidationFailure("invalid storage location")
+        target: Path | None = None
         try:
-            target.mkdir(parents=True, mode=0o700, exist_ok=False)
+            target = self.storage.create(dataset_id)
             for f, report in zip(req.files, d.files, strict=True):
-                path = (target / f"{report.index + 1:02d}-{report.name}").resolve()
-                if path.parent != target:
-                    raise ValidationFailure("invalid file name")
+                path = self.storage.file_path(target, f"{report.index + 1:02d}-{report.name}")
                 path.write_text(f.content, encoding="utf-8")
                 path.chmod(0o600)
+        except StorageError as exc:
+            if target is not None:
+                shutil.rmtree(target, ignore_errors=True)
+            raise ValidationFailure(f"invalid storage location: {exc}") from exc
         except OSError as exc:
-            shutil.rmtree(target, ignore_errors=True)
+            if target is not None:
+                shutil.rmtree(target, ignore_errors=True)
             _log.warning("upload_storage_failed", error=str(exc))
             raise ValidationFailure(f"could not store the uploaded files locally: {exc.strerror}") from exc
         return target
@@ -299,14 +300,6 @@ class UploadService:
         removed = await self._delete([i for i in ids if i not in busy], actor=actor)
         return {"cutoff": cutoff.isoformat(), "deleted": len(removed), "skipped_active": len(busy), "items": removed}
 
-    def _remove_dir(self, storage_dir: str) -> bool:
-        """Remove one dataset directory, only if it is directly under UPLOAD_DIR."""
-        path = Path(storage_dir).resolve()
-        if path.parent != self._root.resolve() or not path.is_dir():
-            return False
-        shutil.rmtree(path, ignore_errors=True)
-        return True
-
     async def _delete(self, incident_ids: list[uuid.UUID], *, actor: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for incident_id in incident_ids:
@@ -333,7 +326,10 @@ class UploadService:
                     entity_id=str(incident_id),
                     details={"investigations": len(investigations)},
                 )
-            files_removed = bool(ds is not None and ds.storage_dir and self._remove_dir(ds.storage_dir))
+            # v0.9.1: the files are deleted where every process resolves them (UPLOAD_DIR/<dataset id>), whichever
+            # checkout stored them. A legacy copy outside UPLOAD_DIR is never touched; it is reported instead.
+            files_removed = bool(ds is not None and self.storage.remove(ds.id))
+            legacy = self.storage.locate(ds.id, ds.storage_dir) if ds is not None else {}
             if ds is not None and self._provider is not None:
                 with contextlib.suppress(Exception):
                     self._provider.forget(ds.id, incident_id)
@@ -343,6 +339,7 @@ class UploadService:
                     "investigations": len(investigations),
                     "checkpoints_deleted": self._checkpointer is not None,
                     "files_removed": files_removed,
+                    **({"legacy_files_kept": legacy["legacy_path"]} if legacy.get("legacy_present") else {}),
                 }
             )
         return out

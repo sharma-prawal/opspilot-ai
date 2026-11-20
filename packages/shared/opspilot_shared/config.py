@@ -6,6 +6,7 @@ environment / ``.env``. Nothing else in the codebase reads ``os.environ`` direct
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -14,6 +15,15 @@ from pydantic import Field, SecretStr, ValidationInfo, computed_field, field_val
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def default_upload_dir() -> Path:
+    """Shared, worktree-independent storage for raw uploaded files: ``$XDG_DATA_HOME/opspilot/uploads``, else
+    ``~/.local/share/opspilot/uploads``. Every checkout and worktree of the repository resolves the same directory,
+    so a file stored by one API process can be found and deleted by another."""
+    xdg = os.environ.get("XDG_DATA_HOME", "")
+    base = Path(xdg) if xdg and Path(xdg).is_absolute() else Path.home() / ".local" / "share"
+    return base / "opspilot" / "uploads"
 
 
 class Settings(BaseSettings):
@@ -70,7 +80,9 @@ class Settings(BaseSettings):
 
     # Uploaded incident evidence (v0.5): raw files are kept locally for provenance; `opspilot uploads purge` deletes
     # uploaded incidents older than the retention period (their files, normalized records and investigations).
-    upload_dir: Path = REPO_ROOT / "var/uploads"
+    # v0.9.1: an absolute directory outside the Git checkout by default (see default_upload_dir). An explicit absolute
+    # or ~ path is used as is; a relative value keeps its old meaning (relative to this checkout) for compatibility.
+    upload_dir: Path = Field(default_factory=default_upload_dir)
     upload_retention_days: int = Field(default=14, ge=1, le=3650)
 
     # Connected observability (v0.6): optional, read-only Loki and Prometheus connectors. A connector exists only
@@ -144,6 +156,11 @@ class Settings(BaseSettings):
     def _resolve_knowledge_dir(cls, value: object, info: ValidationInfo) -> object:
         if value == "" and info.field_name == "telemetry_templates_file":
             return None
+        if info.field_name == "upload_dir":
+            if value in ("", None):
+                return default_upload_dir()  # UPLOAD_DIR= (empty) means the shared default, never the cwd
+            if isinstance(value, str) and value.startswith("~"):
+                return Path(value).expanduser()
         if isinstance(value, str) and value and not Path(value).is_absolute():
             return REPO_ROOT / value
         return value

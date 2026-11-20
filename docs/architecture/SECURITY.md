@@ -54,7 +54,7 @@ own Datadog organization (see below). All of it stays local.
 - File content is untrusted data. It reaches the model only inside the fenced `<evidence>` block, like simulator
   logs; incident title and description are treated the same way.
 - Only `.log`, `.txt`, `.json` and `.csv` are accepted, as text; nothing is executed or rendered as HTML. File names
-  are reduced to a sanitized base name; raw copies are written under `UPLOAD_DIR/<dataset id>/` with
+  are reduced to a sanitized base name; raw copies are written under `UPLOAD_DIR/<dataset id>/` (v0.9.1: a shared absolute directory outside every checkout; one resolver validates the dataset UUID, refuses symlinks and keeps every path directly under the root, and deletion never touches anything outside it) with
   server-generated names and mode 0600, inside a 0700 directory, and are never read back. No tool argument is a path.
 - Credential-like values (password/token/secret/api key/authorization/cookie keys, bearer and basic schemes, AWS
   access keys, PEM private keys) are redacted at parse time, before storage or prompting.

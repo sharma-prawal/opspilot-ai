@@ -7,10 +7,13 @@ children spawned by tests inherit it too.
 from __future__ import annotations
 
 import os
+import tempfile
 
 os.environ["DB_NAME"] = os.environ.get("TEST_DB_NAME", "opspilot_test")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("LOG_FORMAT", "console")
+# v0.9.1: UPLOAD_DIR now defaults to a shared directory outside the checkout; tests never write there.
+os.environ["UPLOAD_DIR"] = os.environ.get("TEST_UPLOAD_DIR") or tempfile.mkdtemp(prefix="opspilot-test-uploads-")
 
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
