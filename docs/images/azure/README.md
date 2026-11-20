@@ -1,4 +1,4 @@
-# Azure Monitor screenshots (v0.10, unreleased) — synthetic fixture data
+# Azure Monitor screenshots (v0.10) — synthetic fixture data
 
 These screenshots were captured by the Playwright journeys in `apps/web/e2e/azure.spec.ts` on the isolated E2E stack
 (`opspilot_test`, API 8100, web 3100), with `E2E_AZURE=1` (the synthetic Logs API fixture

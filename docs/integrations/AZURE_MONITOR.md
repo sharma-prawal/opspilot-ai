@@ -1,4 +1,4 @@
-# Azure Monitor & Application Insights connector (v0.10, unreleased)
+# Azure Monitor & Application Insights connector (v0.10)
 
 > **Verification status.** Implemented and tested against a **synthetic Log Analytics Query API fixture only**
 > (`scripts/azure_monitor_fixture.py`), which follows the documented request and response shapes. **No real Azure
@@ -299,5 +299,5 @@ Not performed for this release. To verify against your own workspace without cha
 - **Role names** with spaces, `:` or `/` cannot be queried; mixed-case roles are matched case-insensitively.
 - **Service-side limits** (500,000 rows, ~100 MiB, 10 min) are far above OpsPilot's own bounds and never reached.
 
-Decisions: D128–D136 in [DECISIONS.md](../DECISIONS.md). Release notes (draft):
+Decisions: D128–D136 in [DECISIONS.md](../DECISIONS.md). Release notes:
 [V0.10.0_NOTES.md](../releases/V0.10.0_NOTES.md).

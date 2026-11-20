@@ -128,7 +128,7 @@ Full detail: [DATADOG.md](../integrations/DATADOG.md#security-controls). Decisio
   - Log Explorer links contain the rendered query text (service, env, filters), never a key.
   - Not verified against a live Datadog organization.
 
-## Azure Monitor connector (v0.10, unreleased)
+## Azure Monitor connector (v0.10)
 
 Full detail: [AZURE_MONITOR.md](../integrations/AZURE_MONITOR.md). Decisions D128–D136.
 

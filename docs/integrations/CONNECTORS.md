@@ -10,7 +10,7 @@ claimed from historical data.
 | Grafana Loki | logs (LogQL `query_range`) | **implemented** (tested with `grafana/loki:3.5.0`) |
 | Prometheus | metrics (PromQL `query_range`) | **implemented** (tested with `prom/prometheus:v3.5.0`) |
 | Datadog | logs (search), metrics (timeseries query), APM spans (search) | **implemented in v0.9**, tested only against a synthetic contract fixture: [DATADOG.md](DATADOG.md). Events are not collected |
-| Azure Monitor / Application Insights | traces and exceptions (AppTraces, AppExceptions), requests and dependencies (AppRequests, AppDependencies), KQL-derived metrics, over one Log Analytics workspace | **implemented in v0.10 (unreleased)**, tested only against a synthetic Logs API fixture; not verified against a real Azure workspace: [AZURE_MONITOR.md](AZURE_MONITOR.md). Native resource metrics, sovereign clouds and change history are not collected |
+| Azure Monitor / Application Insights | traces and exceptions (AppTraces, AppExceptions), requests and dependencies (AppRequests, AppDependencies), KQL-derived metrics, over one Log Analytics workspace | **implemented in v0.10**, tested only against a synthetic Logs API fixture; not verified against a real Azure workspace: [AZURE_MONITOR.md](AZURE_MONITOR.md). Native resource metrics, sovereign clouds and change history are not collected |
 | Amazon CloudWatch | metrics, Logs Insights | planned, not implemented |
 | Custom adapters | any | planned: implement the contract below |
 

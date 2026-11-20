@@ -798,3 +798,19 @@ Not done (next session, in order):
   queries are listed as no accessible matching records.
 - Still open: live Azure verification; deferred native metrics, sovereign clouds and change history; the
   calibration is English pattern matching (unrecognized phrasings are not flagged); not tagged or released.
+
+## Status — 2026-11-20, v0.10.0 release preparation (authorized)
+
+- User approved `f31fcf15d57c0cf2472b23b66b4540c2c3f2e3de` for release as v0.10.0.
+  - Verified `origin/main` = `1c30e88` (v0.9.0 plus the shared upload-storage fix, D127); latest release v0.9.0.
+  - The approved commit is a direct descendant (three commits), with no divergence.
+- Integrated on `release/v0.10.0` (cut from `origin/main`) with a non-rewriting merge commit whose tree equals the
+  approved commit. Local `main` is checked out in another worktree and stays untouched; remote `main` is advanced
+  normally at publication.
+- Release docs: README status, Azure sections and limitations; final `docs/releases/V0.10.0_NOTES.md` (implemented
+  and synthetically tested / not live-verified / deferred; the RCA stays model-written and the claim warnings are
+  heuristic safeguards that also apply to uploaded and other connected investigations). "Unreleased" markers removed.
+- Release validation on the merged tree: `make lint` clean; pytest 593 passed / 3 skipped; web 75 passed; build OK;
+  Playwright 13 passed / 5 skipped by design (all fixtures) and 6 passed (no fixtures). No migration.
+- Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.10.0`
+  tag and GitHub release.

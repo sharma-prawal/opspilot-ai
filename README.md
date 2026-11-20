@@ -15,7 +15,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.10.0 in development (not released; latest release v0.9.0), experimental, local-first.** v0.10 adds **Azure Monitor / Application Insights** as a read-only evidence provider (traces, exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace; [draft notes](docs/releases/V0.10.0_NOTES.md)). It is tested against a synthetic Logs API fixture only; **no real Azure tenant or workspace has been used for validation**. **Datadog** (v0.9) is a read-only evidence provider: logs, APM trace metrics, service discovery and APM span search feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.9.0_NOTES.md)). It is tested against a synthetic Datadog API fixture only; **no real Datadog organization has been used for validation**. Datadog change events are deferred. Connected-source reports now include observed change indicators and evidence coverage. The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog/Azure Monitor snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.10.0, experimental, local-first.** **Azure Monitor / Application Insights** is a read-only evidence provider: traces, exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.10.0_NOTES.md)). It is tested against a synthetic Logs API fixture only; **no real Azure tenant or workspace has been used for validation**. Native Azure resource metrics, sovereign clouds and change history are deferred. RCAs stay model-written: uploaded and connected reports now separate observed facts, hypotheses, verified conclusions and unknowns, and add deterministic claim warnings, which are heuristic safeguards, not proof of diagnostic accuracy. **Datadog** (v0.9) is a read-only evidence provider, also tested only against a synthetic fixture ([release notes](docs/releases/V0.9.0_NOTES.md)). The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog/Azure Monitor snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
@@ -38,7 +38,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
 | Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
 | Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ (v0.9) tested against a synthetic API fixture only; no real Datadog organization used for validation |
-| Azure Monitor / Application Insights as a read-only evidence provider: AppTraces, AppExceptions, AppRequests/AppDependencies (operation expansion, partial correlation flagged) and KQL-derived request/error/latency/dependency series; Microsoft Entra service principal, managed identity or Azure CLI; per-table connection test; bounded discovery; fixed destination | ✅ (v0.10, unreleased) tested against a synthetic Logs API fixture only; no real Azure workspace used for validation; native resource metrics deferred |
+| Azure Monitor / Application Insights as a read-only evidence provider: AppTraces, AppExceptions, AppRequests/AppDependencies (operation expansion, partial correlation flagged) and KQL-derived request/error/latency/dependency series; Microsoft Entra service principal, managed identity or Azure CLI; per-table connection test; bounded discovery; fixed destination | ✅ (v0.10) tested against a synthetic Logs API fixture only; no real Azure workspace used for validation; native resource metrics deferred |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
@@ -224,7 +224,7 @@ fixture*; see the guide for the settings).
 - **Verified.** Tested only against the synthetic contract fixture, which uses Datadog's documented request and
   response shapes. **Not yet verified against a live Datadog organization.**
 
-### Azure Monitor / Application Insights (v0.10, unreleased)
+### Azure Monitor / Application Insights (v0.10)
 
 Azure Monitor is a read-only evidence provider in the same workflow, over **one Log Analytics workspace** holding
 workspace-based Application Insights telemetry: **traces** (`AppTraces`), **exceptions** (`AppExceptions`),
@@ -317,7 +317,7 @@ v0.2.1 received a **conditional** sign-off from the final independent verificati
    templates assume common metric names. The Datadog connector (v0.9) was tested only against a synthetic API
    fixture; no real Datadog organization has been used for validation. Datadog change events are not collected;
    only indexed APM spans are searchable, so traces may be partial; the built-in APM metric templates are
-   operation-specific (`trace.http.request`). The Azure Monitor connector (v0.10, unreleased) was tested only
+   operation-specific (`trace.http.request`). The Azure Monitor connector (v0.10) was tested only
    against a synthetic Logs API fixture; no real Azure workspace has been used for validation. It reads workspace-based
    Application Insights tables in the Azure public cloud only; native resource metrics and change history are not
    collected, and sampled or partially correlated operations stay partial.
