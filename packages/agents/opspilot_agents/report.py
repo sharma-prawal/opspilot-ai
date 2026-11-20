@@ -400,11 +400,15 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     rows = [
         (
             "Observed events",
-            "; ".join(
-                f"`{o['evidence_id']}` {o['service']} {str(o['first_seen'])[11:16]}Z: {_one_line(o['line'], 90)}"
-                for o in observed[:4]
+            (
+                "; ".join(
+                    f"`{o['evidence_id']}` {o['service']} {str(o['first_seen'])[11:16]}Z: {_one_line(o['line'], 90)}"
+                    for o in observed[:4]
+                )
+                + " (log indicators of a possible change: not a verified deployment history and not proof of cause)"
             )
-            or "no change event (version, start-up, configuration line) in the collected logs",
+            if observed
+            else "no change event (version, start-up, configuration line) in the collected logs",
         ),
         ("Contradicting evidence", ", ".join(f"`{i}`" for i in contra) or "none cited by the model"),
         ("Searched, nothing found", ", ".join(f"`{q}`" for q in empty) or "every query returned records"),

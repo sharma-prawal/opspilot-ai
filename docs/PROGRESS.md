@@ -681,3 +681,23 @@ Not done (next session, in order):
 - Still open: live Datadog verification; Datadog events deferred; `make evaluate` not re-run (simulator path
   unchanged: the new evidence and checks apply only to connected snapshots or when change history is unknown).
 
+## Status — 2026-11-20, v0.9.0 release preparation (authorized)
+
+- User approved `d2957762e3e2b26c90e1147c1c19dc2af49f0523` for release as v0.9.0.
+  - Verified `origin/main` = published v0.8.0 (`535dfa2`), the latest tag and release.
+  - The approved commit is a direct descendant (two commits), with no divergence.
+- Integrated on `release/v0.9.0` (cut from `origin/main`) with a non-rewriting merge commit whose tree equals the
+  approved commit. Local `main` is checked out in another worktree and stays untouched; remote `main` is advanced
+  normally at publication.
+- One release-correctness wording fix: the report's *Evidence coverage* row now labels observed version and start-up
+  lines as "log indicators of a possible change: not a verified deployment history and not proof of cause" (tested).
+  No prompt, model, gate or behaviour change.
+- README status, limitations and the final `docs/releases/V0.9.0_NOTES.md`:
+  - synthetic-fixture testing only; no real Datadog organization used;
+  - change events deferred;
+  - partial span visibility and operation-specific APM metrics;
+  - read-only;
+  - connected-source reports include observed change indicators and evidence coverage.
+- Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.9.0` tag
+  and GitHub release. Phase C1 evaluation and the simulator benchmark are not part of this release.
+

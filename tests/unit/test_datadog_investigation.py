@@ -204,6 +204,7 @@ async def test_unknown_change_history_with_version_start_is_not_read_as_no_chang
     assert "## Evidence coverage" in md
     coverage = md.split("## Evidence coverage", 1)[1].split("\n## ", 1)[0]
     assert "| Observed events |" in coverage and "version=3.8.0" in coverage
+    assert "not a verified deployment history and not proof of cause" in coverage  # indicators, not facts
     assert "| Not collected / unavailable |" in coverage and "**unknown**" in coverage
     assert "its absence is not evidence that nothing changed" in coverage
     assert "| Searched, nothing found |" in coverage and "datadog/" in coverage  # empty queries are listed

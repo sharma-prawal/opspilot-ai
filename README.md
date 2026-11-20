@@ -15,7 +15,7 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.8.0, experimental, local-first.** **Visual Experience 2.0** adds original vector branding, an action-first investigation workbench, source-linked evidence visualizations, compact connector rows and progressive safety details ([release notes](docs/releases/V0.8.0_NOTES.md)). The v0.7.1 environment allowlist, detached startup and accurate unavailable states are preserved. Unreleased on this branch: **v0.9.0 Datadog read-only evidence provider** ([draft notes](docs/releases/V0.9.0_NOTES.md); synthetic-fixture tested, not yet verified against a live Datadog organization). Uploaded files and Loki/Prometheus/Datadog snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
+> **Status: v0.9.0, experimental, local-first.** **Datadog** is a read-only evidence provider: logs, APM trace metrics, service discovery and APM span search feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.9.0_NOTES.md)). It is tested against a synthetic Datadog API fixture only; **no real Datadog organization has been used for validation**. Datadog change events are deferred. Connected-source reports now include observed change indicators and evidence coverage. The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
 
 Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
@@ -37,7 +37,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Native Ollama; investigation model selected by `LLM_MODEL` (preferred `qwen3.5:9b-q4_K_M`, fallback `qwen3:8b`), embeddings `qwen3-embedding:0.6b` (dim verified = 1024); `opspilot models --probe` checks a model before use; models are downloaded only on explicit opt-in (`make models`) | ✅ (v0.4) |
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
 | Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
-| Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ synthetic contract fixture only; live organization not yet verified (v0.9, unreleased) |
+| Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ (v0.9) tested against a synthetic API fixture only; no real Datadog organization used for validation |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
 | Deterministic simulator: **INC-001** schema migration, **INC-002** pool exhaustion, **INC-003** poison messages, **NEG-001** false positive, **NEG-002** external dependency with an unrelated deploy, **NEG-003** ambiguous changes + log outage | ✅ |
@@ -184,7 +184,7 @@ executed:
 
 Design: D109–D115 in [DECISIONS.md](docs/DECISIONS.md).
 
-### Datadog (v0.9, unreleased)
+### Datadog (v0.9)
 
 Datadog is a read-only evidence provider in the same workflow: **logs** (Log Management search), **APM trace
 metrics** (timeseries query: 5xx ratio, trace error ratio, p95 latency, request rate) and **indexed APM spans**
@@ -282,7 +282,10 @@ v0.2.1 received a **conditional** sign-off from the final independent verificati
 1. **Experimental, local-first only.** One machine, local models, services bound to `127.0.0.1`. Uploaded-file
    analysis (v0.5) is read-only and understands common log, JSON and CSV shapes, not every format. The Loki and
    Prometheus connectors (v0.6) were tested only against local containers with synthetic data, and their built-in
-   templates assume common metric names.
+   templates assume common metric names. The Datadog connector (v0.9) was tested only against a synthetic API
+   fixture; no real Datadog organization has been used for validation. Datadog change events are not collected;
+   only indexed APM spans are searchable, so traces may be partial; the built-in APM metric templates are
+   operation-specific (`trace.http.request`).
 2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
 3. **One execution owner per database.** A second API worker, CLI demo or evaluation run on the same database is
    refused. Multi-worker operation is unsupported.
