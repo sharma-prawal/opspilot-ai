@@ -891,3 +891,19 @@ Not done (next session, in order):
   the "deployment" wording, the established-cause summary and an uncited "the configuration change" carry notes; the
   restart limitation is shown. Residual: the model still calls the 3.8.0 start-up a "deployment" and treats the config
   line as the cause (both annotated, not verified); its restart rationale claims the restart restores the old value.
+
+## Status — 2026-11-23, v0.11.0 release preparation (authorized)
+
+- User approved the CloudWatch implementation and correctness pass (`a9af6e0`) for release as v0.11.0.
+- Verified `origin/main` = `2154211` (v0.10.0, latest release) with no divergence. The approved branch adds refreshed
+  synthetic screenshots (`dffa55e`) and final README/release notes (`d1a05a7`).
+- Integrated on `release/v0.11.0` (cut from `origin/main`) with a non-rewriting merge commit whose tree equals the
+  approved branch. Local `main` is checked out in another worktree and stays untouched; remote `main` is advanced
+  normally.
+- Release validation on the merged tree: `make lint` clean; pytest 698 passed / 3 skipped; web 76 passed; build OK;
+  Playwright 16 passed / 6 skipped by design (all fixtures). No migration. The Loki/Prometheus test containers started
+  for the regression runs were removed with `make telemetry-down`; PostgreSQL, Ollama and Colima were left running.
+- No real AWS account was used: AWS authentication, IAM behaviour, live query syntax, quotas and scan costs are not
+  verified.
+- Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.11.0` tag
+  and the GitHub release.
