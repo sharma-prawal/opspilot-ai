@@ -465,6 +465,7 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             (
                 "; ".join(
                     f"`{o['evidence_id']}` {o['service']} {str(o['first_seen'])[11:16]}Z: {_one_line(o['line'], 90)}"
+                    + (f" _(source: {o['source']})_" if o.get("source") else "")
                     for o in observed[:4]
                 )
                 + " (log indicators of a possible change: not a verified deployment history and not proof of cause)"

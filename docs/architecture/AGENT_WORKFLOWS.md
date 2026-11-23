@@ -294,6 +294,9 @@ uploads (`is_read_only`, D113):
   "not queried (no mapped CloudWatch resource)") and next steps name CloudWatch, CloudTrail and AWS Config. Change
   history stays unknown (D125); start-up/version/configuration lines are change indicators, not history (D135).
 - AWS is never contacted during the investigation; no AWS action tool exists.
+- Log patterns group repeated lines whose only difference is a request/trace/correlation ID value or an X-Ray trace ID
+  (all connected and uploaded evidence; simulator log messages carry no such fields and cluster identically). Observed
+  start-up/configuration lines are shown by their recorded message with their source reference (D144).
 
 **Evidence states (all connected snapshots, D125).**
 

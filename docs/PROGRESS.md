@@ -864,3 +864,30 @@ Not done (next session, in order):
 - Not done / open: **no real AWS account used** (auth, IAM scoping, quotas, query syntax acceptance and costs are not
   live-verified; procedure in `docs/integrations/AWS_CLOUDWATCH.md`); `make evaluate` not re-run (simulator path
   unchanged); draft notes `docs/releases/V0.11.0_NOTES.md`; not tagged or released.
+
+## Status — 2026-11-23, v0.11.0 CloudWatch RCA correctness pass (same branch, not pushed)
+
+- Requested before merge, on top of `be52b76`. No new AWS capability, migration, model, prompt-instruction, safety-gate
+  or action-execution change. Model output is never edited (D144).
+- **Trace of the pool-size line** (`configuration loaded: db.pool.max_size=8 (previous 40)`): collected by
+  `cw_lifecycle`, normalized (`cloudwatch/cw_lifecycle/inventory-service:entry 3`), stored in the snapshot, found by the
+  telemetry agent's INFO change search (`ev-chg-…`, relevance 0.75, `source_ref` kept) and present in the RCA prompt
+  three times (digest, observation list, evidence item). It was **not lost**.
+- **Actual defect:** log-pattern signatures did not mask per-request IDs (`requestId=…`, `"traceId": "…"`, X-Ray
+  `1-…-…`), so every JSON error line was its own `x1` pattern; the per-service top-6 kept 18 one-offs and the dominant
+  `timeout acquiring connection from pool … (pool max_size=8, waiting=37)` error (143 occurrences) never became evidence.
+  Fixed in `analysis.signature` (values masked for grouping only); simulator signatures verified byte-identical for all
+  six scenarios and three seeds (`make evaluate` unaffected). Also: change observations are displayed by their recorded
+  JSON message with their source reference (digest, *Observed events*, change-indicator notes); the `restart_service`
+  limitation now also applies when hypothesis 1 names a persistent setting or limit, in the requested wording.
+- Tests: evidence-path regression on the CloudWatch fixture (fails on the old signature), clustering, readable
+  observation lines, restart limitation by wording (and not for load-only saturation).
+- Verified: `make lint` clean; pytest 698 passed / 3 skipped (before the final display-only note change; affected unit
+  suites re-run after it); web 76 passed; `pnpm build` OK; Playwright with every fixture — see the v0.11.0 notes.
+- Real-model RCA (`qwen3.5:9b-q4_K_M`) on the fixture, before → after: hypothesis 1 "connection pool saturation"
+  (resource_exhaustion, invented "'ConnectionPoolTimeout'", invented "version 2.3.1", no config citation, no restart
+  limitation) → hypothesis 1 "Configuration error: db.pool.max_size was reduced from 40 to 8 …" (configuration_error,
+  95%) citing the configuration line, the x143 pool-timeout pattern and the pool-wait metric; no invented identifiers;
+  the "deployment" wording, the established-cause summary and an uncited "the configuration change" carry notes; the
+  restart limitation is shown. Residual: the model still calls the 3.8.0 start-up a "deployment" and treats the config
+  line as the cause (both annotated, not verified); its restart rationale claims the restart restores the old value.

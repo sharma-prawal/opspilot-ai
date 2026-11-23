@@ -175,3 +175,37 @@ async def test_logs_only_investigation_when_no_metric_resource_is_mapped(srv: Fi
 
     state, _ = await run(provider, inc_id, gateway_rca)
     assert state["status"] == "completed" and state["outcome"]["read_only"]
+
+
+async def test_repeated_errors_and_the_pool_configuration_line_reach_the_rca_prompt(srv: FixtureServer) -> None:
+    """v0.11 evidence path: CloudWatch record → snapshot → search_logs → log patterns / change observations → prompt.
+
+    Before the fix every JSON error line carried its own requestId/traceId, so each was a one-off pattern and the
+    dominant inventory-service error ("timeout acquiring connection from pool", >100 occurrences) never became evidence.
+    """
+    services = ["inventory-service", "checkout-service", "api-gateway"]
+    provider, inc_id, _, snap = await cw_incident(srv, TEMPLATES, services)
+    assert any("max_size=8 (previous 40)" in r.message for r in snap.dataset.logs)  # collected and normalized
+    prompts: list[str] = []
+
+    def capture(messages: list[Any]) -> dict[str, Any]:
+        prompts.append("\n".join(str(m.get("content", "")) if isinstance(m, dict) else str(m) for m in messages))
+        return pool_rca(messages)
+
+    state, _ = await run(provider, inc_id, capture)
+    ev = state["evidence"]
+    patterns = [e for e in ev.values() if e["kind"] == "log_pattern" and not e["data"].get("change_observation")]
+    pool = [e for e in patterns if "timeout acquiring connection from pool" in e["data"]["sample"]]
+    assert pool and pool[0]["data"]["count"] > 100 and pool[0]["service"] == "inventory-service"
+    assert all(e["data"]["count"] > 1 for e in patterns if e["service"] == "inventory-service")  # no one-off splits
+    cfg = [e for e in ev.values() if e["data"].get("change_observation") and "max_size=8" in e["data"]["sample"]]
+    assert cfg and cfg[0]["data"]["attributes"]["source_ref"].startswith("cloudwatch/cw_lifecycle/inventory-service")
+    prompt = prompts[-1]
+    assert cfg[0]["id"] in prompt and "timeout acquiring connection from pool" in prompt
+    # the digest names the recorded message, not the JSON envelope
+    assert "inventory-service at 14:02Z: configuration loaded: db.pool.max_size=8 (previous 40)" in prompt
+    md = state["report"]["markdown"]
+    observed = md.split("| Observed events |", 1)[1].split("\n", 1)[0]
+    assert "configuration loaded: db.pool.max_size=8" in observed
+    assert "_(source: cloudwatch/cw_lifecycle/inventory-service:entry" in observed
+    assert "not a verified deployment history and not proof of cause" in observed

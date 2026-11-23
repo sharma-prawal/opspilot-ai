@@ -13,6 +13,16 @@ from typing import Any
 _UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
 _HEX = re.compile(r"\b[0-9a-f]{16,}\b", re.I)
 _NUM = re.compile(r"\b\d+(\.\d+)?(ms|s)?\b")
+# v0.11: per-request identifier values (requestId=…, "traceId": "…", AWS X-Ray trace IDs) made every occurrence of
+# a repeated error a distinct one-off pattern, so the most frequent errors
+# fell out of the per-service pattern cap (found on the CloudWatch fixture: 18 "x1" patterns, and the dominant
+# "timeout acquiring connection from pool" error missing). Their values are masked for grouping only; the sample keeps
+# the original line. Bare identifiers in free text (e.g. simulator message IDs) are deliberately left alone.
+_ID_VALUE = re.compile(
+    r"""(?i)(["']?\b(?:x-amzn-)?(?:request|trace|span|correlation|parent|session|message|event|operation)[_-]?id["']?"""
+    r"""\s*[:=]\s*["']?)([^"'\s,;}\]]+)"""
+)
+_XRAY = re.compile(r"\b1-[0-9a-f]{8}-[0-9a-f]{24}\b", re.I)
 _UPSTREAM = re.compile(r"upstream ([a-z][a-z0-9-]{1,62})")
 SCHEMA_HINTS = ("column", "relation", "undefinedcolumn", "undefinedtable", "schema", "migration")
 
@@ -57,6 +67,8 @@ def detect_onset(
 
 def signature(message: str) -> str:
     s = _UUID.sub("<uuid>", message)
+    s = _XRAY.sub("<id>", s)
+    s = _ID_VALUE.sub(lambda m: f"{m.group(1)}<id>", s)
     s = _HEX.sub("<hex>", s)
     s = _NUM.sub("<n>", s)
     return s.strip()[:300]

@@ -301,7 +301,7 @@ def test_report_separates_facts_hypotheses_verified_and_unknown() -> None:
         "anomalous metric(s) on orders-api. This is not the current live state" in md
     )
     assert "Impact at analysis time" not in md
-    assert "> ⚠ Step 1 (`restart_service`): A restart reloads the configuration that is currently persisted" in md
+    assert "> ⚠ Step 1 (`restart_service`): Restarting a service generally reloads its persisted configuration" in md
     coverage = md.split("## Evidence coverage", 1)[1].split("\n## ", 1)[0]
     assert f"| {AZURE_EMPTY_LABEL} | `azure_monitor/exceptions/inventory-service`" in coverage
     assert "this does not show that no such records exist" in coverage
@@ -357,3 +357,60 @@ def test_invented_versions_quoted_names_and_uncited_deployments_are_noted_withou
     sim_h = [{**hyps[1], "evidence_warnings": []}]
     calibrate_hypotheses(sim_h, sim)
     assert sim_h[0]["evidence_warnings"] == []  # simulator RCAs are never annotated
+
+
+def test_restart_limitation_when_hypothesis_names_a_persistent_setting_in_any_category() -> None:
+    """v0.11: a misconfigured limit is often categorized resource_exhaustion; the wording decides, not the category."""
+    state = _state()
+    restart = {"action_type": "restart_service", "parameters": {"service": "payment-service"}}
+    state["rca"] = {
+        "hypotheses": [
+            {
+                "rank": 1,
+                "title": "Connection pool max_size reduced to 5 exhausts payment-service",
+                "description": "The configured pool size is too small for the load.",
+                "category": "resource_exhaustion",
+                "supporting_evidence_ids": ["ev-log-pool"],  # cites no configuration line
+            }
+        ]
+    }
+    lim = suggestion_limitations(restart, state)
+    assert lim and lim[0].startswith(
+        "Restarting a service generally reloads its persisted configuration and may not resolve the underlying "
+        "configuration problem."
+    )
+    # symptoms alone (saturation from load) are not a configuration claim
+    state["rca"]["hypotheses"][0] = {
+        "rank": 1,
+        "title": "Database connection pool saturation caused timeouts",
+        "description": "A spike in requests overwhelmed the pool.",
+        "category": "resource_exhaustion",
+        "supporting_evidence_ids": ["ev-log-pool"],
+    }
+    assert suggestion_limitations(restart, state) == []
+    # the suggestion itself is never altered or removed: limitations are a separate list (nodes.propose)
+    assert suggestion_limitations({"action_type": "scale_connection_pool"}, state) == []
+
+
+def test_observed_change_lines_show_the_recorded_message_and_source() -> None:
+    from opspilot_agents.claims import change_observations, readable_line
+
+    line = (
+        '{"level": "INFO", "service": "inventory-service", "msg": "configuration loaded: db.pool.max_size=8 '
+        '(previous 40) source=ssm:/shop/prod/inventory/db", "requestId": "req-003755cd", "traceId": "1-6afdafe9-'
+        '624653fc18fe45eb2197e27a"}'
+    )
+    assert readable_line(line).startswith("configuration loaded: db.pool.max_size=8 (previous 40)")
+    assert readable_line("starting payment-service version=2.14.0") == "starting payment-service version=2.14.0"
+    ev = _obs("ev-chg-json", line)
+    ev["data"]["attributes"] = {"source_ref": "cloudwatch/cw_lifecycle/inventory-service:entry 3"}
+    (obs,) = change_observations({"ev-chg-json": ev})
+    assert obs["line"].startswith("configuration loaded: db.pool.max_size=8")
+    assert obs["source"] == "cloudwatch/cw_lifecycle/inventory-service:entry 3"
+    assert ev["data"]["sample"] == line  # the evidence keeps the full original line
+    state = _state()
+    state["evidence"]["ev-chg-json"] = ev
+    hyps = [{"title": "The deployment reduced the pool", "description": "x", "confidence": 0.5,
+             "category": "deployment_regression", "supporting_evidence_ids": ["ev-chg-json"]}]  # fmt: skip
+    calibrate_hypotheses(hyps, state)
+    assert "ev-chg-json: 'configuration loaded: db.pool.max_size=8" in hyps[0]["evidence_warnings"][0]

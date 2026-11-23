@@ -97,14 +97,38 @@ def change_history_unread(state: Mapping[str, Any]) -> list[str]:
     )
 
 
+_MESSAGE_FIELDS = ("msg", "message", "@message", "log", "text")
+
+
+def readable_line(line: str) -> str:
+    """The recorded message of a structured (JSON) log line, else the line itself. v0.11: for JSON logs the envelope
+    (level, service, request and trace IDs) filled the shown prefix and cut off the message (CloudWatch fixture:
+    'configuration loaded: db.pool.m…'). Display only: the evidence keeps the full line."""
+    text = line.strip()
+    if text.startswith("{"):
+        try:
+            import json
+
+            obj = json.loads(text)
+        except ValueError:
+            return line
+        if isinstance(obj, dict):
+            for key in _MESSAGE_FIELDS:
+                if isinstance(obj.get(key), str) and obj[key].strip():
+                    return str(obj[key]).strip()
+    return line
+
+
 def change_observations(evidence: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Change observations found in collected logs (version/start/config lines), oldest first."""
+    """Change observations found in collected logs (version/start/config lines), oldest first, with the recorded
+    message and (v0.11) the source reference of the record they came from."""
     rows = [
         {
             "evidence_id": e["id"],
             "service": e.get("service"),
             "first_seen": e["data"].get("first_seen"),
-            "line": str(e["data"].get("sample") or "")[:200],
+            "line": readable_line(str(e["data"].get("sample") or ""))[:200],
+            "source": ((e["data"].get("attributes") or {}).get("source_ref") or None),
         }
         for e in evidence.values()
         if e.get("kind") == "log_pattern" and (e.get("data") or {}).get("change_observation")
@@ -182,6 +206,12 @@ _CURRENT_STATE = re.compile(
     r"(?i)\b(?:ongoing|still\s+(?:failing|occurring|happening|degraded|down)|is\s+continuing|"
     r"continues|has\s+not\s+recovered|no\s+recovery)\b"
 )
+# Hypothesis wording that names a persisted setting or limit (a configuration, a pool size, a connection limit …).
+_PERSISTENT_SETTING = re.compile(
+    r"(?i)\b(?:mis)?configur\w*|\bconfig\b|\bsettings?\b|\bparameters?\b|\bmax[_ ]?(?:size|connections|pool)\b|"
+    r"\b(?:connection\s+)?pool\s+(?:size|limit|maximum|max)\b|"
+    r"\b(?:connection|concurrency|rate)\s+limits?\b"
+)
 # Suggested actions that do not change persisted configuration, and the hypotheses they would leave in place.
 _NO_CONFIG_CHANGE_ACTIONS = ("restart_service",)
 
@@ -218,7 +248,8 @@ def change_wording(text: str) -> list[str]:
 
 def _change_note(phrase: str, obs: list[str], evidence: Mapping[str, Mapping[str, Any]]) -> str:
     lines = "; ".join(
-        f"{i}: '{str(((evidence.get(i) or {}).get('data') or {}).get('sample') or '')[:80]}'" for i in obs[:2]
+        f"{i}: '{readable_line(str(((evidence.get(i) or {}).get('data') or {}).get('sample') or ''))[:80]}'"
+        for i in obs[:2]
     )
     return (
         f"Change indicator, not change history ('{phrase}'): the cited change evidence is a log line observed in the "
@@ -359,11 +390,16 @@ def suggestion_limitations(step: Mapping[str, Any], state: Mapping[str, Any]) ->
     evidence = state.get("evidence") or {}
     obs = _observation_ids(evidence, list(top.get("supporting_evidence_ids") or []))
     config_obs = [i for i in obs if re.search(r"(?i)\bconfig", str(evidence[i]["data"].get("sample") or ""))]
-    if top.get("category") != "configuration_error" and not config_obs:
+    # v0.11: also when hypothesis 1 *names* a persistent setting or limit in its wording, whatever its category (a
+    # misconfigured pool size is often categorized resource_exhaustion). Symptom words alone (saturation, exhaustion)
+    # do not count: they can come from load as well as from configuration.
+    worded = bool(_PERSISTENT_SETTING.search(f"{top.get('title', '')}. {top.get('description', '')}"))
+    if top.get("category") != "configuration_error" and not config_obs and not worded:
         return []
     cited = f" (observed in {', '.join(config_obs[:2])})" if config_obs else ""
     return [
-        f"A restart reloads the configuration that is currently persisted. If the configuration named by hypothesis 1"
-        f"{cited} is still in place, restarting alone does not correct it: the configuration must be corrected or "
-        "reverted by its owner first. A restart is containment at most, not a fix."
+        "Restarting a service generally reloads its persisted configuration and may not resolve the underlying "
+        f"configuration problem. If the configuration or limit named by hypothesis 1{cited} is still in place, "
+        "restarting alone does not correct it: the configuration must be corrected or reverted by its owner first. "
+        "A restart is containment at most, not a fix."
     ]
