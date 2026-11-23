@@ -32,6 +32,8 @@ test("operator connects Loki and Prometheus, previews telemetry and gets a cited
   if (await datadog.isEnabled()) await datadog.uncheck(); // v0.9: this journey covers Loki/Prometheus only
   const azure = page.getByRole("checkbox", { name: "Use Azure Monitor" });
   if ((await azure.count()) && (await azure.isEnabled())) await azure.uncheck(); // v0.10: likewise
+  const cloudwatch = page.getByRole("checkbox", { name: "Use AWS CloudWatch" });
+  if ((await cloudwatch.count()) && (await cloudwatch.isEnabled())) await cloudwatch.uncheck(); // v0.11: likewise
   await page.getByRole("button", { name: "Use the local demo incident" }).click();
   await expect(page.getByLabel("Window start (UTC)")).toHaveValue("2026-11-12T06:16");
   await page.getByRole("button", { name: "Find services in this window" }).click();

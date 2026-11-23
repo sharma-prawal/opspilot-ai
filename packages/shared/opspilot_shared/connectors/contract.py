@@ -7,8 +7,10 @@ describing exactly what was asked and what came back. That is the whole surface:
 query, URL or path from a caller, never write to the backend, and report failures as typed ``ConnectorError``s.
 
 A connector serves one signal (Loki: logs, Prometheus: metrics) or several (Datadog: logs, metrics and APM spans;
-Azure Monitor since v0.10: Application Insights traces/exceptions, KQL-derived metrics, requests/dependencies); each
-template names the signal it returns. To add a provider (CloudWatch, a custom store), implement
+Azure Monitor since v0.10: Application Insights traces/exceptions, KQL-derived metrics, requests/dependencies; AWS
+CloudWatch since v0.11: Logs Insights events and GetMetricData metrics); each template names the signal it returns.
+Asynchronous backends (CloudWatch Logs Insights: start, poll, stop) run their whole lifecycle inside ``fetch``, so the
+contract is unchanged. To add a provider (a custom store), implement
 ``TelemetryConnector`` and register
 it in ``opspilot_shared.connectors.registry``; see docs/integrations/CONNECTORS.md.
 """
@@ -22,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from opspilot_shared.uploads.model import LogRecord, MetricRecord, SpanRecord
 
-ConnectorKind = Literal["loki", "prometheus", "datadog", "azure_monitor"]
+ConnectorKind = Literal["loki", "prometheus", "datadog", "azure_monitor", "cloudwatch"]
 Signal = Literal["log", "metric", "span"]
 ErrorKind = Literal[
     "not_configured",  # the connector is not set up (no URL) or its configuration is invalid
@@ -122,6 +124,11 @@ class QueryProvenance(BaseModel):
     pages: int | None = Field(default=None, description="v0.9: result pages fetched (paginated APIs)")
     workspace: str | None = Field(default=None, description="v0.10: Log Analytics workspace ID that was queried")
     tables: list[str] | None = Field(default=None, description="v0.10: source tables the query read (Azure Monitor)")
+    aws: dict[str, Any] | None = Field(
+        default=None,
+        description="v0.11 AWS CloudWatch: region, account, log groups, Logs Insights query ID/status/polls/scan "
+        "statistics and cleanup, or metric namespace/name/stat/dimensions/period and status codes. Never credentials",
+    )
 
     @property
     def returns(self) -> Signal:
@@ -158,6 +165,8 @@ class ConnectionStatus(BaseModel):
     checked_at: datetime
     signals: dict[str, SignalStatus] | None = None  # v0.9 multi-signal providers: per-product read probe
     tables: dict[str, SignalStatus] | None = None  # v0.10 Azure Monitor: per-table probe (present, missing, denied)
+    identity: dict[str, str] | None = None  # v0.11 CloudWatch: account, principal kind, role name, region (no ARN)
+    log_groups: dict[str, SignalStatus] | None = None  # v0.11 CloudWatch: configured log groups (exists, missing, …)
 
 
 @runtime_checkable

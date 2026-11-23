@@ -117,6 +117,21 @@ class Settings(BaseSettings):
     azure_client_secret: SecretStr = SecretStr("")  # service principal only
     azure_monitor_max_records: int = Field(default=500, ge=10, le=2000)  # per request/dependency query
     azure_monitor_local_api_url: str = ""  # synthetic fixture only; loopback addresses only (auth mode "fixture")
+    # v0.11 AWS CloudWatch (read-only Logs Insights + GetMetricData). Credentials stay backend-only (never
+    # NEXT_PUBLIC_*, never in API responses, logs or snapshots). docs/integrations/AWS_CLOUDWATCH.md
+    cloudwatch_enabled: bool = False
+    cloudwatch_region: str = ""  # one commercial-partition region, e.g. eu-west-1
+    cloudwatch_auth_mode: str = "profile"  # profile | instance_role | access_keys | fixture
+    cloudwatch_aws_profile: str = ""  # profile mode: a named AWS CLI profile (SSO, credential_process, role_arn …)
+    cloudwatch_access_key_id: SecretStr = SecretStr("")  # access_keys mode only (temporary keys preferred)
+    cloudwatch_secret_access_key: SecretStr = SecretStr("")
+    cloudwatch_session_token: SecretStr = SecretStr("")
+    cloudwatch_role_arn: str = ""  # optional read-only role to assume (sts:AssumeRole) on top of the base credentials
+    cloudwatch_account_id: str = ""  # optional expected 12-digit account; a mismatch blocks every query
+    cloudwatch_resources_file: Path | None = None  # service → log groups / metric dimensions (YAML), the allowlist
+    cloudwatch_max_records: int = Field(default=500, ge=10, le=2000)  # events per Logs Insights query
+    cloudwatch_query_timeout_seconds: float = Field(default=60.0, ge=5, le=300)  # polling ceiling per query
+    cloudwatch_local_endpoint_url: str = ""  # synthetic fixture only; loopback addresses only (auth mode "fixture")
     telemetry_templates_file: Path | None = None  # extra/overriding query templates (JSON), see docs
     telemetry_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     telemetry_max_window_hours: float = Field(default=6.0, gt=0, le=24)

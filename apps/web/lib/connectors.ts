@@ -1,4 +1,4 @@
-// Client helpers for connected observability (v0.6; Datadog v0.9; Azure Monitor v0.10). The API validates everything
+// Client helpers for connected observability (v0.6; Datadog v0.9; Azure Monitor v0.10; AWS CloudWatch v0.11). The API validates everything
 // again.
 import type {
   ChartSeries, ConnectionState, ConnectorId, ConnectorInfo, QueryProvenance, QueryTemplate, SignalState, TelemetrySignal,
@@ -37,6 +37,17 @@ export const DEMO_AZURE = {
   time: "2026-11-16T10:35",
 };
 
+/** The incident of the synthetic AWS CloudWatch fixture (scripts/cloudwatch_fixture.py, `make cloudwatch-fixture`). */
+export const DEMO_CLOUDWATCH = {
+  title: "Checkout failing: inventory timeouts",
+  description:
+    "api-gateway 5xx alarm fired at 14:12 UTC; checkout cannot reserve stock. (Synthetic AWS CloudWatch fixture data, not a real AWS account.)",
+  service: "inventory-service",
+  affected: "checkout-service, api-gateway",
+  severity: "SEV2",
+  time: "2026-11-18T14:12",
+};
+
 /**
  * v0.9: service names for connected telemetry are kept exactly (trimmed, lower-cased), never rewritten into another
  * name: Datadog service tags may contain '.' and '_' (billing.worker_v2). Loki/Prometheus still accept slugs only and
@@ -66,6 +77,9 @@ export const SIGNAL_LABEL: Record<TelemetrySignal, string> = { log: "Logs", metr
 export function signalLabel(sig: TelemetrySignal, connector?: ConnectorId | string): string {
   if (connector === "azure_monitor") {
     return { log: "Traces & exceptions", metric: "KQL metrics", span: "Requests & dependencies" }[sig];
+  }
+  if (connector === "cloudwatch") {
+    return { log: "Logs Insights events", metric: "CloudWatch metrics", span: "Traces" }[sig];
   }
   return SIGNAL_LABEL[sig];
 }
@@ -161,8 +175,15 @@ export const STATE_LABEL: Record<ConnectionState, { label: string; tone: "succes
  * answer with zero rows), so it is never shown as "no data". */
 export const AZURE_EMPTY_LABEL = "no accessible records";
 
-export function queryStatusLabel(q: Pick<QueryProvenance, "status" | "connector" | "returned" | "error">): string {
+/** v0.11: a CloudWatch template selected for a service without that resource mapped is never sent to AWS. */
+export const NOT_QUERIED_LABEL = "not queried (no mapping)";
+
+export function queryStatusLabel(
+  q: Pick<QueryProvenance, "status" | "connector" | "returned" | "error"> & Partial<Pick<QueryProvenance, "aws" | "truncated">>,
+): string {
+  if (q.status === "error" && q.aws?.not_queried) return NOT_QUERIED_LABEL;
   if (q.status === "error") return q.error?.kind.replace("_", " ") ?? "error";
+  if (q.connector === "cloudwatch" && q.aws?.partial) return `${q.returned} records (partial)`;
   if (q.status === "empty") return q.connector === "azure_monitor" ? AZURE_EMPTY_LABEL : "no data";
   return `${q.returned} records`;
 }
@@ -172,13 +193,22 @@ export function queryErrorHint(q: QueryProvenance): string {
     case "auth_error": return "Authentication failed: check the read-only credentials or tenant in the API settings.";
     case "permission_denied": return q.connector === "azure_monitor"
       ? "The identity may not query this workspace: assign Log Analytics Data Reader on it."
-      : "The credentials were accepted but may not read this product: grant the read permission shown.";
+      : q.connector === "cloudwatch"
+        ? "AWS denied the read: grant the action shown (logs:StartQuery/GetQueryResults on the log group, or cloudwatch:GetMetricData) to the read-only role."
+        : "The credentials were accepted but may not read this product: grant the read permission shown.";
+    case "not_configured": return q.connector === "cloudwatch"
+      ? "Not sent to AWS: map this resource for the service in CLOUDWATCH_RESOURCES_FILE to collect it."
+      : q.error?.message ?? "";
     case "unsupported": return q.connector === "azure_monitor"
       ? "This table is not in the workspace, so this signal stays unknown for the service."
       : "This product is not available for the account or site.";
-    case "not_found": return "The workspace or API path was not found: check the configured identifier.";
+    case "not_found": return q.connector === "cloudwatch"
+      ? "The log group does not exist in this region and account: check the mapping and CLOUDWATCH_REGION."
+      : "The workspace or API path was not found: check the configured identifier.";
     case "rate_limited": return "The provider rate-limited the query; retry later or select fewer templates or services.";
-    case "unavailable": case "timeout": return "The backend is unavailable or did not answer in time.";
+    case "unavailable": case "timeout": return q.connector === "cloudwatch"
+      ? "The Logs Insights query did not complete (timed out, cancelled or AWS unavailable); OpsPilot stopped its own query. Narrow the window."
+      : "The backend is unavailable or did not answer in time.";
     case "query_error": return "The backend rejected the template's query: it may not fit this backend's metric names.";
     case "redirect_refused": return "The backend redirected; point the URL at the API itself.";
     case "response_too_large": return "The answer was too large: narrow the window.";

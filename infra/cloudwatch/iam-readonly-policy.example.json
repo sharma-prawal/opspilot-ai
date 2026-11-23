@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "QueryApprovedLogGroupsOnly",
+      "Effect": "Allow",
+      "Action": ["logs:StartQuery", "logs:GetQueryResults"],
+      "Resource": [
+        "arn:aws:logs:us-east-1:111122223333:log-group:/ecs/shop-prod/api-gateway",
+        "arn:aws:logs:us-east-1:111122223333:log-group:/ecs/shop-prod/api-gateway:*",
+        "arn:aws:logs:us-east-1:111122223333:log-group:/ecs/shop-prod/inventory-service",
+        "arn:aws:logs:us-east-1:111122223333:log-group:/ecs/shop-prod/inventory-service:*"
+      ]
+    },
+    {
+      "Sid": "StopOwnQueriesAndCheckConfiguredGroups",
+      "Effect": "Allow",
+      "Action": ["logs:StopQuery", "logs:DescribeLogGroups"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadMetricValues",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:GetMetricData"],
+      "Resource": "*"
+    }
+  ]
+}

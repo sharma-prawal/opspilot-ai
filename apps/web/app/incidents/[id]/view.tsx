@@ -46,7 +46,7 @@ export function IncidentView() {
   });
 
   const i = incident.data;
-  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus, v0.9 Datadog, v0.10 Azure snapshot
+  const connected = i?.evidence_source === "connector"; // v0.6 Loki/Prometheus, v0.9 Datadog, v0.10 Azure, v0.11 CloudWatch snapshot
   const uploaded = i?.evidence_source === "upload" || connected; // read-only, stored evidence
   const active = invs.data?.some((v) =>
     ["queued", "running", "awaiting_approval"].includes(v.status)
@@ -130,7 +130,7 @@ export function IncidentView() {
       {connected && (
         <div className="rounded-xl border border-info/30 bg-info-soft/30 px-4 py-3 text-xs leading-relaxed text-text">
           <strong>Connected telemetry — read-only analysis.</strong> The agent investigates only the telemetry
-          snapshot (Loki, Prometheus, Datadog or Azure Monitor) stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
+          snapshot (Loki, Prometheus, Datadog, Azure Monitor or AWS CloudWatch) stored with this incident (plus the runbook knowledge base). It can suggest remediation but cannot
           execute it, and it never claims verified recovery from historical data.
         </div>
       )}
@@ -238,7 +238,7 @@ export function IncidentView() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-mono font-semibold text-text">{q.id}</span>
                           <span className={q.status === "error" ? "text-danger" : "text-muted"}>
-                            {q.status === "error" ? `failed: ${q.error?.kind}` : queryStatusLabel(q)}
+                            {q.status === "error" && !q.aws?.not_queried ? `failed: ${q.error?.kind}` : queryStatusLabel(q)}
                             {q.truncated ? " · truncated" : ""}
                           </span>
                         </div>
@@ -246,6 +246,14 @@ export function IncidentView() {
                           <span className="block text-[10px] text-muted">
                             workspace <span className="font-mono">{q.workspace}</span>
                             {q.tables?.length ? ` · ${q.tables.join(", ")}` : ""}
+                          </span>
+                        )}
+                        {q.aws && (
+                          <span className="block text-[10px] text-muted">
+                            AWS {q.aws.region}{q.aws.account ? <> · account <span className="font-mono">{q.aws.account}</span></> : null}
+                            {q.aws.log_groups?.length ? <> · <span className="font-mono">{q.aws.log_groups.join(", ")}</span></> : null}
+                            {q.aws.query_id ? <> · query <span className="font-mono">{q.aws.query_id}</span> ({q.aws.query_status})</> : null}
+                            {q.aws.period_seconds ? ` · period ${q.aws.period_seconds} s` : ""}
                           </span>
                         )}
                         <code className="block break-all font-mono text-[10px] text-muted">{q.query}</code>

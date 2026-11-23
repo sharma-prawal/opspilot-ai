@@ -306,36 +306,42 @@ formula: a / b
   },
   {
     id: "aws-cloudwatch",
-    name: "AWS CloudWatch & Container Insights",
+    name: "AWS CloudWatch Logs & Metrics",
     category: "metrics",
     mode: "connected",
-    status: "planned",
+    status: "implemented",
     tagline:
-      "CloudWatch Metrics, Log Insights, and ECS/EKS Container telemetry.",
+      "Read-only CloudWatch Logs Insights events and GetMetricData metrics for explicitly mapped log groups and resources in one commercial-partition region (v0.11).",
     evidenceContributed: [
-      "ALB 5xx counts, RDS CPU/connection saturation, ECS task stop reasons",
-      "CloudWatch Logs Insights query aggregations",
+      "Errors, warnings, timeouts/dependency failures, start-up/version/configuration lines and correlated failures from approved log groups (Logs Insights QL templates; JSON and plain-text logs)",
+      "Log-based error counts per time bin (bins without matching events are absent, not zero)",
+      "ALB target 5xx, request count, target response time p95 and unhealthy targets; ECS service CPU/memory; Lambda errors, invocations, duration p95 and throttles; up to 10 configured custom metrics per service — with the statistic, period, dimensions and AWS-documented unit",
     ],
     prerequisites: [
-      "AWS IAM Read-Only credentials (cloudwatch:GetMetricData, logs:StartQuery, logs:GetQueryResults)",
-      "Configured AWS region (e.g. eu-west-1)",
+      "A read-only identity with logs:StartQuery, logs:GetQueryResults, logs:StopQuery (cleanup of OpsPilot's own queries), logs:DescribeLogGroups and cloudwatch:GetMetricData; no write, alarm, dashboard or infrastructure permission",
+      "A resource mapping file (CLOUDWATCH_RESOURCES_FILE): each OpsPilot service's exact log groups and metric dimensions; nothing else can be queried",
+      "One region of the AWS commercial partition (GovCloud, China and ISO partitions are not supported)",
     ],
     configuration:
-      "Planned — not implemented. An adapter would implement the TelemetryConnector contract (docs/integrations/CONNECTORS.md): approved templates in, normalized records with provenance out, read-only. The example below is illustrative.",
+      "Set CLOUDWATCH_ENABLED=true, CLOUDWATCH_REGION, CLOUDWATCH_RESOURCES_FILE and CLOUDWATCH_AUTH_MODE in the API environment (backend only; never NEXT_PUBLIC_*): profile with CLOUDWATCH_AWS_PROFILE (shared credentials, IAM Identity Center/SSO, credential_process or a profile role), instance_role (ECS task role, EKS Pod Identity/IRSA, EC2 instance profile) or access_keys (temporary keys preferred). Optional CLOUDWATCH_ROLE_ARN assumes one read-only role; optional CLOUDWATCH_ACCOUNT_ID blocks queries from another account. Restart the API. Requests go only to the regional logs/monitoring/sts endpoints; endpoint overrides are ignored. Without an AWS account, make cloudwatch-fixture serves synthetic API responses on 127.0.0.1. Verified only against that synthetic fixture so far, not a real AWS account.",
     exampleQuery: {
-      language: "sql",
-      code: `// CloudWatch Logs Insights query:
-fields @timestamp, @message, @logStream
-| filter @message like /Exception|Error/
-| stats count() as errorCount by bin(1m)
-| sort errorCount desc`,
+      language: "text",
+      code: `// Built-in template cw_timeouts (Logs Insights QL), for one service's approved log groups:
+fields @timestamp, @message, @logStream, @log, @requestId, requestId, traceId, correlationId
+| filter @message like /(?i)(timeout|timed out|connection refused|pool exhausted|unavailable)/
+| sort @timestamp desc
+| limit 501
+// StartQuery → GetQueryResults (bounded polling) → StopQuery only if OpsPilot's own query did not finish`,
     },
     normalization:
-      "CloudWatch metric data points converted into unit-standardized floats. Log Insight query results mapped into Evidence(kind='telemetry').",
+      "Log events become LogRecords (UTC timestamp as returned, level from structured fields or inferred and flagged, credential-like values redacted, log group, log stream, @ptr and correlation IDs kept, source cloudwatch/<template>/<service>:entry N). The service comes from the log-group mapping (or a recorded service_field), never from resource-name similarity. GetMetricData values become MetricRecords with namespace, metric, statistic, period and dimensions; periods without a datapoint stay absent. Queries record the query ID, final status, polls and scan statistics. Change history (CloudTrail, AWS Config) is not collected and stays unknown.",
     troubleshooting: [
-      "Ensure CloudWatch Logs Insights queries use bounded time ranges to avoid AWS query quotas.",
+      "Test connection checks the account (sts:GetCallerIdentity), whether each configured log group exists, runs one Logs Insights query over the last minute of each group and one GetMetricData probe: 'not found' and 'access denied' show per log group.",
+      "AccessDeniedException: grant the action shown to the read-only role. LimitExceededException: the account's concurrent Logs Insights quota (shared with other users) is exhausted.",
+      "An expired IAM Identity Center session is reported, never refreshed: run aws sso login --profile <profile> yourself.",
+      "Logs Insights is billed by scanned volume: keep windows short and mappings narrow.",
     ],
-    targetNode: "Telemetry & Dependencies Agents",
+    targetNode: "Telemetry & Dependencies Agents (connected-telemetry snapshot)",
   },
   {
     id: "azure-monitor",
@@ -565,7 +571,7 @@ export default function IntegrationsPage() {
         </p>
         <ul className="planned-provider-list">
           {INTEGRATIONS.filter((item) =>
-            ["aws-cloudwatch"].includes(item.id),
+            ["custom-adapter"].includes(item.id),
           ).map((item) => (
             <li key={item.id}>
               <span>{item.name}</span>
@@ -579,7 +585,7 @@ export default function IntegrationsPage() {
             {INTEGRATIONS.filter(
               (item) =>
                 item.status === "planned" &&
-                !["datadog-adapter", "azure-monitor", "aws-cloudwatch"].includes(
+                !["datadog-adapter", "azure-monitor", "aws-cloudwatch", "custom-adapter"].includes(
                   item.id,
                 ),
             ).map((item) => (
@@ -620,7 +626,7 @@ export default function IntegrationsPage() {
               <code className="font-mono text-text">ChatModel</code>). Whether
               evidence arrives from our deterministic local simulator, uploaded
               export files, or a read-only snapshot from Grafana Loki,
-              Prometheus (v0.6), Datadog (v0.9) or Azure Monitor (v0.10), it is normalized
+              Prometheus (v0.6), Datadog (v0.9), Azure Monitor (v0.10) or AWS CloudWatch (v0.11), it is normalized
               into persisted, source-attributed{" "}
               <code className="font-mono text-text">ops.evidence</code> items
               before reasoning occurs.

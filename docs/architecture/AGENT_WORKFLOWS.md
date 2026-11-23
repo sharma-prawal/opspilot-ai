@@ -282,6 +282,19 @@ uploads (`is_read_only`, D113):
   and restart suggestions under a configuration hypothesis. Empty Azure queries are *no accessible matching records*
   (D136).
 
+**AWS CloudWatch snapshots (v0.11, D137–D143)** take the same path; there is no CloudWatch-specific graph or agent:
+
+- Logs Insights events are log records attributed to a service by the operator's log-group mapping (or a recorded
+  `service_field`); metric records carry the AWS statistic, period and dimensions. There are no spans, so
+  `get_service_dependencies` reports dependencies as not available.
+- The prompt note names the signals collected and adds the CloudWatch limits: mapping-based attribution, approved log
+  groups only (an empty template is not evidence of absence elsewhere), partial/truncated queries are incomplete,
+  periods without datapoints are absent rather than zero, unmapped resources were not observed.
+- The report banner, provenance table (region, signal, log groups, Logs Insights query ID), *Evidence coverage* (with
+  "not queried (no mapped CloudWatch resource)") and next steps name CloudWatch, CloudTrail and AWS Config. Change
+  history stays unknown (D125); start-up/version/configuration lines are change indicators, not history (D135).
+- AWS is never contacted during the investigation; no AWS action tool exists.
+
 **Evidence states (all connected snapshots, D125).**
 
 - The telemetry agent also reads INFO lifecycle lines (version, start-up, configuration) as change observations

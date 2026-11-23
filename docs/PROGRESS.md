@@ -814,3 +814,53 @@ Not done (next session, in order):
   Playwright 13 passed / 5 skipped by design (all fixtures) and 6 passed (no fixtures). No migration.
 - Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.10.0`
   tag and GitHub release.
+
+## Status — 2026-11-23, v0.11.0 AWS CloudWatch Logs & Metrics (`feature/aws-cloudwatch-v0.11.0`, not pushed)
+
+- Base: verified `origin/main` = `2154211` (v0.10.0, latest release; v0.9.0 Datadog, the shared upload storage fix
+  and the web-env allowlist included). Isolated worktree `../opspilot-ai-cloudwatch`; the main checkout, other
+  worktrees, `.env`, data, uploads and private `phase-c1`/`.c1/` files were not modified. No migration, schema, model,
+  safety-policy or approval change. Nothing pushed, merged, tagged or released.
+- Connector (`opspilot_shared/connectors/cloudwatch.py`, `cloudwatch_resources.py`; D137–D142):
+  - official SDK (boto3/botocore 1.44): `StartQuery`/`GetQueryResults`/`StopQuery` (own unfinished queries only),
+    `DescribeLogGroups` (configured names), `GetMetricData`, `GetCallerIdentity`, optional `AssumeRole`; regional
+    endpoints verified per client, endpoint overrides ignored, commercial partition only;
+  - explicit auth modes (`profile`, `instance_role`, `access_keys`, loopback `fixture`) with filtered credential chains,
+    lazy clients, optional expected account; keys never returned, logged or stored; AWS error text not passed through;
+  - `CLOUDWATCH_RESOURCES_FILE` mapping = allowlist; unmapped resources "not queried"; six Logs Insights templates and
+    ten AWS metric templates plus configured custom metrics; bounded asynchronous lifecycle (≤ 3 in flight, ≤ 40 polls /
+    60 s, shielded StopQuery cleanup incl. cancellation, partial rows marked); scan statistics recorded.
+- Pipeline: `QueryProvenance.aws`, `ConnectionStatus.identity`/`log_groups`; prompt note, report banner, provenance,
+  coverage and next steps for CloudWatch; Loki/Prometheus/Datadog/Azure wording unchanged.
+- RCA truthfulness (D143), found in the real-model run: annotate-only notes for invented version numbers / quoted
+  identifiers and for change claims that cite no change evidence (read-only RCAs; simulator unchanged).
+- Web (Visual Experience 2.0 kept): catalogue entry now implemented, matrix, connector panel, connected intake (region,
+  account, per-log-group badges, cost note, fixture incident, query provenance), incident provenance; BFF allowlist.
+- Fixture: `scripts/cloudwatch_fixture.py` (Logs JSON 1.1, CloudWatch JSON 1.0, STS query/XML, SigV4 required),
+  `infra/cloudwatch/resources.{fixture,scenarios,example}.yaml`, `infra/cloudwatch/iam-readonly-policy.example.json`,
+  `make cloudwatch-fixture`, `E2E_CLOUDWATCH=1`.
+- Infra used for verification: Colima and the project PostgreSQL container were started (`make infra-up`, containers
+  only) and the local Loki/Prometheus test containers (`make telemetry-up`, tmpfs) for the regression journeys; tests
+  read the main checkout's `.env` in-process (not copied); only `opspilot_test` and ports 8100/3100/8133 were used.
+- Verified (fixture only):
+  - `make lint` clean: ruff, ruff format, mypy `--strict` (115 files), import-linter 4/4, ESLint, `tsc`.
+  - pytest: **694 passed, 3 skipped** (live-model opt-in) on `opspilot_test`, including the live local Loki/Prometheus
+    tests; new: 92 connector tests (botocore `Stubber` + the protocol fixture through the real SDK), 3 investigation
+    tests, 5 API tests, 1 claim-calibration test.
+  - Web unit tests: 76 passed; `pnpm build` (production) OK.
+  - Playwright on the isolated stack (API 8100, web 3100, `opspilot_test`):
+    - every fixture on (`E2E_TELEMETRY=1 E2E_DATADOG=1 E2E_AZURE=1 E2E_CLOUDWATCH=1`): **16 passed, 6 skipped by design**
+      (three "not configured" journeys that only apply without fixtures, three opt-in screenshot specs) — CloudWatch,
+      Azure Monitor, Datadog, Loki/Prometheus, uploads and the INC-001 simulator approval with verified recovery;
+    - CloudWatch journeys re-run after the final UI changes: 3 passed, 1 skipped by design;
+    - no fixtures: **9 passed, 13 skipped by design** (CloudWatch, Azure and Datadog show as not configured).
+  - Real local-model RCA (`qwen3.5:9b-q4_K_M`, synthetic CloudWatch evidence, several identical runs at temperature 0):
+    read-only, cited, no actions; top hypothesis "database connection pool saturation caused inventory-service
+    timeouts" (95%), citing the `db_pool_wait_ms` series. Unsupported details are now annotated, not edited: an invented
+    "'ConnectionPoolTimeout'" error name, an invented "version 2.3.1" and a "recent deployment" with no change evidence
+    (D143); "ongoing" is anchored to the snapshot end. Residual: the model did not use the observed
+    `db.pool.max_size=8 (previous 40)` line (listed under *Evidence coverage → Observed events*), and its suggested
+    `restart_service` carries no limitation note because hypothesis 1 is not classified as a configuration problem.
+- Not done / open: **no real AWS account used** (auth, IAM scoping, quotas, query syntax acceptance and costs are not
+  live-verified; procedure in `docs/integrations/AWS_CLOUDWATCH.md`); `make evaluate` not re-run (simulator path
+  unchanged); draft notes `docs/releases/V0.11.0_NOTES.md`; not tagged or released.

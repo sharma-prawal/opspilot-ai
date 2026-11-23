@@ -62,8 +62,8 @@ export interface UploadedDataset {
   created_at: string; retention_days: number;
 }
 
-// ---- v0.6 connected observability (Datadog: v0.9, Azure Monitor: v0.10) ---------------------------------------
-export type ConnectorId = "loki" | "prometheus" | "datadog" | "azure_monitor";
+// ---- v0.6 connected observability (Datadog: v0.9, Azure Monitor: v0.10, AWS CloudWatch: v0.11) ------------------
+export type ConnectorId = "loki" | "prometheus" | "datadog" | "azure_monitor" | "cloudwatch";
 export type TelemetrySignal = "log" | "metric" | "span";
 
 export interface QueryTemplate {
@@ -80,11 +80,17 @@ export interface ConnectorInfo {
   problem?: string | null; hint?: string;
   // v0.9 Datadog
   site?: string; fixture?: boolean; env?: string | null; log_indexes?: string[];
-  permissions?: Partial<Record<TelemetrySignal | "role", string>>; read_only_endpoints?: string[];
+  permissions?: Partial<Record<TelemetrySignal | "role", string>> & { actions?: string[] }; read_only_endpoints?: string[];
   limits_extra?: { max_spans_per_query?: number; max_pages_per_query?: number; max_records_per_query?: number;
-    max_operations_expanded?: number; server_wait_seconds?: number; queries_in_flight?: number };
+    max_operations_expanded?: number; server_wait_seconds?: number; queries_in_flight?: number;
+    query_timeout_seconds?: number; max_polls_per_query?: number; max_log_groups_per_query?: number;
+    max_metric_pages?: number };
   // v0.10 Azure Monitor (workspace ID and auth mode only: never a credential)
   workspace_id?: string; auth_mode?: string; cloud?: string; tables?: string[];
+  // v0.11 AWS CloudWatch (region, profile name, role ARN and mapping only: never a key or token)
+  region?: string; partition?: string; profile?: string | null; role_arn?: string | null;
+  expected_account?: string | null; log_groups?: string[];
+  services?: Record<string, { log_groups: string[]; service_field: string | null; metrics: string[] }>;
 }
 
 export interface ConnectorList { connectors: ConnectorInfo[]; template_problems: string[]; planned: string[]; max_queries: number }
@@ -95,7 +101,10 @@ export type SignalState = "ok" | "permission_denied" | "unsupported" | "rate_lim
 export interface ConnectionStatus { connector: string; status: ConnectionState; message: string; version?: string | null;
   latency_ms?: number | null; checked_at?: string;
   signals?: Partial<Record<TelemetrySignal, { status: SignalState; message: string }>> | null;
-  tables?: Record<string, { status: SignalState; message: string }> | null }
+  tables?: Record<string, { status: SignalState; message: string }> | null;
+  // v0.11 AWS CloudWatch: account context (no ARN or session name) and the configured log groups
+  identity?: { account: string; principal: string; region: string; role?: string } | null;
+  log_groups?: Record<string, { status: SignalState; message: string }> | null }
 
 export interface DiscoveredServices {
   connector: string; services: string[]; error: { kind: string; message: string } | null; notes?: string[];
@@ -108,6 +117,14 @@ export interface QueryProvenance {
   redactions: number; truncated: boolean; series: number | null; unit: string; fetched_at: string; duration_ms: number;
   issues: string[]; signal?: TelemetrySignal | null; site?: string | null; link?: string | null; pages?: number | null;
   workspace?: string | null; tables?: string[] | null;
+  /** v0.11 AWS CloudWatch: region, account, log groups, Logs Insights query ID/status/polls/statistics or metric
+   * definitions; never a credential. */
+  aws?: {
+    region?: string; account?: string; log_groups?: string[]; query_id?: string; query_status?: string;
+    polls?: number; statistics?: Record<string, number>; stopped?: boolean; stop_error?: string; partial?: boolean;
+    not_queried?: boolean; period_seconds?: number; status_codes?: Record<string, string>;
+    metrics?: { namespace: string; metric_name: string; stat: string; unit: string; dimensions: Record<string, string> }[];
+  } | null;
 }
 
 /** v0.9: metric points exactly as returned (never resampled); empty `points` when they cannot be charted. */

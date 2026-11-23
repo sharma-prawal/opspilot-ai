@@ -237,6 +237,50 @@ def snapshot_end(state: Mapping[str, Any]) -> str | None:
     return str(end) if end else None
 
 
+# v0.11: concrete details a model can invent — a version number or a quoted identifier (an error name, a setting) — are
+# checked against the text of the collected evidence. Found in a real CloudWatch run: "the deployment of version 2.3.1"
+# (the logs showed 3.8.0) and "'ConnectionPoolTimeout' errors" (no such token in any log line).
+_VERSION = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?![\w.]*\d)")
+_QUOTED_TOKEN = re.compile(r"""['"`\u2018\u201c]([A-Za-z][A-Za-z0-9_.:-]{5,63})['"`\u2019\u201d]""")
+
+
+def _evidence_corpus(state: Mapping[str, Any]) -> str:
+    """Lower-cased text of every collected evidence item and the incident (what a detail must appear in)."""
+    import json
+
+    parts = [json.dumps(e, default=str) for e in (state.get("evidence") or {}).values()]
+    inc = state.get("incident") or {}
+    parts += [str(inc.get("title") or ""), str(inc.get("description") or "")]
+    return "\n".join(parts).lower()
+
+
+def unsupported_details(text: str, corpus: str) -> list[str]:
+    """Version numbers and quoted identifiers in ``text`` that appear nowhere in the collected evidence."""
+    found: list[str] = []
+    for m in _VERSION.finditer(text or ""):
+        if m.group(1) not in corpus and f"version {m.group(1)}" not in found:
+            found.append(f"version {m.group(1)}")
+    for m in _QUOTED_TOKEN.finditer(text or ""):
+        token = m.group(1)
+        if token.lower() not in corpus and f"'{token}'" not in found:
+            found.append(f"'{token}'")
+    return found
+
+
+def _detail_note(details: list[str]) -> str:
+    return (
+        f"Not found in the collected evidence: {', '.join(details[:3])}. The model stated a specific detail that no "
+        "collected log line, metric or record contains; treat it as unsupported."
+    )
+
+
+def _uncited_change_note(phrase: str) -> str:
+    return (
+        f"Change claim without change evidence ('{phrase}'): deployment and configuration-change history was not "
+        "collected and this hypothesis cites no observed change line, so whether such a change happened is unknown."
+    )
+
+
 def _hhmm(ts: str | None) -> str:
     return f"{ts[:10]} {ts[11:16]}Z" if ts and len(ts) >= 16 else "the end of the collected window"
 
@@ -248,6 +292,7 @@ def calibrate_hypotheses(hypotheses: list[dict[str, Any]], state: Mapping[str, A
         return hypotheses
     evidence = state.get("evidence") or {}
     unread = change_history_unread(state)
+    corpus = _evidence_corpus(state)
     for h in hypotheses:
         text = f"{h.get('title', '')}. {h.get('description', '')}"
         notes: list[str] = []
@@ -259,9 +304,14 @@ def calibrate_hypotheses(hypotheses: list[dict[str, Any]], state: Mapping[str, A
                 f"{float(h.get('confidence') or 0):.0%}, uncalibrated)."
             )
         obs = _observation_ids(evidence, list(h.get("supporting_evidence_ids") or []))
-        wording = change_wording(text) if unread and obs else []
-        if wording:
+        wording = change_wording(text) if unread else []
+        if wording and obs:
             notes.append(_change_note(wording[0], obs, evidence))
+        elif wording:  # v0.11: change wording with no cited change observation at all
+            notes.append(_uncited_change_note(wording[0]))
+        details = unsupported_details(text, corpus)
+        if details:
+            notes.append(_detail_note(details))
         if notes:
             h["evidence_warnings"] = [*(h.get("evidence_warnings") or []), *notes]
     return hypotheses
@@ -288,6 +338,9 @@ def calibration_summary_warnings(summary: str, state: Mapping[str, Any]) -> list
     wording = change_wording(summary) if change_history_unread(state) and obs else []
     if wording:
         out.append(_change_note(wording[0], obs, evidence))
+    details = unsupported_details(summary, _evidence_corpus(state))
+    if details:
+        out.append(_detail_note(details))
     if _CURRENT_STATE.search(summary or ""):
         where = "collected snapshot window" if is_connected(inc) else "uploaded evidence"
         out.append(

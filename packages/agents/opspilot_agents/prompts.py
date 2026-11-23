@@ -219,7 +219,13 @@ CONNECTED_TELEMETRY_NOTE = (
 # snapshots keep the v0.6 note above byte for byte; Datadog-only snapshots keep the v0.9 wording.
 _SIGNAL_NAMES = {"log": "logs", "metric": "metrics", "span": "APM spans"}
 _UNAVAILABLE = {"log": "logs", "metric": "metrics", "span": "traces"}
-PROVIDER_NAMES = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog", "azure_monitor": "Azure Monitor"}
+PROVIDER_NAMES = {
+    "loki": "Loki",
+    "prometheus": "Prometheus",
+    "datadog": "Datadog",
+    "azure_monitor": "Azure Monitor",
+    "cloudwatch": "AWS CloudWatch",
+}
 AZURE_SPAN_NOTE = (
     "Application Insights request and dependency records (AppRequests, AppDependencies) can be sampled (ItemCount) "
     "and their correlation (OperationId, ParentId) can be incomplete, so an operation can be partial (records marked "
@@ -229,6 +235,17 @@ AZURE_SPAN_NOTE = (
 AZURE_LOG_NOTE = (
     "Azure Monitor metrics are derived from Application Insights records by KQL (bins without records are absent, not "
     "zero). A lack of exception records is not evidence that no error occurred. "
+)
+
+
+# v0.11: what an AWS CloudWatch snapshot can and cannot show.
+CLOUDWATCH_NOTE = (
+    "AWS CloudWatch log events are attributed to a service by the operator's log-group mapping (not by a field in "
+    "each event) and come from approved Logs Insights templates over those log groups only; a template that matched "
+    "nothing is not evidence that no such event happened elsewhere, and a query marked partial or truncated is "
+    "incomplete. CloudWatch metrics are AWS resource metrics (load balancer, ECS service, Lambda function or "
+    "configured custom metrics) with the statistic and period stated; periods without a datapoint are absent, not "
+    "zero, and resources that were not mapped were not observed. "
 )
 
 
@@ -276,6 +293,8 @@ def connected_note(incident: dict[str, Any] | None) -> str:
         spans += AZURE_SPAN_NOTE
     if "azure_monitor" in kinds:
         spans += AZURE_LOG_NOTE
+    if "cloudwatch" in kinds:
+        spans += CLOUDWATCH_NOTE
     return (
         "Evidence source: a historical, read-only snapshot of telemetry queried from the user's observability "
         f"backends ({' and '.join(names.get(k, k) for k in kinds)}: {have}) for the incident window, not a live "

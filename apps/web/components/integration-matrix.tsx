@@ -55,10 +55,10 @@ export function IntegrationMatrix() {
     {
       name: "AWS CloudWatch",
       icon: "connector",
-      signals: "No adapter yet",
-      state: "Planned",
-      access: "Unavailable",
-      auth: "Not implemented",
+      signals: "Logs Insights events · resource & custom metrics",
+      state: "Implemented",
+      access: "Read-only (Logs Insights queries, GetMetricData)",
+      auth: "AWS profile / workload role / access keys",
     },
   ] as const;
   return (

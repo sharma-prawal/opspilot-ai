@@ -76,7 +76,7 @@ test("operator previews Datadog logs, metrics and spans and gets a cited read-on
   await card.getByRole("button", { name: "Test connection" }).click();
   await expect(card.getByText("Connected", { exact: true })).toBeVisible();
   for (const s of ["Logs: readable", "Metrics: readable", "APM spans: readable"]) await expect(card.getByText(s)).toBeVisible();
-  for (const name of ["Grafana Loki", "Prometheus", "Azure Monitor"]) { // v0.10: this journey covers Datadog only
+  for (const name of ["Grafana Loki", "Prometheus", "Azure Monitor", "AWS CloudWatch"]) { // v0.10/v0.11: Datadog only
     const other = page.getByRole("checkbox", { name: `Use ${name}` });
     if ((await other.count()) && (await other.isEnabled())) await other.uncheck();
   }

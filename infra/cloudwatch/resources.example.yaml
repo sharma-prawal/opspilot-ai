@@ -1,0 +1,19 @@
+# Example CLOUDWATCH_RESOURCES_FILE. Replace the names with your own exact CloudWatch identities.
+# This file is the allowlist: only the log groups, dimensions and custom metrics named here can be queried.
+services:
+  orders-api:                                   # OpsPilot service name, kept exactly ([a-z][a-z0-9._-], 2-63 chars)
+    log_groups:                                 # ≤ 10 per service; queried together in one Logs Insights query
+      - /ecs/prod/orders-api
+    # service_field: service                    # only when a log group is shared: the JSON field naming the service
+    metrics:
+      alb:                                      # AWS/ApplicationELB, dimension values from the ARNs' last parts
+        load_balancer: app/prod-public/50dc6c495c0c9188
+        target_group: targetgroup/orders-api/73e2d6bc24d8a067
+      ecs: {cluster: prod, service: orders-api}  # AWS/ECS ClusterName + ServiceName
+  billing-worker:
+    log_groups: [/aws/lambda/billing-worker]
+    metrics:
+      lambda: {function_name: billing-worker}   # AWS/Lambda FunctionName
+      custom:                                   # ≤ 10; exact namespace, name, statistic, unit and dimensions
+        - {id: invoices_failed, namespace: Billing, metric_name: InvoicesFailed, stat: Sum, unit: Count,
+           dimensions: {Environment: prod}}

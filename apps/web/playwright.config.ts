@@ -34,6 +34,15 @@ export default defineConfig({
           timeout: 60_000,
         }]
       : []),
+    // v0.11: E2E_CLOUDWATCH=1 serves the synthetic AWS CloudWatch API fixture on loopback (never a real AWS account).
+    ...(process.env.E2E_CLOUDWATCH
+      ? [{
+          command: `uv run python ../../scripts/cloudwatch_fixture.py --port ${process.env.E2E_CLOUDWATCH_PORT ?? 8133}`,
+          url: `http://127.0.0.1:${process.env.E2E_CLOUDWATCH_PORT ?? 8133}/_fixture/state`,
+          reuseExistingServer: false,
+          timeout: 60_000,
+        }]
+      : []),
     {
       command: "../../scripts/e2e-api.sh",
       url: `${E2E_API_URL}/health/live`,

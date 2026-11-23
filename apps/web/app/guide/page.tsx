@@ -433,8 +433,8 @@ make uploads-purge`}
     {
       number: 12,
       id: "connected-telemetry",
-      title: "12. Investigate with Loki, Prometheus, Datadog & Azure Monitor",
-      summary: "Connect read-only Grafana Loki, Prometheus, Datadog or Azure Monitor, preview telemetry and run a read-only investigation.",
+      title: "12. Investigate with Loki, Prometheus, Datadog, Azure Monitor & CloudWatch",
+      summary: "Connect read-only Grafana Loki, Prometheus, Datadog, Azure Monitor or AWS CloudWatch, preview telemetry and run a read-only investigation.",
       content: (
         <div className="space-y-3 text-xs leading-relaxed text-text-muted">
           <p>
@@ -443,8 +443,9 @@ make uploads-purge`}
             environment, and OpsPilot contacts no other address. v0.9 adds <strong className="text-text">Datadog</strong>{" "}
             (logs, APM trace metrics and indexed APM spans) through the same templates, snapshot and read-only
             investigation. v0.10 adds <strong className="text-text">Azure Monitor / Application Insights</strong> (traces,
-            exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace). CloudWatch and
-            custom adapters are planned, not implemented.
+            exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace). v0.11 adds{" "}
+            <strong className="text-text">AWS CloudWatch</strong> (Logs Insights events and metrics of explicitly mapped
+            resources in one region). Custom adapters are planned, not implemented.
           </p>
           <p>First run with the local demo stack (both containers listen on 127.0.0.1 and keep data in tmpfs):</p>
           <CodeBlock
@@ -496,11 +497,24 @@ make stop && make dev`}
             <code className="font-mono">make azure-fixture</code> serves synthetic Logs API responses on 127.0.0.1; see{" "}
             <code className="font-mono">docs/integrations/AZURE_MONITOR.md</code>.
           </p>
+          <p>
+            <strong className="text-text">AWS CloudWatch.</strong> Map each service to its exact log groups and metric
+            dimensions in a YAML file (<code className="font-mono">CLOUDWATCH_RESOURCES_FILE</code>, see{" "}
+            <code className="font-mono">infra/cloudwatch/resources.example.yaml</code>), then set{" "}
+            <code className="font-mono">CLOUDWATCH_ENABLED=true</code>, <code className="font-mono">CLOUDWATCH_REGION</code> and{" "}
+            <code className="font-mono">CLOUDWATCH_AUTH_MODE</code>: <code className="font-mono">profile</code> with{" "}
+            <code className="font-mono">CLOUDWATCH_AWS_PROFILE</code> (SSO profiles work; OpsPilot never starts a login),{" "}
+            <code className="font-mono">instance_role</code>, or <code className="font-mono">access_keys</code> (temporary keys
+            preferred). Grant only the read actions in the example policy and restart the API. Logs Insights queries are
+            asynchronous: OpsPilot polls each one within a time and poll ceiling and stops only its own unfinished queries.
+            Logs Insights is billed by scanned volume. Without an AWS account, <code className="font-mono">make cloudwatch-fixture</code>{" "}
+            serves synthetic responses on 127.0.0.1; see <code className="font-mono">docs/integrations/AWS_CLOUDWATCH.md</code>.
+          </p>
           <ul className="list-disc space-y-1 pl-4">
             <li><strong className="text-text">Read-only.</strong> No approval, no execution, no claim of verified recovery from historical data. The investigation reads only the stored snapshot.</li>
             <li><strong className="text-text">Unknown stays unknown.</strong> Change history and live state are not in the connected telemetry (traces only when Datadog APM spans or Application Insights requests/dependencies are collected, and then possibly partial or sampled); failed queries leave that signal unknown, never &ldquo;healthy&rdquo;.</li>
-            <li><strong className="text-text">Bounded and safe.</strong> GET to fixed read endpoints (Datadog: plus POST to four documented search/query endpoints only; Azure Monitor: POST to one workspace query endpoint only, approved KQL templates), no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
-            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported. Datadog and Azure Monitor were tested only against their synthetic contract fixtures, not a live organization or workspace.</li>
+            <li><strong className="text-text">Bounded and safe.</strong> GET to fixed read endpoints (Datadog: plus POST to four documented search/query endpoints only; Azure Monitor: POST to one workspace query endpoint only, approved KQL templates; AWS CloudWatch: Logs Insights and GetMetricData through the AWS SDK for mapped log groups and resources only), no redirects, timeouts, line/series/size limits; credentials stay in the API environment and are redacted from errors.</li>
+            <li><strong className="text-text">What was verified.</strong> Only the local Loki 3.5.0 and Prometheus 3.5.0 containers with synthetic data were tested. Remote and cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos, managed Prometheus) were not verified, and only bearer or basic auth is supported. Datadog, Azure Monitor and AWS CloudWatch were tested only against their synthetic contract fixtures, not a live organization, workspace or AWS account.</li>
           </ul>
           <p>
             Details, all settings and the interface for adding a provider: <code className="font-mono">docs/integrations/CONNECTORS.md</code>.
@@ -564,8 +578,8 @@ make infra-down`}
           <ul className="list-disc pl-4 space-y-1 pt-1">
             <li><strong className="text-text">No Shell or Arbitrary Execution:</strong> Tools do not accept free-form bash commands, arbitrary file paths, or unstructured SQL.</li>
             <li><strong className="text-text">Uploaded Evidence Is Read-Only:</strong> Incidents created from your files are analyzed, never remediated. The parsers cover common shapes, not every log format; check the preview before analyzing.</li>
-            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus (v0.6), Datadog (v0.9) and Azure Monitor (v0.10) connectors only read from the URLs, Datadog site or Log Analytics workspace you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
-            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs, the Datadog site API host and, for Azure Monitor, Microsoft Entra ID and api.loganalytics.azure.com, if configured.</li>
+            <li><strong className="text-text">Connected Telemetry Is Read-Only:</strong> The optional Loki/Prometheus (v0.6), Datadog (v0.9), Azure Monitor (v0.10) and AWS CloudWatch (v0.11) connectors only read from the URLs, Datadog site, Log Analytics workspace or mapped CloudWatch log groups and metrics you configure, with approved templates and bounded windows; their incidents are analyzed, never remediated.</li>
+            <li><strong className="text-text">Local-Only Network:</strong> Ollama and PostgreSQL communicate strictly across localhost (127.0.0.1). The only other destinations are the Loki/Prometheus URLs, the Datadog site API host for Azure Monitor, Microsoft Entra ID and api.loganalytics.azure.com, and for AWS CloudWatch the regional logs, monitoring and sts endpoints, if configured.</li>
             <li><strong className="text-text">Shared Operator Passphrase:</strong> The current release uses an environment-configured operator passphrase; multi-tenant enterprise SSO (OIDC/SAML) is scheduled for future milestones.</li>
           </ul>
         </div>

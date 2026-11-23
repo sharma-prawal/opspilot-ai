@@ -1,4 +1,4 @@
-# Connected observability (v0.6; Datadog v0.9; Azure Monitor v0.10)
+# Connected observability (v0.6; Datadog v0.9; Azure Monitor v0.10; AWS CloudWatch v0.11)
 
 OpsPilot can investigate real telemetry from your observability stack. You configure a connector, choose a service,
 an incident window and approved query templates, preview what comes back, and run the same LangGraph investigation
@@ -11,7 +11,7 @@ claimed from historical data.
 | Prometheus | metrics (PromQL `query_range`) | **implemented** (tested with `prom/prometheus:v3.5.0`) |
 | Datadog | logs (search), metrics (timeseries query), APM spans (search) | **implemented in v0.9**, tested only against a synthetic contract fixture: [DATADOG.md](DATADOG.md). Events are not collected |
 | Azure Monitor / Application Insights | traces and exceptions (AppTraces, AppExceptions), requests and dependencies (AppRequests, AppDependencies), KQL-derived metrics, over one Log Analytics workspace | **implemented in v0.10**, tested only against a synthetic Logs API fixture; not verified against a real Azure workspace: [AZURE_MONITOR.md](AZURE_MONITOR.md). Native resource metrics, sovereign clouds and change history are not collected |
-| Amazon CloudWatch | metrics, Logs Insights | planned, not implemented |
+| AWS CloudWatch | Logs Insights events from approved log groups, GetMetricData metrics of mapped ALB/ECS/Lambda/custom resources, one commercial-partition region | **implemented in v0.11** through the AWS SDK, tested only against a synthetic protocol fixture; not verified against a real AWS account: [AWS_CLOUDWATCH.md](AWS_CLOUDWATCH.md). CloudTrail, AWS Config and X-Ray are not collected |
 | Custom adapters | any | planned: implement the contract below |
 
 Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were not tested.
@@ -19,9 +19,10 @@ Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were
 ## How it works
 
 1. **Connectors exist only when configured.** `LOKI_URL` and/or `PROMETHEUS_URL`, `DATADOG_ENABLED=true` with a
-   documented `DATADOG_SITE` and keys, or `AZURE_MONITOR_ENABLED=true` with a workspace ID and one explicit
-   `AZURE_MONITOR_AUTH_MODE`, in the API environment. The API never accepts a URL, host, workspace, path, HTTP method
-   or query text from a request.
+   documented `DATADOG_SITE` and keys, `AZURE_MONITOR_ENABLED=true` with a workspace ID and one explicit
+   `AZURE_MONITOR_AUTH_MODE`, or `CLOUDWATCH_ENABLED=true` with a region, a resource mapping file and one explicit
+   `CLOUDWATCH_AUTH_MODE`, in the API environment. The API never accepts a URL, host, workspace, region, log group,
+   path, HTTP method or query text from a request.
 2. **Preview.** `POST /api/v1/incidents/connected/preview` runs each selected template for the affected service and
    each other affected service (up to 4 services, 40 queries) over one window (at most `TELEMETRY_MAX_WINDOW_HOURS`,
    default 6 h). The results are normalized into the same `LogRecord` / `MetricRecord` contracts as uploads. The
@@ -34,7 +35,8 @@ Thanos, Mimir and VictoriaMetrics expose the Prometheus query API, but they were
    are labelled `opspilot-connected-telemetry`, and the backends are not contacted again. Runbook and past-incident
    retrieval still uses the RAG knowledge base (`opspilot-ops-read`), so telemetry and knowledge stay separate.
 5. **Report.** The RCA cites `loki/<template>/<service>:entry N`, `prometheus/<template>/<service>:point N` and
-   `datadog/<template>/<service>:entry|point|span N` and `azure_monitor/<template>/<service>:entry|point|span N`. It
+   `datadog/<template>/<service>:entry|point|span N`, `azure_monitor/<template>/<service>:entry|point|span N` and
+   `cloudwatch/<template>/<service>:entry|point N`. It
    lists every query in a "Telemetry queries (provenance)" table and gives recommended next steps. Download it as
    Markdown. **Delete snapshot**, or `make uploads-purge` after the retention period, removes the snapshot and its
    analyses.
@@ -235,7 +237,7 @@ A provider implements `TelemetryConnector` (`packages/shared/opspilot_shared/con
 
 ```python
 class TelemetryConnector(Protocol):
-    id: str  # "loki", "prometheus", "datadog", "azure_monitor", ...
+    id: str  # "loki", "prometheus", "datadog", "azure_monitor", "cloudwatch", ...
     kind: ConnectorKind
     signal: Literal["log", "metric", "span"]  # primary signal
     signals: tuple[Signal, ...]  # v0.9: every signal its templates return (Datadog: log, metric, span)
@@ -244,7 +246,8 @@ class TelemetryConnector(Protocol):
     def templates(self) -> list[QueryTemplate]: ...
     async def test(self) -> ConnectionStatus: ...  # ok | partial | auth_error | permission_denied | rate_limited
     # | unavailable | error (multi-signal providers add ConnectionStatus.signals: one SignalStatus per product; Azure
-    # Monitor v0.10 adds ConnectionStatus.tables: one SignalStatus per Application Insights table)
+    # Monitor v0.10 adds ConnectionStatus.tables: one SignalStatus per Application Insights table; CloudWatch v0.11
+    # adds ConnectionStatus.identity (account, principal kind) and ConnectionStatus.log_groups)
     async def services(self, window: FetchWindow) -> list[str]: ...
     async def fetch(self, template: QueryTemplate, service: str, window: FetchWindow) -> FetchResult: ...
 ```
@@ -269,6 +272,12 @@ Every provider must meet these requirements:
    them in `allowed_post_paths()`; every other POST is refused, and a provider without that list cannot POST.
    Bounded retries for 429/503 (`max_retries`, `max_retry_wait`) are opt-in per connector. Subclassing `HttpConnector`
    (`connectors/base.py`) gives you URL validation, auth headers, window checks, the connection test and provenance.
+   A provider reached through an official SDK instead (AWS CloudWatch via botocore, v0.11) must give the same
+   guarantees itself: fixed regional endpoints verified per client, configured endpoint overrides ignored, an explicit
+   credential chain, bounded calls and credential-free error messages.
+7. **Asynchronous backends.** A provider whose queries are start/poll/stop (CloudWatch Logs Insights) runs the whole
+   lifecycle inside `fetch`: bounded concurrency, a poll and time ceiling, cleanup of its *own* unfinished query
+   (shielded, also on cancellation) and partial rows marked incomplete. The contract needs no change.
 5. **Registration.** Add the settings to `opspilot_shared.config.Settings`, build the connector in
    `connectors/registry.py` (only when its URL is configured), add its ID to the API's `ConnectorSourceIn` literal
    and the BFF route allowlist, and add built-in templates in `connectors/templates.py`.

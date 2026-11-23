@@ -311,3 +311,49 @@ def test_report_separates_facts_hypotheses_verified_and_unknown() -> None:
     provenance = md.split("## Telemetry queries (provenance)", 1)[1]
     assert "no accessible matching records (access not independently verified), 0 record(s)" in provenance
     assert "| empty, 0 record(s)" in provenance  # the Datadog row is unchanged
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# v0.11: details invented by the model and change claims with no change evidence (real qwen3.5:9b-q4_K_M run on the
+# synthetic CloudWatch fixture, whose logs show "inventory-service 3.8.0 starting" and "timeout acquiring connection").
+def test_invented_versions_quoted_names_and_uncited_deployments_are_noted_without_edits() -> None:
+    hyps = [
+        {
+            "title": "Database connection pool saturation caused payment-service timeouts",
+            "description": "This is supported by the high number of 'ConnectionPoolTimeout' errors in the logs.",
+            "confidence": 0.95,
+            "category": "resource_exhaustion",
+            "supporting_evidence_ids": ["ev-log-pool"],
+        },
+        {
+            "title": "A recent deployment introduced a bug that caused excessive connection usage",
+            "description": "The deployment of version 2.3.1 may have introduced a logic error (connection leaks).",
+            "confidence": 0.65,
+            "category": "deployment_regression",
+            "supporting_evidence_ids": ["ev-log-pool"],
+        },
+        {
+            "title": "payment-service 2.14.0 holds connections longer",
+            "description": "Observed start-up of version=2.14.0 'db.pool.max_size' change.",
+            "confidence": 0.4,
+            "category": "deployment_regression",
+            "supporting_evidence_ids": ["ev-chg-ver"],
+        },
+    ]
+    before = [(h["title"], h["description"]) for h in hyps]
+    calibrate_hypotheses(hyps, _state())
+    assert [(h["title"], h["description"]) for h in hyps] == before
+    assert any(
+        "Not found in the collected evidence: 'ConnectionPoolTimeout'" in w for w in hyps[0]["evidence_warnings"]
+    )
+    w2 = hyps[1]["evidence_warnings"]
+    assert any("Change claim without change evidence ('recent deployment')" in w for w in w2)
+    assert any("Not found in the collected evidence: version 2.3.1" in w for w in w2)
+    # a version and a setting that the evidence does contain are not flagged
+    assert not any("Not found" in w for w in hyps[2].get("evidence_warnings", []))
+    notes = calibration_summary_warnings("Version 9.9.9 of payment-service exhausted the pool.", _state())
+    assert any("version 9.9.9" in n for n in notes)
+    sim = _state("simulator")
+    sim_h = [{**hyps[1], "evidence_warnings": []}]
+    calibrate_hypotheses(sim_h, sim)
+    assert sim_h[0]["evidence_warnings"] == []  # simulator RCAs are never annotated
