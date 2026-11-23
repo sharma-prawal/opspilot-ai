@@ -1,4 +1,4 @@
-# AWS CloudWatch screenshots (v0.11, unreleased) — synthetic fixture data
+# AWS CloudWatch screenshots (v0.11) — synthetic fixture data
 
 These screenshots were captured by the Playwright journeys in `apps/web/e2e/cloudwatch.spec.ts` on the isolated E2E
 stack (`opspilot_test`, API 8100, web 3100), with `E2E_CLOUDWATCH=1` (the synthetic protocol fixture

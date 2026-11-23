@@ -15,12 +15,13 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.10.0, experimental, local-first.** **Azure Monitor / Application Insights** is a read-only evidence provider: traces, exceptions, requests, dependencies and KQL-derived metrics from one Log Analytics workspace feed the existing snapshot-driven investigation ([release notes](docs/releases/V0.10.0_NOTES.md)). It is tested against a synthetic Logs API fixture only; **no real Azure tenant or workspace has been used for validation**. Native Azure resource metrics, sovereign clouds and change history are deferred. RCAs stay model-written: uploaded and connected reports now separate observed facts, hypotheses, verified conclusions and unknowns, and add deterministic claim warnings, which are heuristic safeguards, not proof of diagnostic accuracy. **Datadog** (v0.9) is a read-only evidence provider, also tested only against a synthetic fixture ([release notes](docs/releases/V0.9.0_NOTES.md)). The v0.8.0 Visual Experience 2.0 design, the v0.7.1 environment allowlist and detached startup are preserved. Uploaded files and Loki/Prometheus/Datadog/Azure Monitor snapshots remain read-only; remediation acts only on the simulator with human approval. Run one API worker per database. Not intended for multi-user or network-exposed use. See [Limitations](#limitations).
-
-> **In development — v0.11.0 (draft, not released):** **AWS CloudWatch** as a read-only evidence provider — Logs
-> Insights events from explicitly mapped log groups and `GetMetricData` metrics of mapped ALB/ECS/Lambda/custom
-> resources, through the official AWS SDK ([draft notes](docs/releases/V0.11.0_NOTES.md)). Tested against a synthetic
-> protocol fixture only; **no real AWS account has been used.**
+> **Status: v0.11.0, experimental, local-first.** **AWS CloudWatch** is a read-only evidence provider: Logs Insights
+> events from explicitly mapped log groups and `GetMetricData` metrics of mapped ALB/ECS/Lambda/custom resources feed the
+> existing snapshot-driven investigation, alongside Loki, Prometheus, Datadog and Azure Monitor
+> ([release notes](docs/releases/V0.11.0_NOTES.md)). **It was tested only against a synthetic protocol fixture through
+> the real AWS SDK: no real AWS account was used. AWS authentication, IAM behaviour, live query syntax, quotas and scan
+> costs are not verified.** RCAs stay model-written: deterministic warnings flag unsupported claims, but suggestions can
+> still be wrong.
 
 Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
@@ -43,7 +44,7 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | PostgreSQL 17 + pgvector 0.8.7 in Colima, Alembic migrations (0001–0011), LangGraph Postgres checkpoints | ✅ |
 | Read-only analysis of uploaded log/metric/trace/event files (v0.5) and of Loki/Prometheus telemetry snapshots (v0.6) through the same LangGraph workflow | ✅ |
 | Datadog as a read-only evidence provider: logs, APM trace metrics and indexed APM spans (partial traces flagged), per-product connection test, bounded discovery, site allowlist, allowlisted read-only POST queries, bounded 429 handling | ✅ (v0.9) tested against a synthetic API fixture only; no real Datadog organization used for validation |
-| AWS CloudWatch as a read-only evidence provider: Logs Insights QL templates over explicitly mapped log groups (bounded start/poll, cleanup of OpsPilot's own unfinished queries), GetMetricData for mapped ALB/ECS/Lambda/custom metrics with statistic, period and documented units; explicit profile / workload role / access-key authentication; per-log-group connection test | 🧪 (v0.11, unreleased) tested against a synthetic protocol fixture through the real AWS SDK only; no real AWS account used |
+| AWS CloudWatch as a read-only evidence provider: Logs Insights QL templates over explicitly mapped log groups (bounded start/poll, cleanup of OpsPilot's own unfinished queries), GetMetricData for mapped ALB/ECS/Lambda/custom metrics with statistic, period and documented units; explicit profile / workload role / access-key authentication; per-log-group connection test | ✅ (v0.11) tested against a synthetic protocol fixture through the real AWS SDK only; no real AWS account used |
 | Azure Monitor / Application Insights as a read-only evidence provider: AppTraces, AppExceptions, AppRequests/AppDependencies (operation expansion, partial correlation flagged) and KQL-derived request/error/latency/dependency series; Microsoft Entra service principal, managed identity or Azure CLI; per-table connection test; bounded discovery; fixed destination | ✅ (v0.10) tested against a synthetic Logs API fixture only; no real Azure workspace used for validation; native resource metrics deferred |
 | Incremental RAG ingestion (hashing, versioning, dedup, lifecycle status) and hybrid retrieval (pgvector + full-text, RRF) that degrades to keyword-only when embeddings are down | ✅ |
 | Lifecycle-aware retrieval (superseded guidance never reaches investigations), serialized per-document revision publication, version/hash-pinned passages, self-verifying citation snapshots | ✅ (v0.2.1) |
@@ -127,7 +128,7 @@ Investigate real telemetry from **Grafana Loki** (logs) and **Prometheus** (metr
 **Incidents → Use Loki / Prometheus** (`/incidents/new?source=connected`) pick the configured sources, test the
 connection, give the affected service and an incident window, choose approved query templates, preview what came
 back, then start the read-only investigation. **Datadog** (v0.9), **Azure Monitor** (v0.10) and **AWS CloudWatch**
-(v0.11, unreleased) work the same way, see below. Custom adapters are **planned, not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has
+(v0.11) work the same way, see below. Custom adapters are **planned, not implemented**; [CONNECTORS.md](docs/integrations/CONNECTORS.md) has
 the interface contract for adding one.
 
 First run with the local demo stack (tested):
@@ -261,7 +262,7 @@ AZURE_CLIENT_SECRET=...
   **Not yet verified against a real Azure workspace.** Screenshots of the fixture journey (synthetic data):
   [docs/images/azure](docs/images/azure/README.md).
 
-### AWS CloudWatch (v0.11, unreleased)
+### AWS CloudWatch (v0.11)
 
 CloudWatch is a read-only evidence provider in the same workflow, for **one region of the AWS commercial partition**:
 **Logs Insights events** (errors, warnings, timeouts/dependency failures, start-up/version/configuration lines,
@@ -287,6 +288,10 @@ CLOUDWATCH_AWS_PROFILE=opspilot-readonly
 - **Truthful evidence.** Periods without datapoints are absent, not zero; statistic, period, dimensions and the unit
   AWS documents are kept; unmapped resources are "not queried"; start-up/configuration lines are indicators, not change
   history (CloudTrail and AWS Config are not collected).
+- **Evidence quality and RCA safeguards.** Repeated log lines that differ only by request/trace IDs are grouped, and
+  observed start-up/configuration lines are shown by their message with a source reference. Deterministic warnings
+  flag invented identifiers and versions, uncited change claims, causes stated as fact and restart suggestions under a
+  configuration hypothesis. The RCA text is never edited, and warned-about recommendations can still be wrong.
 - **Verified.** Tested only against `make cloudwatch-fixture`, a synthetic protocol fixture driven by the real SDK.
   **Not verified against a real AWS account.** Screenshots (synthetic data): [docs/images/cloudwatch](docs/images/cloudwatch/README.md).
 
@@ -355,8 +360,8 @@ v0.2.1 received a **conditional** sign-off from the final independent verificati
    operation-specific (`trace.http.request`). The Azure Monitor connector (v0.10) was tested only
    against a synthetic Logs API fixture; no real Azure workspace has been used for validation. It reads workspace-based
    Application Insights tables in the Azure public cloud only; native resource metrics and change history are not
-   collected, and sampled or partially correlated operations stay partial. The AWS CloudWatch connector (v0.11,
-   unreleased) was tested only against a synthetic protocol fixture through the real AWS SDK; no real AWS account has
+   collected, and sampled or partially correlated operations stay partial. The AWS CloudWatch connector (v0.11)
+   was tested only against a synthetic protocol fixture through the real AWS SDK; no real AWS account has
    been used. It covers one commercial-partition region, mapped log groups and resources only; CloudTrail, AWS Config
    and X-Ray are not collected.
 2. **No production infrastructure access** is implemented or certified. Actions affect only the simulator.
