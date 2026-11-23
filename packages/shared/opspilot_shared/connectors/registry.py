@@ -9,6 +9,7 @@ import httpx
 from opspilot_shared.config import Settings
 from opspilot_shared.connectors.azure_monitor import AzureMonitorConnector
 from opspilot_shared.connectors.base import Limits
+from opspilot_shared.connectors.cloudwatch_resources import load_resources
 from opspilot_shared.connectors.contract import ConnectorError, TelemetryConnector
 from opspilot_shared.connectors.datadog import DatadogConnector
 from opspilot_shared.connectors.loki import LokiConnector
@@ -31,9 +32,16 @@ KNOWN = {
         "env": "AZURE_MONITOR_ENABLED=true, AZURE_MONITOR_WORKSPACE_ID and an AZURE_MONITOR_AUTH_MODE with its "
         "credentials",
     },
+    "cloudwatch": {
+        "name": "AWS CloudWatch",
+        "signal": "log",
+        "signals": ["log", "metric"],
+        "env": "CLOUDWATCH_ENABLED=true, CLOUDWATCH_REGION, CLOUDWATCH_RESOURCES_FILE and a CLOUDWATCH_AUTH_MODE with "
+        "its credentials",
+    },
 }
 # Shown in the UI and docs so planned work is never mistaken for an implemented connector.
-PLANNED = ("Amazon CloudWatch", "custom adapters")
+PLANNED = ("custom adapters",)
 
 
 class ConnectorRegistry:
@@ -49,7 +57,11 @@ class ConnectorRegistry:
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, *, transports: dict[str, httpx.AsyncBaseTransport] | None = None
+        cls,
+        settings: Settings,
+        *,
+        transports: dict[str, httpx.AsyncBaseTransport] | None = None,
+        cloudwatch_clients: dict[str, Any] | None = None,
     ) -> ConnectorRegistry:
         templates, template_problems = load_templates(settings.telemetry_templates_file)
         limits = Limits(
@@ -123,6 +135,28 @@ class ConnectorRegistry:
                 )
             except ConnectorError as exc:
                 problems["azure_monitor"] = exc.message
+        if settings.cloudwatch_enabled:
+            try:
+                from opspilot_shared.connectors.cloudwatch import CloudWatchConnector  # loads botocore only when on
+
+                connectors["cloudwatch"] = CloudWatchConnector(
+                    region=settings.cloudwatch_region,
+                    resources=load_resources(settings.cloudwatch_resources_file),
+                    limits=limits,
+                    auth_mode=settings.cloudwatch_auth_mode,
+                    profile=settings.cloudwatch_aws_profile,
+                    access_key_id=settings.cloudwatch_access_key_id.get_secret_value(),
+                    secret_access_key=settings.cloudwatch_secret_access_key.get_secret_value(),
+                    session_token=settings.cloudwatch_session_token.get_secret_value(),
+                    role_arn=settings.cloudwatch_role_arn,
+                    account_id=settings.cloudwatch_account_id,
+                    max_records=settings.cloudwatch_max_records,
+                    query_timeout=settings.cloudwatch_query_timeout_seconds,
+                    local_endpoint_url=settings.cloudwatch_local_endpoint_url,
+                    clients=(cloudwatch_clients or None),
+                )  # type: ignore[assignment]
+            except ConnectorError as exc:
+                problems["cloudwatch"] = exc.message
         return cls(connectors, problems, template_problems)
 
     def get(self, connector_id: str) -> TelemetryConnector:

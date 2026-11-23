@@ -61,9 +61,10 @@ def test_only_configured_connectors_exist_and_describe_holds_no_secret() -> None
         "prometheus": False,
         "datadog": False,  # v0.9: implemented, so listed as a connector and no longer as planned
         "azure_monitor": False,  # v0.10: likewise
+        "cloudwatch": False,  # v0.11: likewise
     }
     planned = " ".join(desc["planned"])
-    assert "Datadog" not in planned and "Azure Monitor" not in planned and "CloudWatch" in planned
+    assert "Datadog" not in planned and "Azure Monitor" not in planned and "CloudWatch" not in planned  # v0.11
     with pytest.raises(ConnectorError) as exc:
         reg.get("loki")
     assert exc.value.kind == "not_configured" and "LOKI_URL" in exc.value.message

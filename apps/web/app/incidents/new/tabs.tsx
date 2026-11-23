@@ -6,7 +6,7 @@ import Link from "next/link";
 export function SourceTabs({ active }: { active: "upload" | "connected" }) {
   const tabs = [
     { key: "upload", href: "/incidents/new", label: "Upload files", hint: ".log .txt .json .csv" },
-    { key: "connected", href: "/incidents/new?source=connected", label: "Connected telemetry", hint: "Loki · Prometheus · Datadog · Azure Monitor" },
+    { key: "connected", href: "/incidents/new?source=connected", label: "Connected telemetry", hint: "Loki · Prometheus · Datadog · Azure Monitor · CloudWatch" },
   ] as const;
   return (
     <nav aria-label="Evidence source" className="flex flex-wrap gap-2">

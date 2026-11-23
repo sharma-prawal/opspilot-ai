@@ -55,7 +55,7 @@ class ConnectorSourceIn(BaseModel):
     only: no query text, URL, host, workspace, path or HTTP method is accepted."""
 
     model_config = ConfigDict(extra="forbid")
-    connector: Literal["loki", "prometheus", "datadog", "azure_monitor"]
+    connector: Literal["loki", "prometheus", "datadog", "azure_monitor", "cloudwatch"]
     templates: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")]] = Field(min_length=1, max_length=12)
 
 

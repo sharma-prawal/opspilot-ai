@@ -136,7 +136,7 @@ async def test_azure_is_listed_tested_and_discovered_without_secrets(
     r = await client.get("/api/v1/connectors")
     assert r.status_code == 200 and no_secrets(r.text)
     by_id = {c["id"]: c for c in r.json()["connectors"]}
-    assert set(by_id) == {"loki", "prometheus", "datadog", "azure_monitor"}
+    assert set(by_id) == {"loki", "prometheus", "datadog", "azure_monitor", "cloudwatch"}  # v0.11: listed, unconfigured
     a = by_id["azure_monitor"]
     assert a["configured"] and a["fixture"] is True and a["workspace_id"] == WORKSPACE
     assert a["signals"] == ["log", "metric", "span"] and {t["signal"] for t in a["templates"]} == {

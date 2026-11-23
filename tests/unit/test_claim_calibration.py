@@ -301,7 +301,7 @@ def test_report_separates_facts_hypotheses_verified_and_unknown() -> None:
         "anomalous metric(s) on orders-api. This is not the current live state" in md
     )
     assert "Impact at analysis time" not in md
-    assert "> ⚠ Step 1 (`restart_service`): A restart reloads the configuration that is currently persisted" in md
+    assert "> ⚠ Step 1 (`restart_service`): Restarting a service generally reloads its persisted configuration" in md
     coverage = md.split("## Evidence coverage", 1)[1].split("\n## ", 1)[0]
     assert f"| {AZURE_EMPTY_LABEL} | `azure_monitor/exceptions/inventory-service`" in coverage
     assert "this does not show that no such records exist" in coverage
@@ -311,3 +311,106 @@ def test_report_separates_facts_hypotheses_verified_and_unknown() -> None:
     provenance = md.split("## Telemetry queries (provenance)", 1)[1]
     assert "no accessible matching records (access not independently verified), 0 record(s)" in provenance
     assert "| empty, 0 record(s)" in provenance  # the Datadog row is unchanged
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# v0.11: details invented by the model and change claims with no change evidence (real qwen3.5:9b-q4_K_M run on the
+# synthetic CloudWatch fixture, whose logs show "inventory-service 3.8.0 starting" and "timeout acquiring connection").
+def test_invented_versions_quoted_names_and_uncited_deployments_are_noted_without_edits() -> None:
+    hyps = [
+        {
+            "title": "Database connection pool saturation caused payment-service timeouts",
+            "description": "This is supported by the high number of 'ConnectionPoolTimeout' errors in the logs.",
+            "confidence": 0.95,
+            "category": "resource_exhaustion",
+            "supporting_evidence_ids": ["ev-log-pool"],
+        },
+        {
+            "title": "A recent deployment introduced a bug that caused excessive connection usage",
+            "description": "The deployment of version 2.3.1 may have introduced a logic error (connection leaks).",
+            "confidence": 0.65,
+            "category": "deployment_regression",
+            "supporting_evidence_ids": ["ev-log-pool"],
+        },
+        {
+            "title": "payment-service 2.14.0 holds connections longer",
+            "description": "Observed start-up of version=2.14.0 'db.pool.max_size' change.",
+            "confidence": 0.4,
+            "category": "deployment_regression",
+            "supporting_evidence_ids": ["ev-chg-ver"],
+        },
+    ]
+    before = [(h["title"], h["description"]) for h in hyps]
+    calibrate_hypotheses(hyps, _state())
+    assert [(h["title"], h["description"]) for h in hyps] == before
+    assert any(
+        "Not found in the collected evidence: 'ConnectionPoolTimeout'" in w for w in hyps[0]["evidence_warnings"]
+    )
+    w2 = hyps[1]["evidence_warnings"]
+    assert any("Change claim without change evidence ('recent deployment')" in w for w in w2)
+    assert any("Not found in the collected evidence: version 2.3.1" in w for w in w2)
+    # a version and a setting that the evidence does contain are not flagged
+    assert not any("Not found" in w for w in hyps[2].get("evidence_warnings", []))
+    notes = calibration_summary_warnings("Version 9.9.9 of payment-service exhausted the pool.", _state())
+    assert any("version 9.9.9" in n for n in notes)
+    sim = _state("simulator")
+    sim_h = [{**hyps[1], "evidence_warnings": []}]
+    calibrate_hypotheses(sim_h, sim)
+    assert sim_h[0]["evidence_warnings"] == []  # simulator RCAs are never annotated
+
+
+def test_restart_limitation_when_hypothesis_names_a_persistent_setting_in_any_category() -> None:
+    """v0.11: a misconfigured limit is often categorized resource_exhaustion; the wording decides, not the category."""
+    state = _state()
+    restart = {"action_type": "restart_service", "parameters": {"service": "payment-service"}}
+    state["rca"] = {
+        "hypotheses": [
+            {
+                "rank": 1,
+                "title": "Connection pool max_size reduced to 5 exhausts payment-service",
+                "description": "The configured pool size is too small for the load.",
+                "category": "resource_exhaustion",
+                "supporting_evidence_ids": ["ev-log-pool"],  # cites no configuration line
+            }
+        ]
+    }
+    lim = suggestion_limitations(restart, state)
+    assert lim and lim[0].startswith(
+        "Restarting a service generally reloads its persisted configuration and may not resolve the underlying "
+        "configuration problem."
+    )
+    # symptoms alone (saturation from load) are not a configuration claim
+    state["rca"]["hypotheses"][0] = {
+        "rank": 1,
+        "title": "Database connection pool saturation caused timeouts",
+        "description": "A spike in requests overwhelmed the pool.",
+        "category": "resource_exhaustion",
+        "supporting_evidence_ids": ["ev-log-pool"],
+    }
+    assert suggestion_limitations(restart, state) == []
+    # the suggestion itself is never altered or removed: limitations are a separate list (nodes.propose)
+    assert suggestion_limitations({"action_type": "scale_connection_pool"}, state) == []
+
+
+def test_observed_change_lines_show_the_recorded_message_and_source() -> None:
+    from opspilot_agents.claims import change_observations, readable_line
+
+    line = (
+        '{"level": "INFO", "service": "inventory-service", "msg": "configuration loaded: db.pool.max_size=8 '
+        '(previous 40) source=ssm:/shop/prod/inventory/db", "requestId": "req-003755cd", "traceId": "1-6afdafe9-'
+        '624653fc18fe45eb2197e27a"}'
+    )
+    assert readable_line(line).startswith("configuration loaded: db.pool.max_size=8 (previous 40)")
+    assert readable_line("starting payment-service version=2.14.0") == "starting payment-service version=2.14.0"
+    ev = _obs("ev-chg-json", line)
+    ev["data"]["attributes"] = {"source_ref": "cloudwatch/cw_lifecycle/inventory-service:entry 3"}
+    (obs,) = change_observations({"ev-chg-json": ev})
+    assert obs["line"].startswith("configuration loaded: db.pool.max_size=8")
+    assert obs["source"] == "cloudwatch/cw_lifecycle/inventory-service:entry 3"
+    assert ev["data"]["sample"] == line  # the evidence keeps the full original line
+    state = _state()
+    state["evidence"]["ev-chg-json"] = ev
+    hyps = [{"title": "The deployment reduced the pool", "description": "x", "confidence": 0.5,
+             "category": "deployment_regression", "supporting_evidence_ids": ["ev-chg-json"]}]  # fmt: skip
+    calibrate_hypotheses(hyps, state)
+    assert "ev-chg-json: 'configuration loaded: db.pool.max_size=8" in hyps[0]["evidence_warnings"][0]

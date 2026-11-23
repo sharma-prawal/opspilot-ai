@@ -107,3 +107,38 @@ def test_zero_baseline_count_noise_is_not_an_onset() -> None:
     real = series([float(rng.choice([0, 0, 1, 2])) for _ in range(100)] + [220.0, 226.0, 224.0, 221.0])
     s = detect_shift(real, metric="consumer_retries_per_min", unit="attempts/min")
     assert s is not None and s.onset == T0 + timedelta(minutes=100)
+
+
+def test_request_and_trace_ids_do_not_split_repeated_errors() -> None:
+    """v0.11: per-request IDs made each occurrence a one-off pattern, so frequent errors fell out of the top-N."""
+    from datetime import UTC, datetime, timedelta
+
+    from opspilot_agents.analysis import cluster_logs, signature
+
+    t0 = datetime(2026, 11, 18, 14, 5, tzinfo=UTC)
+    pool = (
+        '{"level": "ERROR", "msg": "timeout acquiring connection from pool after 2000 ms", '
+        '"requestId": "req-%08x", "traceId": "1-%08x-%024x"}'
+    )
+    entries = [
+        {"ts": t0 + timedelta(seconds=i), "level": "ERROR", "message": pool % (i * 7919, i, i * 104729)}
+        for i in range(40)
+    ]
+    entries += [
+        {
+            "ts": t0 + timedelta(minutes=i),
+            "level": "ERROR",
+            "message": f"ERROR requestId={i:08x}-c50e upstream x returned 502",
+        }
+        for i in range(10)
+    ]
+    entries += [{"ts": t0, "level": "ERROR", "message": f"rare error {n}"} for n in ("a", "b", "c", "d", "e", "f")]
+    top = cluster_logs(entries, top_n=6)
+    assert top[0].count == 40 and "timeout acquiring connection" in top[0].sample  # original line kept as sample
+    assert top[1].count == 10
+    assert "req-" in top[0].sample and "<id>" in top[0].signature
+    # identifiers in free text (simulator message IDs) are left alone
+    assert (
+        signature("Retrying message msg-ba96ce06e104 (attempt 2/3)")
+        == "Retrying message msg-ba96ce06e104 (attempt <n>/<n>)"
+    )

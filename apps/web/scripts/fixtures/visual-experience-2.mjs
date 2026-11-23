@@ -460,7 +460,7 @@ export async function installFixtures(page, state) {
           },
         ],
         template_problems: [],
-        planned: ["Datadog", "Azure Monitor", "AWS CloudWatch"],
+        planned: ["custom adapters"],
         max_queries: 12,
       };
     else if (path.endsWith("/connectors/loki/test"))

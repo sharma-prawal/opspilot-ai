@@ -8,7 +8,7 @@ import { Badge, Button, Card, Empty, ErrorNote, PageHeader } from "@/components/
 import { SeriesChart } from "@/components/visuals";
 import { api } from "@/lib/api";
 import {
-  DEMO_AZURE, DEMO_CONNECTED, DEMO_DATADOG, TABLE_STATE, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, queryStatusLabel,
+  DEMO_AZURE, DEMO_CLOUDWATCH, DEMO_CONNECTED, DEMO_DATADOG, TABLE_STATE, connectedService, parseConnectedServices, SIGNAL_STATE, STATE_LABEL, defaultWindow, queryErrorHint, queryStatusLabel,
   signalLabel, signalsOf, templateSignal, utcIso, windowProblem,
 } from "@/lib/connectors";
 import { utcTime } from "@/lib/format";
@@ -87,7 +87,14 @@ function ConnectorCard({
         </p>
       ) : (
         <>
-          {c.workspace_id ? (
+          {c.id === "cloudwatch" ? (
+            <p className="mt-1 text-[11px] text-muted">
+              region <span className="font-mono">{c.region}</span> ({c.partition}) · auth: {c.auth}
+              {c.profile ? <> · profile <span className="font-mono">{c.profile}</span></> : null}
+              {status?.identity ? <> · account <span className="font-mono">{status.identity.account}</span>{status.identity.role ? <> ({status.identity.principal} <span className="font-mono">{status.identity.role}</span>)</> : <> ({status.identity.principal})</>}</> : null}
+              {" "}· services and log groups from <span className="font-mono">CLOUDWATCH_RESOURCES_FILE</span> · <Badge tone="neutral" className="text-[10px]">read-only</Badge>
+            </p>
+          ) : c.workspace_id ? (
             <p className="mt-1 text-[11px] text-muted">
               workspace <span className="font-mono">{c.workspace_id}</span> · <span className="font-mono">{c.endpoint}</span>
               {" "}· auth: {c.auth} · service = <span className="font-mono">{c.service_label}</span> (case-insensitive)
@@ -123,6 +130,27 @@ function ConnectorCard({
               ))}
             </ul>
           )}
+          {c.id === "cloudwatch" && (
+            <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label={`${c.name} log groups`}>
+              {(c.log_groups ?? []).map((g) => {
+                const st = status?.log_groups?.[g];
+                return (
+                  <li key={g} title={st?.message ?? "approved log group (not yet tested)"}>
+                    <Badge tone={st ? TABLE_STATE[st.status].tone : "neutral"} className="font-mono text-[10px]">
+                      {g}{st ? `: ${st.status === "unsupported" ? "not found" : TABLE_STATE[st.status].label === "present" ? "readable" : TABLE_STATE[st.status].label}` : ""}
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {c.id === "cloudwatch" && (
+            <p className="mt-1.5 text-[11px] text-muted">
+              Logs Insights is billed by scanned volume: each selected log template is one query per service over its
+              approved log groups (at most {c.limits_extra?.queries_in_flight ?? 3} at a time, stopped after{" "}
+              {c.limits_extra?.query_timeout_seconds ?? 60} s). The connection test scans one minute per group.
+            </p>
+          )}
           <fieldset className="mt-3 space-y-1.5" disabled={!enabled}>
             <legend className="text-[11px] font-semibold uppercase tracking-wider text-muted">Approved query templates</legend>
             {groups.map(({ sig, items }) => (
@@ -134,7 +162,7 @@ function ConnectorCard({
                 )}
             {items.map((t) => (
               <label key={t.id} className="flex items-start gap-2 text-xs">
-                <input type="checkbox" className="mt-0.5" checked={chosen.includes(t.id)}
+                <input type="checkbox" className="mt-0.5 shrink-0" checked={chosen.includes(t.id)}
                   onChange={(e) => onChosen(e.target.checked ? [...chosen, t.id] : chosen.filter((x) => x !== t.id))} />
                 <span>
                   <span className="font-semibold text-text">{t.label}</span>
@@ -260,9 +288,11 @@ export function ConnectedView() {
     setIncidentTime(demo.time);
   }
   // The local demo incidents only exist in the local test setups: Loki/Prometheus (`make telemetry-up`) and the
-  // synthetic Datadog/Azure Monitor fixtures (loopback only). Never offered against a real Datadog site or workspace.
+  // synthetic Datadog/Azure Monitor/CloudWatch fixtures (loopback only). Never offered against a real site, workspace
+  // or AWS account.
   const ddFixture = configured.some((c) => c.id === "datadog" && c.fixture);
   const azFixture = configured.some((c) => c.id === "azure_monitor" && c.fixture);
+  const cwFixture = configured.some((c) => c.id === "cloudwatch" && c.fixture);
   const v06Demo = configured.some((c) => c.id === "loki" || c.id === "prometheus");
 
   const busy = previewM.isPending || create.isPending;
@@ -282,7 +312,7 @@ export function ConnectedView() {
         badge={<Badge tone="cyan">Connected telemetry</Badge>}
         subtitle={
           <span>
-            Query your configured Grafana Loki, Prometheus, Datadog or Azure Monitor for one incident window with approved templates,
+            Query your configured Grafana Loki, Prometheus, Datadog, Azure Monitor or AWS CloudWatch for one incident window with approved templates,
             check what came back, then investigate with the local model{" "}
             <ModelName kind="llm" className="font-mono text-xs text-text" /> — read-only: it suggests
             remediation but never executes it.
@@ -314,10 +344,12 @@ export function ConnectedView() {
           >
             <strong className="text-text">No connector is configured.</strong> Set <code className="font-mono">LOKI_URL</code>,{" "}
             <code className="font-mono">PROMETHEUS_URL</code>, <code className="font-mono">DATADOG_ENABLED</code> with
-            the Datadog site and keys, and/or <code className="font-mono">AZURE_MONITOR_ENABLED</code> with a workspace ID
-            and credentials in the API environment (see .env.example) and restart the API. For local test setups
-            with synthetic data run <code className="font-mono">make telemetry-up</code>,{" "}
-            <code className="font-mono">make datadog-fixture</code> or <code className="font-mono">make azure-fixture</code>.
+            the Datadog site and keys, <code className="font-mono">AZURE_MONITOR_ENABLED</code> with a workspace ID
+            and credentials, and/or <code className="font-mono">CLOUDWATCH_ENABLED</code> with a region, resource mapping
+            and AWS authentication mode in the API environment (see .env.example) and restart the API. For local test
+            setups with synthetic data run <code className="font-mono">make telemetry-up</code>,{" "}
+            <code className="font-mono">make datadog-fixture</code>, <code className="font-mono">make azure-fixture</code>{" "}
+            or <code className="font-mono">make cloudwatch-fixture</code>.
           </Empty>
         </Card>
       ) : (
@@ -329,6 +361,7 @@ export function ConnectedView() {
                   {v06Demo && <Button size="sm" variant="secondary" onClick={() => loadDemo()}>Use the local demo incident</Button>}
                   {ddFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_DATADOG)}>Use the Datadog fixture incident</Button>}
                   {azFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_AZURE)}>Use the Azure fixture incident</Button>}
+                  {cwFixture && <Button size="sm" variant="secondary" onClick={() => loadDemo(DEMO_CLOUDWATCH)}>Use the CloudWatch fixture incident</Button>}
                 </div>
               }>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -344,7 +377,7 @@ export function ConnectedView() {
                       onChange={(e) => { setDescription(e.target.value); invalidate(); }} />
                   </Field>
                 </div>
-                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; Azure: AppRoleName, case-insensitive; '.' and '_' allowed). Loki/Prometheus: slugs only.">
+                <Field label="Affected service" htmlFor="cn-svc" hint="Exact value of the service label (Datadog: service tag; Azure: AppRoleName, case-insensitive; CloudWatch: a service mapped in CLOUDWATCH_RESOURCES_FILE; '.' and '_' allowed). Loki/Prometheus: slugs only.">
                   <input id="cn-svc" className={input} value={service} placeholder="checkout-api" list="cn-services"
                     aria-invalid={!!service && !primary} onChange={(e) => { setService(e.target.value); invalidate(); }} />
                 </Field>
@@ -473,6 +506,14 @@ export function ConnectedView() {
                         <tr key={q.id} className="align-top">
                           <td className="py-2 pr-3"><span className="font-mono text-text">{q.id}</span>
                             {q.tables?.length ? <span className="block text-[10px] text-muted">tables: {q.tables.join(", ")}</span> : null}
+                            {q.aws?.log_groups?.length ? (
+                              <span className="block text-[10px] text-muted">
+                                {q.aws.region} · log groups: <span className="font-mono">{q.aws.log_groups.join(", ")}</span>
+                                {q.aws.query_id ? <> · query <span className="font-mono">{q.aws.query_id}</span> ({q.aws.query_status}, {q.aws.polls} poll{q.aws.polls === 1 ? "" : "s"}{q.aws.stopped ? ", stopped" : ""})</> : null}
+                              </span>
+                            ) : q.aws?.metrics?.length ? (
+                              <span className="block text-[10px] text-muted">{q.aws.region} · period {q.aws.period_seconds} s · statistic {q.aws.metrics.map((m) => m.stat).join(", ")}</span>
+                            ) : null}
                             <code className="mt-0.5 block max-w-sm break-all font-mono text-[10px] text-muted">{q.query}</code>
                             {q.link?.startsWith("https://") && (
                               <a href={q.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent hover:underline">Open in Datadog ↗</a>
@@ -553,8 +594,9 @@ export function ConnectedView() {
               <p className="text-xs leading-relaxed text-text-muted">
                 Deployment and config-change history, live health, runtime configuration, datastore and queue state;
                 traces too, unless Datadog APM spans or Application Insights requests/dependencies are collected (a
-                bounded, possibly sampled set, so a trace can be partial). The agent treats what is missing as unknown
-                and the report lists it as a gap. Connectors for CloudWatch and custom sources are planned, not
+                bounded, possibly sampled set, so a trace can be partial). AWS CloudWatch contributes Logs Insights
+                events and metrics of mapped resources only (no CloudTrail, AWS Config or X-Ray). The agent treats what
+                is missing as unknown and the report lists it as a gap. Connectors for custom sources are planned, not
                 implemented.
               </p>
             </Card>

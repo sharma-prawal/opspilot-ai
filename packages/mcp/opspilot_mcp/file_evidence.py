@@ -66,12 +66,19 @@ NO_CHANGE_HISTORY = (
     "(Loki logs and Prometheus metrics); whether a change happened is unknown"
 )
 # v0.9: wording for snapshots that include Datadog. Loki/Prometheus-only snapshots keep the v0.6 messages verbatim.
-_BACKEND = {"loki": "Loki", "prometheus": "Prometheus", "datadog": "Datadog", "azure_monitor": "Azure Monitor"}
+_BACKEND = {
+    "loki": "Loki",
+    "prometheus": "Prometheus",
+    "datadog": "Datadog",
+    "azure_monitor": "Azure Monitor",
+    "cloudwatch": "AWS CloudWatch",
+}
 _SIGNAL_OF = {
     "loki": ("log",),
     "prometheus": ("metric",),
     "datadog": ("log", "metric", "span"),
     "azure_monitor": ("log", "metric", "span"),
+    "cloudwatch": ("log", "metric"),
 }
 _DD_SIGNALS = "Datadog logs, metrics and APM spans; Datadog events are not collected"
 # v0.10: what an Azure Monitor snapshot holds, and what it never holds.
@@ -79,7 +86,12 @@ _AZURE_SIGNALS = (
     "Azure Monitor Application Insights traces, exceptions, requests, dependencies and KQL-derived metrics; the Azure "
     "activity log, deployment records and release annotations are not collected"
 )
-_COLLECTS = {"datadog": _DD_SIGNALS, "azure_monitor": _AZURE_SIGNALS}
+# v0.11: what an AWS CloudWatch snapshot holds, and what it never holds.
+_CLOUDWATCH_SIGNALS = (
+    "AWS CloudWatch Logs Insights events from approved log groups and GetMetricData metrics of mapped resources; "
+    "AWS CloudTrail, AWS Config, deployment records and X-Ray traces are not collected"
+)
+_COLLECTS = {"datadog": _DD_SIGNALS, "azure_monitor": _AZURE_SIGNALS, "cloudwatch": _CLOUDWATCH_SIGNALS}
 
 
 def _v06(connectors: tuple[str, ...]) -> bool:
@@ -163,7 +175,7 @@ class LoadedUpload:
 def _query_view(q: dict[str, Any]) -> dict[str, Any]:
     keys = ("id", "connector", "connector_name", "template_label", "service", "query", "start", "end", "step_seconds")
     view = {k: q.get(k) for k in (*keys, "limit", "status", "returned", "truncated", "unit")}
-    for k in ("signal", "site", "link", "workspace", "tables"):  # v0.9/v0.10 (absent from older snapshots)
+    for k in ("signal", "site", "link", "workspace", "tables", "aws"):  # v0.9-v0.11 (absent from older snapshots)
         if q.get(k) is not None:
             view[k] = q[k]
     if any("sampled telemetry" in str(i) for i in q.get("issues") or []):  # v0.10 Azure: ItemCount-weighted values

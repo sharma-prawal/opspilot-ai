@@ -24,6 +24,7 @@ dependencies = [
   "opentelemetry-sdk>=1.45,<2",
   "pyyaml>=6.0,<7",
   "azure-identity>=1.25,<2",
+  "boto3>=1.40,<2",
 ]
 
 [project.optional-dependencies]
@@ -109,7 +110,7 @@ explicit_package_bases = true
 exclude = ["apps/web", "infra/db/migrations", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["pgvector.*", "langgraph.*", "yaml", "opentelemetry.exporter.*"]
+module = ["pgvector.*", "langgraph.*", "yaml", "opentelemetry.exporter.*", "botocore.*", "boto3.*"]
 ignore_missing_imports = true
 
 [tool.importlinter]

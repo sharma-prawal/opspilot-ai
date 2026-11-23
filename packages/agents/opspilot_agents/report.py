@@ -437,7 +437,13 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
     # v0.10: Azure answers protected or restricted tables with zero rows when the caller lacks data access, so an empty
     # Azure query does not show that no such records exist.
     az_empty = [q["id"] for q in queries if q.get("status") == "empty" and q.get("connector") == "azure_monitor"]
-    failed = [q["id"] for q in inc.get("telemetry_queries") or [] if q.get("status") == "error"]
+    failed = [
+        q["id"]
+        for q in inc.get("telemetry_queries") or []
+        if q.get("status") == "error" and not (q.get("aws") or {}).get("not_queried")
+    ]
+    # v0.11: CloudWatch templates selected for a service without the mapped resource were never sent.
+    not_queried = [q["id"] for q in inc.get("telemetry_queries") or [] if (q.get("aws") or {}).get("not_queried")]
     unread = change_history_unread(state)
     gaps = [_one_line(e["summary"], 140) for e in ev.values() if e["kind"] == "tool_error"]
     not_collected = []
@@ -447,6 +453,7 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             "**unknown**; its absence is not evidence that nothing changed"
         )
     not_collected += [f"query `{q}` failed" for q in failed]
+    not_collected += [f"`{q}` was not queried (no mapped CloudWatch resource)" for q in not_queried]
     incomplete = [
         q["id"] for q in inc.get("telemetry_queries") or [] if q.get("truncated") and q.get("status") != "error"
     ]
@@ -458,6 +465,7 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
             (
                 "; ".join(
                     f"`{o['evidence_id']}` {o['service']} {str(o['first_seen'])[11:16]}Z: {_one_line(o['line'], 90)}"
+                    + (f" _(source: {o['source']})_" if o.get("source") else "")
                     for o in observed[:4]
                 )
                 + " (log indicators of a possible change: not a verified deployment history and not proof of cause)"
@@ -468,7 +476,15 @@ def _coverage_section(state: dict[str, Any]) -> list[str]:
         ("Contradicting evidence", ", ".join(f"`{i}`" for i in contra) or "none cited by the model"),
         (
             "Searched, nothing found",
-            ", ".join(f"`{q}`" for q in empty) or ("none" if az_empty else "every query returned records"),
+            (
+                ", ".join(f"`{q}`" for q in empty)
+                + (
+                    " (CloudWatch: only the approved log groups and mapped resources were searched)"
+                    if any(q.get("connector") == "cloudwatch" and q.get("status") == "empty" for q in queries)
+                    else ""
+                )
+            )
+            or ("none" if az_empty else "every query returned records"),
         ),
         ("Not collected / unavailable", "; ".join(not_collected) or "none"),
     ]
@@ -513,6 +529,8 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
         status = q.get("status")
         if status == "empty" and q.get("connector") == "azure_monitor":
             status = "no accessible matching records (access not independently verified)"
+        if (q.get("aws") or {}).get("not_queried"):  # v0.11: never sent to AWS (no mapped resource)
+            status = "not queried (no mapped resource)"
         res = f"{status}, {q.get('returned', 0)} record(s)" + (" (truncated)" if q.get("truncated") else "")
         step = f", step {q['step_seconds']} s" if q.get("step_seconds") else ""
         source = str(q.get("connector_name"))
@@ -520,6 +538,11 @@ def _query_section(inc: dict[str, Any]) -> list[str]:
             source += f" ({q['site']}, {q.get('signal')})"
         elif q.get("workspace"):  # v0.10 Azure Monitor: workspace, signal and source tables
             source += f" (workspace {q['workspace']}, {q.get('signal')}, {', '.join(q.get('tables') or [])})"
+        elif q.get("aws"):  # v0.11 AWS CloudWatch: region, signal, log groups and Logs Insights query ID
+            aws = q["aws"]
+            where = ", ".join(aws.get("log_groups") or []) or "GetMetricData"
+            qid = f", query {aws['query_id']}" if aws.get("query_id") else ""
+            source += f" ({aws.get('region')}, {q.get('signal')}, {where}{qid})"
         link = f" [open]({q['link']})" if str(q.get("link") or "").startswith("https://") else ""
         lines.append(
             f"| `{q.get('id')}` | {source} | {_ts(q.get('start'))} to {_ts(q.get('end'))}{step} | "
@@ -594,6 +617,36 @@ def _azure_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
     return steps
 
 
+def _cloudwatch_next_steps(state: dict[str, Any], signals: list[str]) -> list[str]:
+    """v0.11: follow-ups for an AWS CloudWatch snapshot, phrased for what it did and did not hold."""
+    inc = state.get("incident") or {}
+    svc = inc.get("service") or "the affected service"
+    ev = list((state.get("evidence") or {}).values())
+    kinds = {e["kind"] for e in ev}
+    steps: list[str] = []
+    services_with_metrics = {e.get("service") for e in ev if e["kind"] == "metric_anomaly"}
+    coverage = (state.get("telemetry_coverage") or {}).get(svc) or {}
+    if svc not in services_with_metrics and not coverage.get("metrics_ok"):
+        steps.append(
+            f"Map the load balancer target group, ECS service, Lambda function or custom metrics of {svc} in "
+            "CLOUDWATCH_RESOURCES_FILE and select their templates; without metrics impact cannot be established."
+        )
+    if "log_pattern" not in kinds:
+        steps.append(f"Check that {svc} writes to the approved CloudWatch log groups in this region for this window.")
+    steps.append(
+        "Review deployment and configuration-change history in your CD and config systems (or AWS CloudTrail and "
+        "AWS Config, which this snapshot does not collect): change correlation was not possible."
+    )
+    steps.append(
+        "Open the cited log events in CloudWatch Logs Insights (the report lists each query's log groups and query "
+        "ID; events carry their @ptr): the snapshot holds a bounded set of matching events."
+    )
+    steps.append(
+        f"Check the current health of {svc} in CloudWatch: this analysis used a historical snapshot, not live state."
+    )
+    return steps
+
+
 def _connected_next_steps(state: dict[str, Any]) -> list[str]:
     inc = state.get("incident") or {}
     kinds_, signals_ = connected_sources(inc)
@@ -601,6 +654,8 @@ def _connected_next_steps(state: dict[str, Any]) -> list[str]:
         return _datadog_next_steps(state, signals_)
     if "azure_monitor" in kinds_:
         return _azure_next_steps(state, signals_)
+    if "cloudwatch" in kinds_:
+        return _cloudwatch_next_steps(state, signals_)
     svc = inc.get("service") or "the affected service"
     ev = list((state.get("evidence") or {}).values())
     kinds = {e["kind"] for e in ev}

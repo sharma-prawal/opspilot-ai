@@ -1,0 +1,18 @@
+# Failure-mode mapping for scripts/cloudwatch_fixture.py (tests and manual checks only).
+services:
+  empty-svc: {log_groups: [/fixture/empty]}
+  delayed-svc: {log_groups: [/fixture/delayed]}
+  slow-svc: {log_groups: [/fixture/slow]}
+  partial-svc: {log_groups: [/fixture/partial]}
+  failed-svc: {log_groups: [/fixture/failed]}
+  timeout-svc: {log_groups: [/fixture/timeout]}
+  cancelled-svc: {log_groups: [/fixture/cancelled]}
+  throttled-svc: {log_groups: [/fixture/throttled]}
+  limit-svc: {log_groups: [/fixture/limit]}
+  malformed-svc: {log_groups: [/fixture/malformed]}
+  denied-svc: {log_groups: [/fixture/denied]}
+  uncorrelated-svc: {log_groups: [/fixture/uncorrelated]}
+  forbidden-metric-svc:
+    metrics:
+      custom:
+        - {id: forbidden_metric, namespace: Fixture/Forbidden, metric_name: Hidden, stat: Sum, unit: Count, dimensions: {Service: x}}

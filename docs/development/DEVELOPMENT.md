@@ -53,6 +53,16 @@ but real PostgreSQL, the real LangGraph checkpointer and the real MCP protocol (
 | Prompt injection (fencing, fabricated citations, out-of-scope targets, human gate) | `tests/security/test_prompt_injection.py` |
 | Live model: embedding dim, structured output, full real-model investigation | `tests/integration/test_live_llm.py` |
 | UI critical path | `apps/web/e2e/investigation.spec.ts` |
+| AWS CloudWatch connector (v0.11): auth isolation, region/endpoint checks, mapping validation, Logs Insights lifecycle (polling ceiling, StopQuery cleanup, cancellation, concurrency), metrics (exact dimensions, pagination, gaps, units), web-env isolation | `tests/unit/test_cloudwatch_connector.py` (botocore `Stubber` + `scripts/cloudwatch_fixture.py` through the real SDK) |
+| CloudWatch snapshot investigation and HTTP contract | `tests/unit/test_cloudwatch_investigation.py`, `tests/integration/test_cloudwatch_api.py` |
+| CloudWatch browser journeys (`E2E_CLOUDWATCH=1`) | `apps/web/e2e/cloudwatch.spec.ts` |
+
+### Connector fixtures for E2E
+
+`make e2e` starts only the API, the web server and the database checks. Opt-in variables add synthetic providers to
+the isolated E2E API process only (never a real account): `E2E_TELEMETRY=1` (after `make telemetry-up`),
+`E2E_DATADOG=1`, `E2E_AZURE=1`, `E2E_CLOUDWATCH=1` (fixture on 127.0.0.1:8133, mapping
+`infra/cloudwatch/resources.fixture.yaml`). Without them those providers show as not configured.
 
 ## Adding things
 

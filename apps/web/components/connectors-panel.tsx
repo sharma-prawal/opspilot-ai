@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { SIGNAL_STATE, STATE_LABEL, TABLE_STATE, signalLabel, signalsOf } from "@/lib/connectors";
 import type { ConnectionStatus, ConnectorId, TelemetrySignal } from "@/lib/types";
 
-/** Live state of the configured read-only connectors (v0.6; Datadog v0.9; Azure Monitor v0.10), with a connection
+/** Live state of the configured read-only connectors (v0.6; Datadog v0.9; Azure Monitor v0.10; AWS CloudWatch v0.11), with a connection
  * test per connector. */
 export function ConnectorsPanel() {
   const q = useQuery({ queryKey: ["connectors"], queryFn: api.connectors });
@@ -107,6 +107,34 @@ export function ConnectorsPanel() {
                             <dd className="font-mono">{c.read_only_endpoints?.join(" · ")}</dd>
                           </>
                         )}
+                        {c.id === "cloudwatch" && (
+                          <>
+                            <dt>Region</dt>
+                            <dd className="font-mono">
+                              {c.region} · {c.partition}
+                              {c.fixture ? " (requests go to the local synthetic fixture)" : ""}
+                            </dd>
+                            {c.profile && (<><dt>AWS profile</dt><dd className="font-mono">{c.profile}</dd></>)}
+                            {c.role_arn && (<><dt>Assumed role</dt><dd className="font-mono break-all">{c.role_arn}</dd></>)}
+                            {st?.identity && (
+                              <>
+                                <dt>Account</dt>
+                                <dd className="font-mono">
+                                  {st.identity.account} · {st.identity.principal}
+                                  {st.identity.role ? ` ${st.identity.role}` : ""}
+                                </dd>
+                              </>
+                            )}
+                            <dt>Log groups</dt>
+                            <dd className="font-mono break-all">{c.log_groups?.join(", ") || "none (metrics only)"}</dd>
+                            <dt>Services</dt>
+                            <dd className="font-mono">{Object.keys(c.services ?? {}).join(", ")}</dd>
+                            <dt>IAM actions</dt>
+                            <dd className="font-mono">{c.permissions?.actions?.join(", ")}</dd>
+                            <dt>Read-only calls</dt>
+                            <dd className="font-mono">{c.read_only_endpoints?.join(" · ")}</dd>
+                          </>
+                        )}
                         {c.site && (
                           <>
                             <dt>Site</dt>
@@ -139,9 +167,11 @@ export function ConnectorsPanel() {
                               {signalsOf(c)
                                 .map((sig) =>
                                   sig === "log"
-                                    ? `${c.limits!.max_log_lines_per_query} lines`
+                                    ? c.id === "cloudwatch"
+                                      ? `${c.limits_extra?.max_records_per_query ?? "?"} events`
+                                      : `${c.limits!.max_log_lines_per_query} lines`
                                     : sig === "metric"
-                                      ? c.workspace_id
+                                      ? c.workspace_id || c.id === "cloudwatch"
                                         ? "1 series"
                                         : `${c.limits!.max_series_per_query} series`
                                       : c.workspace_id
@@ -189,6 +219,17 @@ export function ConnectorsPanel() {
                               </li>
                             ),
                         )}
+                      </ul>
+                    )}
+                    {st?.log_groups && (
+                      <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label={`${c.name} log groups`}>
+                        {Object.entries(st.log_groups).map(([group, v]) => (
+                          <li key={group} title={v.message}>
+                            <Badge tone={TABLE_STATE[v.status].tone} className="font-mono">
+                              {group}: {v.status === "ok" ? "readable" : v.status === "unsupported" ? "not found" : TABLE_STATE[v.status].label}
+                            </Badge>
+                          </li>
+                        ))}
                       </ul>
                     )}
                     {st?.tables && (
@@ -329,14 +370,48 @@ export function ConnectorsPanel() {
                 synthetic Logs API responses on 127.0.0.1 (see docs/integrations/AZURE_MONITOR.md).
               </li>
             </ol>
+            <p className="mt-3 font-semibold text-text">AWS CloudWatch (v0.11)</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-4">
+              <li>
+                Give a read-only identity <code className="font-mono">logs:StartQuery</code>,{" "}
+                <code className="font-mono">logs:GetQueryResults</code>,{" "}
+                <code className="font-mono">logs:StopQuery</code>,{" "}
+                <code className="font-mono">logs:DescribeLogGroups</code> and{" "}
+                <code className="font-mono">cloudwatch:GetMetricData</code> (example policy in
+                docs/integrations/AWS_CLOUDWATCH.md). Prefer an SSO profile or a workload role over access keys.
+              </li>
+              <li>
+                Map each service to its exact log groups and metric dimensions in a YAML file
+                (<code className="font-mono">infra/cloudwatch/resources.example.yaml</code>); only those can be queried.
+              </li>
+              <li>
+                In <code className="font-mono">.env</code> (backend only):{" "}
+                <code className="font-mono">CLOUDWATCH_ENABLED=true</code>,{" "}
+                <code className="font-mono">CLOUDWATCH_REGION</code>,{" "}
+                <code className="font-mono">CLOUDWATCH_RESOURCES_FILE</code> and{" "}
+                <code className="font-mono">CLOUDWATCH_AUTH_MODE</code>:{" "}
+                <code className="font-mono">profile</code> (with{" "}
+                <code className="font-mono">CLOUDWATCH_AWS_PROFILE</code>),{" "}
+                <code className="font-mono">instance_role</code> or{" "}
+                <code className="font-mono">access_keys</code>. Restart the API.
+              </li>
+              <li>
+                Test connection: it checks the account (STS), the configured log groups and one tiny
+                Logs Insights query per group, so a missing group or permission shows separately.
+              </li>
+              <li>
+                Without an AWS account: <code className="font-mono">make cloudwatch-fixture</code> serves
+                synthetic CloudWatch API responses on 127.0.0.1.
+              </li>
+            </ol>
             <p className="mt-2">
               <strong className="text-text">Verified:</strong> local Loki 3.5.0
-              and Prometheus 3.5.0 containers with synthetic data; Datadog and
-              Azure Monitor only against their synthetic contract fixtures.{" "}
+              and Prometheus 3.5.0 containers with synthetic data; Datadog,
+              Azure Monitor and AWS CloudWatch only against their synthetic contract fixtures.{" "}
               <strong className="text-text">Not verified:</strong> remote or
               cloud endpoints (Grafana Cloud, https deployments, Mimir, Thanos,
               managed Prometheus); only bearer and basic auth are supported; a
-              live Datadog organization or Azure workspace (not yet tested).
+              live Datadog organization, Azure workspace or AWS account (not yet tested).
               Details: docs/integrations/CONNECTORS.md.
             </p>
           </details>

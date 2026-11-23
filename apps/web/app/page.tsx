@@ -234,7 +234,7 @@ export default function OverviewPage() {
                   href="/incidents/new?source=connected"
                   className="action-link"
                 >
-                  Use Loki / Prometheus / Datadog / Azure →
+                  Use Loki / Prometheus / Datadog / Azure / CloudWatch →
                 </Link>
                 <Badge tone="info">Read-only · no execution</Badge>
               </>

@@ -96,3 +96,20 @@ describe("query status labels (v0.10)", () => {
       error: { kind: "permission_denied", message: "" } })).toBe("permission denied");
   });
 });
+
+describe("v0.11 AWS CloudWatch helpers", () => {
+  it("names CloudWatch signals and labels unqueried and partial queries truthfully", async () => {
+    const { signalLabel, queryErrorHint, NOT_QUERIED_LABEL } = await import("./connectors");
+    expect(signalLabel("log", "cloudwatch")).toBe("Logs Insights events");
+    expect(signalLabel("metric", "cloudwatch")).toBe("CloudWatch metrics");
+    const notQueried = { status: "error", connector: "cloudwatch", returned: 0,
+      error: { kind: "not_configured", message: "not queried" }, aws: { not_queried: true } } as const;
+    expect(queryStatusLabel(notQueried)).toBe(NOT_QUERIED_LABEL);
+    expect(queryErrorHint({ ...notQueried } as never)).toContain("CLOUDWATCH_RESOURCES_FILE");
+    expect(queryStatusLabel({ status: "ok", connector: "cloudwatch", returned: 4, error: null,
+      aws: { partial: true } })).toBe("4 records (partial)");
+    expect(queryStatusLabel({ status: "empty", connector: "cloudwatch", returned: 0, error: null })).toBe("no data");
+    const denied = { connector: "cloudwatch", error: { kind: "permission_denied", message: "x" } } as never;
+    expect(queryErrorHint(denied)).toContain("logs:StartQuery");
+  });
+});

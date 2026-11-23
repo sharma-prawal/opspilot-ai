@@ -97,14 +97,38 @@ def change_history_unread(state: Mapping[str, Any]) -> list[str]:
     )
 
 
+_MESSAGE_FIELDS = ("msg", "message", "@message", "log", "text")
+
+
+def readable_line(line: str) -> str:
+    """The recorded message of a structured (JSON) log line, else the line itself. v0.11: for JSON logs the envelope
+    (level, service, request and trace IDs) filled the shown prefix and cut off the message (CloudWatch fixture:
+    'configuration loaded: db.pool.m…'). Display only: the evidence keeps the full line."""
+    text = line.strip()
+    if text.startswith("{"):
+        try:
+            import json
+
+            obj = json.loads(text)
+        except ValueError:
+            return line
+        if isinstance(obj, dict):
+            for key in _MESSAGE_FIELDS:
+                if isinstance(obj.get(key), str) and obj[key].strip():
+                    return str(obj[key]).strip()
+    return line
+
+
 def change_observations(evidence: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Change observations found in collected logs (version/start/config lines), oldest first."""
+    """Change observations found in collected logs (version/start/config lines), oldest first, with the recorded
+    message and (v0.11) the source reference of the record they came from."""
     rows = [
         {
             "evidence_id": e["id"],
             "service": e.get("service"),
             "first_seen": e["data"].get("first_seen"),
-            "line": str(e["data"].get("sample") or "")[:200],
+            "line": readable_line(str(e["data"].get("sample") or ""))[:200],
+            "source": ((e["data"].get("attributes") or {}).get("source_ref") or None),
         }
         for e in evidence.values()
         if e.get("kind") == "log_pattern" and (e.get("data") or {}).get("change_observation")
@@ -182,6 +206,12 @@ _CURRENT_STATE = re.compile(
     r"(?i)\b(?:ongoing|still\s+(?:failing|occurring|happening|degraded|down)|is\s+continuing|"
     r"continues|has\s+not\s+recovered|no\s+recovery)\b"
 )
+# Hypothesis wording that names a persisted setting or limit (a configuration, a pool size, a connection limit …).
+_PERSISTENT_SETTING = re.compile(
+    r"(?i)\b(?:mis)?configur\w*|\bconfig\b|\bsettings?\b|\bparameters?\b|\bmax[_ ]?(?:size|connections|pool)\b|"
+    r"\b(?:connection\s+)?pool\s+(?:size|limit|maximum|max)\b|"
+    r"\b(?:connection|concurrency|rate)\s+limits?\b"
+)
 # Suggested actions that do not change persisted configuration, and the hypotheses they would leave in place.
 _NO_CONFIG_CHANGE_ACTIONS = ("restart_service",)
 
@@ -218,7 +248,8 @@ def change_wording(text: str) -> list[str]:
 
 def _change_note(phrase: str, obs: list[str], evidence: Mapping[str, Mapping[str, Any]]) -> str:
     lines = "; ".join(
-        f"{i}: '{str(((evidence.get(i) or {}).get('data') or {}).get('sample') or '')[:80]}'" for i in obs[:2]
+        f"{i}: '{readable_line(str(((evidence.get(i) or {}).get('data') or {}).get('sample') or ''))[:80]}'"
+        for i in obs[:2]
     )
     return (
         f"Change indicator, not change history ('{phrase}'): the cited change evidence is a log line observed in the "
@@ -237,6 +268,50 @@ def snapshot_end(state: Mapping[str, Any]) -> str | None:
     return str(end) if end else None
 
 
+# v0.11: concrete details a model can invent — a version number or a quoted identifier (an error name, a setting) — are
+# checked against the text of the collected evidence. Found in a real CloudWatch run: "the deployment of version 2.3.1"
+# (the logs showed 3.8.0) and "'ConnectionPoolTimeout' errors" (no such token in any log line).
+_VERSION = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?![\w.]*\d)")
+_QUOTED_TOKEN = re.compile(r"""['"`\u2018\u201c]([A-Za-z][A-Za-z0-9_.:-]{5,63})['"`\u2019\u201d]""")
+
+
+def _evidence_corpus(state: Mapping[str, Any]) -> str:
+    """Lower-cased text of every collected evidence item and the incident (what a detail must appear in)."""
+    import json
+
+    parts = [json.dumps(e, default=str) for e in (state.get("evidence") or {}).values()]
+    inc = state.get("incident") or {}
+    parts += [str(inc.get("title") or ""), str(inc.get("description") or "")]
+    return "\n".join(parts).lower()
+
+
+def unsupported_details(text: str, corpus: str) -> list[str]:
+    """Version numbers and quoted identifiers in ``text`` that appear nowhere in the collected evidence."""
+    found: list[str] = []
+    for m in _VERSION.finditer(text or ""):
+        if m.group(1) not in corpus and f"version {m.group(1)}" not in found:
+            found.append(f"version {m.group(1)}")
+    for m in _QUOTED_TOKEN.finditer(text or ""):
+        token = m.group(1)
+        if token.lower() not in corpus and f"'{token}'" not in found:
+            found.append(f"'{token}'")
+    return found
+
+
+def _detail_note(details: list[str]) -> str:
+    return (
+        f"Not found in the collected evidence: {', '.join(details[:3])}. The model stated a specific detail that no "
+        "collected log line, metric or record contains; treat it as unsupported."
+    )
+
+
+def _uncited_change_note(phrase: str) -> str:
+    return (
+        f"Change claim without change evidence ('{phrase}'): deployment and configuration-change history was not "
+        "collected and this hypothesis cites no observed change line, so whether such a change happened is unknown."
+    )
+
+
 def _hhmm(ts: str | None) -> str:
     return f"{ts[:10]} {ts[11:16]}Z" if ts and len(ts) >= 16 else "the end of the collected window"
 
@@ -248,6 +323,7 @@ def calibrate_hypotheses(hypotheses: list[dict[str, Any]], state: Mapping[str, A
         return hypotheses
     evidence = state.get("evidence") or {}
     unread = change_history_unread(state)
+    corpus = _evidence_corpus(state)
     for h in hypotheses:
         text = f"{h.get('title', '')}. {h.get('description', '')}"
         notes: list[str] = []
@@ -259,9 +335,14 @@ def calibrate_hypotheses(hypotheses: list[dict[str, Any]], state: Mapping[str, A
                 f"{float(h.get('confidence') or 0):.0%}, uncalibrated)."
             )
         obs = _observation_ids(evidence, list(h.get("supporting_evidence_ids") or []))
-        wording = change_wording(text) if unread and obs else []
-        if wording:
+        wording = change_wording(text) if unread else []
+        if wording and obs:
             notes.append(_change_note(wording[0], obs, evidence))
+        elif wording:  # v0.11: change wording with no cited change observation at all
+            notes.append(_uncited_change_note(wording[0]))
+        details = unsupported_details(text, corpus)
+        if details:
+            notes.append(_detail_note(details))
         if notes:
             h["evidence_warnings"] = [*(h.get("evidence_warnings") or []), *notes]
     return hypotheses
@@ -288,6 +369,9 @@ def calibration_summary_warnings(summary: str, state: Mapping[str, Any]) -> list
     wording = change_wording(summary) if change_history_unread(state) and obs else []
     if wording:
         out.append(_change_note(wording[0], obs, evidence))
+    details = unsupported_details(summary, _evidence_corpus(state))
+    if details:
+        out.append(_detail_note(details))
     if _CURRENT_STATE.search(summary or ""):
         where = "collected snapshot window" if is_connected(inc) else "uploaded evidence"
         out.append(
@@ -306,11 +390,16 @@ def suggestion_limitations(step: Mapping[str, Any], state: Mapping[str, Any]) ->
     evidence = state.get("evidence") or {}
     obs = _observation_ids(evidence, list(top.get("supporting_evidence_ids") or []))
     config_obs = [i for i in obs if re.search(r"(?i)\bconfig", str(evidence[i]["data"].get("sample") or ""))]
-    if top.get("category") != "configuration_error" and not config_obs:
+    # v0.11: also when hypothesis 1 *names* a persistent setting or limit in its wording, whatever its category (a
+    # misconfigured pool size is often categorized resource_exhaustion). Symptom words alone (saturation, exhaustion)
+    # do not count: they can come from load as well as from configuration.
+    worded = bool(_PERSISTENT_SETTING.search(f"{top.get('title', '')}. {top.get('description', '')}"))
+    if top.get("category") != "configuration_error" and not config_obs and not worded:
         return []
     cited = f" (observed in {', '.join(config_obs[:2])})" if config_obs else ""
     return [
-        f"A restart reloads the configuration that is currently persisted. If the configuration named by hypothesis 1"
-        f"{cited} is still in place, restarting alone does not correct it: the configuration must be corrected or "
-        "reverted by its owner first. A restart is containment at most, not a fix."
+        "Restarting a service generally reloads its persisted configuration and may not resolve the underlying "
+        f"configuration problem. If the configuration or limit named by hypothesis 1{cited} is still in place, "
+        "restarting alone does not correct it: the configuration must be corrected or reverted by its owner first. "
+        "A restart is containment at most, not a fix."
     ]

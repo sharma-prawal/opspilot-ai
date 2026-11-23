@@ -162,6 +162,40 @@ Full detail: [AZURE_MONITOR.md](../integrations/AZURE_MONITOR.md). Decisions D12
   - OpsPilot cannot verify that an identity is read-only: assign only *Log Analytics Data Reader* on the workspace.
   - Queries are billed per the workspace's plan; OpsPilot bounds how many it runs but cannot see the cost.
 
+## AWS CloudWatch connector (v0.11)
+
+Full detail: [AWS_CLOUDWATCH.md](../integrations/AWS_CLOUDWATCH.md). Decisions D137–D143.
+
+- **Destination.** The official AWS SDK (boto3/botocore) with the regional endpoints of one commercial-partition region
+  (`logs.<region>.amazonaws.com`, `monitoring.<region>.amazonaws.com`, `sts.<region>.amazonaws.com`); every client's
+  endpoint is verified, and configured endpoint overrides (`AWS_ENDPOINT_URL*`, config-file `endpoint_url`), FIPS and
+  dual-stack settings are ignored or refused. GovCloud, China and ISO regions are refused at start-up.
+  `CLOUDWATCH_LOCAL_ENDPOINT_URL` exists only for the synthetic fixture (`CLOUDWATCH_AUTH_MODE=fixture`, loopback only).
+- **Read-only surface.** The only operations are `logs:StartQuery`, `logs:GetQueryResults`, `logs:DescribeLogGroups`
+  (configured names only), `cloudwatch:GetMetricData`, `sts:GetCallerIdentity`, optional `sts:AssumeRole` of one
+  configured role, and `logs:StopQuery` — solely for a query ID the same collection started and that did not finish.
+  No AWS write, alarm, dashboard, retention, metric-publishing, SSM, deployment or infrastructure API is reachable from
+  the connector, MCP or the agent.
+- **Scope.** `CLOUDWATCH_RESOURCES_FILE` is the allowlist: approved log groups (≤ 10 per service, ≤ 50 total), exact
+  metric dimensions and up to 10 custom metrics per service; no account-wide enumeration and no `ListMetrics`.
+  Requests carry connector/template IDs, service names and a window only; log groups, regions, endpoints, roles and query
+  text are 422. Logs Insights templates are built in; the only substitutions are the record limit, the bin size and an
+  optional ``| filter `<field>` = "<service>"`` from validated configuration.
+- **Credentials.** One explicit chain per `CLOUDWATCH_AUTH_MODE`: a named profile (environment keys and instance
+  metadata removed, so no silent fallback), the workload role only, or explicit (preferably temporary) keys. An unrelated
+  `AWS_PROFILE` is ignored. SDK clients and credential resolution are created on first use; nothing runs at import or
+  start-up and no SSO login is ever started. Keys are `SecretStr`, never returned, logged or stored; AWS error text is not
+  passed through (it can name principals and SSO session e-mails). `CLOUDWATCH_` and `AWS_` are on the web-process
+  denylist (tested with sentinel values).
+- **Bounds.** Window ≤ 6 h; ≤ 3 Logs Insights queries in flight per connector; ≤ 40 polls or
+  `CLOUDWATCH_QUERY_TIMEOUT_SECONDS` per query, then `StopQuery` of that query (shielded cleanup, also when the request
+  is cancelled); ≤ 2000 events per query; results ≤ 5 MiB; ≤ 3 `GetMetricData` pages; SDK standard retries (3 attempts).
+- **Residual risk.**
+  - Not verified against a real AWS account; tested only against a synthetic protocol fixture through the real SDK.
+  - OpsPilot cannot verify that an identity is read-only: use the example policy; `logs:StopQuery` and
+    `logs:DescribeLogGroups` have no resource-level scoping.
+  - Logs Insights is billed by scanned volume; OpsPilot bounds queries and records scan statistics but cannot cap cost.
+
 ## Safety gates on model proposals (Phase B)
 
 Prompt injection and over-eager models both show up as unwarranted proposals. Measured on the first live

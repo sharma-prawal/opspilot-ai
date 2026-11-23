@@ -86,6 +86,8 @@ BACKEND_DENYLIST_PREFIXES: tuple[str, ...] = (
     "AZURE_",  # v0.10: Azure Monitor settings and Microsoft Entra credentials
     "MSAL_",
     "IDENTITY_",  # managed identity endpoint/header variables
+    "CLOUDWATCH_",  # v0.11: AWS CloudWatch settings and explicit keys
+    "AWS_",  # v0.11: AWS SDK credentials, profiles, web identity and container credential variables
     "TELEMETRY_",
     "OTEL_",
     "LANGGRAPH_",

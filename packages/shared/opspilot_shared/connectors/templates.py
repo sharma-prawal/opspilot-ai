@@ -498,6 +498,10 @@ def kql_string(value: str) -> str:
 
 
 def check_template(t: QueryTemplate) -> None:
+    if t.connector == "cloudwatch":
+        raise ValueError(
+            f"{t.id}: CloudWatch templates are built in; configure custom metrics in CLOUDWATCH_RESOURCES_FILE"
+        )
     if "$selector" not in t.query:
         raise ValueError(f"{t.id}: the query must contain $selector so it is scoped to one service")
     if t.connector == "datadog":

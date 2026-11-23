@@ -32,6 +32,17 @@ if [[ -n "${E2E_AZURE:-}" ]]; then
 else
   export AZURE_MONITOR_ENABLED=false  # never inherit a developer's Azure settings from .env
 fi
+# v0.11: E2E_CLOUDWATCH=1 connects this process (only) to the synthetic AWS CloudWatch fixture on loopback with the
+# fixture's synthetic keys. The E2E stack never uses a real AWS account, profile, role or key.
+if [[ -n "${E2E_CLOUDWATCH:-}" ]]; then
+  export CLOUDWATCH_ENABLED=true CLOUDWATCH_AUTH_MODE=fixture CLOUDWATCH_REGION=us-east-1
+  export CLOUDWATCH_LOCAL_ENDPOINT_URL="http://127.0.0.1:${E2E_CLOUDWATCH_PORT:-8133}"
+  export CLOUDWATCH_RESOURCES_FILE="infra/cloudwatch/resources.fixture.yaml"
+  export CLOUDWATCH_AWS_PROFILE= CLOUDWATCH_ACCESS_KEY_ID= CLOUDWATCH_SECRET_ACCESS_KEY= CLOUDWATCH_SESSION_TOKEN=
+  export CLOUDWATCH_ROLE_ARN= CLOUDWATCH_ACCOUNT_ID=
+else
+  export CLOUDWATCH_ENABLED=false  # never inherit a developer's CloudWatch settings from .env
+fi
 E2E_API_PORT="${E2E_API_PORT:-8100}"
 [[ "$DB_NAME" == *_test ]] || { fail "E2E API refuses database '$DB_NAME' (must end in _test)"; exit 1; }
 [[ "$E2E_API_PORT" != "${API_PORT:-8000}" ]] || { fail "E2E API port must differ from the dev API port"; exit 1; }

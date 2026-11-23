@@ -1,0 +1,29 @@
+# Synthetic CloudWatch resource mapping for scripts/cloudwatch_fixture.py (fictional account 111122223333, us-east-1).
+# Every log group named here is approved; nothing else can be queried. See docs/integrations/AWS_CLOUDWATCH.md.
+services:
+  api-gateway:
+    log_groups: [/ecs/shop-prod/api-gateway]
+    metrics:
+      alb: {load_balancer: app/shop-prod-public/7c1e5f0a9b3d2e41, target_group: targetgroup/api-gateway/3f9a1c7e5b2d8a60}
+  checkout-service:
+    log_groups: [/ecs/shop-prod/checkout-service]
+    metrics:
+      ecs: {cluster: shop-prod, service: checkout-service}
+  inventory-service:
+    log_groups: [/ecs/shop-prod/inventory-service]
+    metrics:
+      alb: {load_balancer: app/shop-prod-internal/2b8d4f6a1c3e5a79, target_group: targetgroup/inventory-service/8e2c4a6b1d3f5a97}
+      ecs: {cluster: shop-prod, service: inventory-service}
+      custom:
+        - id: db_pool_wait_ms
+          namespace: Shop/Inventory
+          metric_name: DbConnectionWaitTime
+          stat: p95
+          unit: Milliseconds
+          dimensions: {Service: inventory-service}
+  pricing-service:   # its log group does not exist and its Lambda published no datapoints in the window
+    log_groups: [/ecs/shop-prod/pricing-service]
+    metrics:
+      lambda: {function_name: pricing-sync}
+  audit-worker:      # the fixture identity is not allowed to read this log group (AccessDeniedException)
+    log_groups: [/ecs/shop-prod/audit-worker]

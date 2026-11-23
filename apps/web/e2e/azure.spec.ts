@@ -97,7 +97,7 @@ test("operator previews Azure telemetry and gets a cited read-only RCA, exports 
   await expect(card.getByText("Connected", { exact: true })).toBeVisible();
   for (const s of ["Traces & exceptions: readable", "KQL metrics: readable", "Requests & dependencies: readable",
     "AppExceptions: present", "AppDependencies: present"]) await expect(card.getByText(s)).toBeVisible();
-  for (const name of ["Grafana Loki", "Prometheus", "Datadog"]) {
+  for (const name of ["Grafana Loki", "Prometheus", "Datadog", "AWS CloudWatch"]) { // v0.11: Azure only
     const other = page.getByRole("checkbox", { name: `Use ${name}` });
     if ((await other.count()) && (await other.isEnabled())) await other.uncheck();
   }
