@@ -45,7 +45,7 @@ export function metricValues(e: Evidence) {
   return [
     { label: "Baseline", value: d.baseline },
     { label: "Extreme", value: d.extreme ?? d.peak },
-    { label: "Current", value: d.current },
+    { label: "Latest in collected evidence", value: d.current },
     { label: "Mean", value: d.mean },
   ].filter(
     (v): v is { label: string; value: number } =>

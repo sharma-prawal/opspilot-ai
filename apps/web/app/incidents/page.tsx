@@ -17,29 +17,24 @@ import { api } from "@/lib/api";
 import { humanize, utcTime } from "@/lib/format";
 
 export default function IncidentsPage() {
-  const q = useQuery({
-    queryKey: ["incidents"],
-    queryFn: api.incidents,
-    refetchInterval: 5000,
-  });
   const [search, setSearch] = useState("");
   const [source, setSource] = useState("all");
   const [status, setStatus] = useState("all");
-  const shown = (q.data ?? []).filter(
-    (i) =>
-      (source === "all" || i.evidence_source === source) &&
-      (status === "all" || i.status === status) &&
-      `${i.reference} ${i.title} ${i.service}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+  const [offset, setOffset] = useState(0);
+  const limit = 50;
+  const q = useQuery({
+    queryKey: ["incidents", "search", search, source, status, offset],
+    queryFn: () => api.searchIncidents({ q: search, source, status, limit, offset }),
+    refetchInterval: 5000,
+  });
+  const shown = q.data?.items ?? [];
   return (
     <div className="space-y-6">
       <PageHeader
         title="Incidents"
         subtitle="Find a case. Follow the evidence."
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
             <SimulateButton picker />
             <Link className="action-link" href="/incidents/new">
               Analyze data →
@@ -53,8 +48,9 @@ export default function IncidentsPage() {
           <span className="sr-only">Search incidents</span>
           <input
             type="search"
+            maxLength={200}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
             placeholder="Search reference, service or title"
           />
         </label>
@@ -63,7 +59,7 @@ export default function IncidentsPage() {
           <select
             aria-label="Source"
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            onChange={(e) => { setSource(e.target.value); setOffset(0); }}
           >
             <option value="all">All sources</option>
             <option value="simulator">Simulator</option>
@@ -76,10 +72,10 @@ export default function IncidentsPage() {
           <select
             aria-label="State"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => { setStatus(e.target.value); setOffset(0); }}
           >
             <option value="all">All states</option>
-            {[...new Set((q.data ?? []).map((i) => i.status))].map((s) => (
+            {["open", "investigating", "awaiting_approval", "mitigated", "resolved"].map((s) => (
               <option key={s} value={s}>
                 {humanize(s)}
               </option>
@@ -87,7 +83,7 @@ export default function IncidentsPage() {
           </select>
         </label>
         <span aria-live="polite">
-          {q.data ? `${shown.length} / ${q.data.length} cases` : "— cases"}
+          {q.data ? `${q.data.total} matching cases · complete history` : "— cases"}
         </span>
       </div>
       <Card title="Incident roster">
@@ -155,6 +151,7 @@ export default function IncidentsPage() {
                       setSearch("");
                       setSource("all");
                       setStatus("all");
+                      setOffset(0);
                     }}
                   >
                     Clear filters
@@ -164,13 +161,20 @@ export default function IncidentsPage() {
                 )
               }
             >
-              {q.data?.length
+              {search || source !== "all" || status !== "all" || offset
                 ? "No incidents match these filters."
                 : "No incidents yet. Simulate a scenario or analyze your own evidence."}
             </Empty>
           )
         )}
       </Card>
+      <div className="flex flex-wrap items-center justify-between gap-3" aria-label="Incident pagination">
+        <button className="action-link" disabled={!offset || q.isFetching}
+          onClick={() => setOffset(Math.max(0, offset - limit))}>Previous</button>
+        <span aria-live="polite">{q.data ? (shown.length ? `${offset + 1}–${offset + shown.length} of ${q.data.total}` : `0 on this page · ${q.data.total} matching cases`) : "Loading page…"}</span>
+        <button className="action-link" disabled={!q.data || offset + limit >= q.data.total || offset + limit > 100000 || q.isFetching}
+          onClick={() => setOffset(offset + limit)}>Next</button>
+      </div>
     </div>
   );
 }

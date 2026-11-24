@@ -98,6 +98,8 @@ async def test_full_investigation_lifecycle(client: httpx.AsyncClient, settings)
     assert done["status"] == "completed", done
     assert (await client.post(url, json=body, headers=auth(settings))).status_code == 409  # replay
     final_action = (await client.get(f"/api/v1/approvals/{action['id']}")).json()
+    assert final_action["authorization"]["decision"] == "approve"
+    assert final_action["authorization"]["decided_by"] == "sre"
     assert final_action["status"] == "succeeded" and final_action["verification"]["recovered"] is True
     assert (await client.get(f"/api/v1/incidents/{inc['id']}")).json()["status"] == "mitigated"
 

@@ -30,7 +30,7 @@ export function SimulateButton({
   });
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="simulate-controls flex min-w-0 flex-wrap items-center gap-2">
       {picker && (
         <>
           <label htmlFor="scenario" className="sr-only">
@@ -41,7 +41,7 @@ export function SimulateButton({
             aria-label="Scenario"
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
-            className="h-8.5 max-w-64 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-text focus:outline-hidden focus:ring-2 focus:ring-accent"
+            className="h-8.5 min-w-0 max-w-full sm:max-w-64 rounded-lg border border-border bg-panel px-3 text-xs font-medium text-text focus:outline-hidden focus:ring-2 focus:ring-accent"
           >
             {(scenarios.data ?? [{ key: initial, title: "" }]).map((s) => (
               <option key={s.key} value={s.key}>

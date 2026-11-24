@@ -1,0 +1,22 @@
+{
+  "roster": {
+    "viewport": 768,
+    "document": 768
+  },
+  "overview": {
+    "viewport": 768,
+    "document": 768
+  },
+  "intake": {
+    "viewport": 768,
+    "document": 768
+  },
+  "workbench": {
+    "viewport": 768,
+    "document": 768
+  },
+  "architecture": {
+    "viewport": 768,
+    "document": 768
+  }
+}

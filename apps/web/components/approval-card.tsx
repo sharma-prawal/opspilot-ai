@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { api, getSession } from "@/lib/api";
+import { authorizationLabel } from "@/lib/authorization";
 import { humanize, utcTime } from "@/lib/format";
 import type { ActionRequest } from "@/lib/types";
 import { Badge, Button, ErrorNote, KV, StatusBadge } from "./ui";
@@ -93,10 +94,12 @@ export function ApprovalCard({
               </code>,
             ],
             ["Requested at", utcTime(action.requested_at)],
+            ["Authorization", authorizationLabel(action)],
+            ...(action.authorization ? [["Authorized decision", `${action.authorization.decided_by} at ${utcTime(action.authorization.decided_at)}`] as [string, string]] : []),
             ...(action.decided_by
               ? ([
                   [
-                    "Decided",
+                    "Action record",
                     `${
                       action.decision_comment
                         ? `“${action.decision_comment}” — `

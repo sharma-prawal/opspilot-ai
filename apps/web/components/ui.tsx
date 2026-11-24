@@ -321,7 +321,7 @@ export function PageHeader({
   badge?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5">
+    <div className="mb-6 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between border-b border-border pb-5">
       <div>
         <div className="flex items-center gap-2.5">
           <h1 className="font-serif-heading text-2xl font-bold tracking-tight text-text sm:text-3xl">
@@ -332,7 +332,7 @@ export function PageHeader({
         {subtitle && <div className="mt-1 text-xs text-muted max-w-3xl leading-relaxed">{subtitle}</div>}
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div>
       )}
     </div>
   );

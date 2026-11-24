@@ -43,7 +43,7 @@ FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema a
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/system/overview` | counts by status (incidents, investigations, actions), KB size, model + budget config |
+| GET | `/api/v1/system/overview` | counts by status (incidents, investigations, actions), complete-history `incident_sources` counts, KB size, model + budget config |
 | GET | `/api/v1/system/identity` | `{"database", "test_database", "instance"}`; E2E refuses to mutate unless `*_test` + `e2e` |
 
 ## Knowledge
@@ -62,7 +62,8 @@ FastAPI serves interactive docs at `http://127.0.0.1:8000/docs` and the schema a
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/incidents?status=` | list |
+| GET | `/api/v1/incidents?status=&limit=` | legacy array; default 50, limit 1–200; `created_at DESC, id DESC`; invalid bounds return 422 |
+| GET | `/api/v1/incidents/search?q=&source=&status=&limit=&offset=` | complete-history search → `{items, total, limit, offset}`; see Pass A below |
 | GET | `/api/v1/incidents/scenarios` | available simulator scenarios |
 | POST 🔒 | `/api/v1/incidents/simulate` | `{"scenario": "INC-001"}` → `201` new environment + incident |
 | POST 🔒 | `/api/v1/incidents/upload/preview` | v0.5. `{"files": [{"name", "content", "service"?}], "timezone", "incident_time"?, "service"?, "affected_services"}` → per-file reports (format, records by signal, rejected, issues), summary, coverage warnings, sample records. Stores nothing. `422` for unsupported types or exceeded limits |
@@ -130,3 +131,30 @@ no parameter arguments — parameters come from the persisted request), `get_act
 Bounds: service names `^[a-z][a-z0-9-]{1,62}$`, windows ≤ 24 h, `limit ≤ 500`, `top_k ≤ 10`, query ≤ 500 chars,
 `search_runbooks.expand_sections ≤ 4` (default 0: further sections of the top current runbook, returned in `context`;
 C0-F3). Both knowledge tools exclude superseded/withdrawn documents and return lifecycle-validated passages (C0-G3).
+
+## Pass A: saved history and bounded search (2026-11-24)
+
+`GET /api/v1/incidents/search` searches every stored incident before pagination.
+
+| Parameter | Contract |
+|---|---|
+| `q` | Optional, maximum 200 characters; trimmed, literal case-insensitive substring of reference, title or service |
+| `source` | Optional `simulator`, `upload` or `connector` |
+| `status` | Optional existing incident status enum |
+| `limit` | 1–100, default 50 |
+| `offset` | 0–100000, default 0 |
+
+Invalid parameters return 422. The result is `{items: Incident[], total, limit, offset}`.
+Sorting is `created_at DESC, id DESC`. Page and matching count are read in one SQL statement/snapshot;
+empty and out-of-range pages retain the matching total. `%`, `_` and `!` are literal search characters,
+escaped with `!`, and every parameter is bound. Offset pages may shift when history changes concurrently.
+The legacy incident array remains available. `system/overview.incident_sources` aggregates all stored incidents,
+independently of the legacy array's limit.
+
+Every action response on approval list/detail/decision and investigation actions adds nullable
+`authorization: {decision: "approve" | "reject" | "expired", decided_by: string, decided_at: aware datetime}`.
+It comes only from the persisted `approval_decision` workflow command with matching action ID, investigation ID,
+payload action ID and parameter hash. Actor and timezone-aware ISO decision time are required. Only those three
+fields leave the API; command delivery metadata, tokens and other payload fields are not exposed.
+Missing or malformed legacy history returns null. Mutable action status and execution timestamps do not establish
+an authorization decision. This is a read contract; write paths, approval enforcement and database schema are unchanged.

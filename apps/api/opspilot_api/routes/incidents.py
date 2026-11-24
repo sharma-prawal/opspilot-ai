@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from opspilot_api.deps import Operator, Runtime
 from opspilot_api.schemas import (
@@ -26,8 +26,22 @@ async def scenarios(rt: Runtime) -> list[dict[str, str]]:
 
 
 @router.get("")
-async def list_incidents(rt: Runtime, status: IncidentStatus | None = None, limit: int = 50) -> list[Incident]:
-    return await rt.incidents.list(status=status, limit=min(limit, 200))
+async def list_incidents(
+    rt: Runtime, status: IncidentStatus | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 50
+) -> list[Incident]:
+    return await rt.incidents.list(status=status, limit=limit)
+
+
+@router.get("/search")
+async def search_incidents(
+    rt: Runtime,
+    q: Annotated[str, Query(max_length=200)] = "",
+    source: Literal["simulator", "upload", "connector"] | None = None,
+    status: IncidentStatus | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+) -> dict[str, Any]:
+    return await rt.incidents.search(q=q, source=source, status=status, limit=limit, offset=offset)
 
 
 @router.post("/simulate", status_code=status.HTTP_201_CREATED, dependencies=[Operator])

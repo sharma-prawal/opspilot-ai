@@ -20,7 +20,7 @@ import {
 import { api } from "@/lib/api";
 import { ModelName } from "@/lib/models";
 import { humanize, utcTime } from "@/lib/format";
-import { sourceCounts } from "@/lib/visuals";
+import { SOURCE_LABELS } from "@/lib/visuals";
 
 const SCENARIOS = [
   ["INC-001", "Incompatible schema migration"],
@@ -304,10 +304,12 @@ export default function OverviewPage() {
           <Card title="Investigation sources">
             <Composition
               label="Incident source distribution"
-              items={incidents.data ? sourceCounts(incidents.data) : undefined}
+              items={o?.incident_sources ? Object.entries(o.incident_sources).map(([key, count]) => ({
+                key, count, label: SOURCE_LABELS[key as keyof typeof SOURCE_LABELS] ?? SOURCE_LABELS.unknown,
+              })) : undefined}
             />
             <p className="mt-3 text-xs text-muted">
-              All incidents returned by the API.
+              Complete stored incident history.
             </p>
           </Card>
           <Card title="Runtime health">

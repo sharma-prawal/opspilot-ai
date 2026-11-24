@@ -215,7 +215,12 @@ export interface Evidence {
   summary: string; data: Record<string, unknown>; citation: Citation | null; relevance: number; observed_at: string | null;
 }
 
+export interface Authorization {
+  decision: "approve" | "reject" | "expired"; decided_by: string; decided_at: string;
+}
+
 export interface ActionRequest {
+  authorization?: Authorization | null;
   id: string; investigation_id: string; incident_id: string; action_type: string; parameters: Record<string, string>;
   params_hash: string; rationale: string; risk: string; status: string; requested_at: string;
   decided_at: string | null; decided_by: string | null; decision_comment: string | null; executed_at: string | null;
@@ -240,6 +245,7 @@ export interface InferenceConfig {
 }
 
 export interface Overview {
+  incident_sources?: Record<string, number>;
   incidents: Record<string, number>; investigations: Record<string, number>; actions: Record<string, number>;
   knowledge: { documents: number; chunks: number };
   runtime: { llm_model: string; embedding_model: string; mcp_read_tools: string[]; mcp_action_tools: string[];

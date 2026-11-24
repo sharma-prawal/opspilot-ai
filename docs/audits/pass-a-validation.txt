@@ -1,0 +1,34 @@
+UI Pass A final validation — 2026-11-24
+Workspace: /Users/prawalsharma/Documents/Projects/opspilot-ui-pass-a
+Branch: feature/ui-pass-a-mac
+Starting HEAD: 313ef6c1d674e9e8d36d08ba5054807ffac2177f
+
+PASS make lint: Ruff, format, mypy 116 files, 4 import contracts, ESLint, Next typegen, TypeScript.
+PASS make test: Python 725 passed, 5 skipped, 0 failures/errors in 263.68 seconds.
+  Skips: 3 opt-in local-model tests; 2 optional stopped Loki/Prometheus checks.
+  Includes 14 authorization unit tests, 15 Pass A database/API cases, MCP-role security and simulator safety tests.
+PASS frontend (inside make test): 86 tests, 14 files, 0 failures/skips.
+PASS pnpm build: normal production Turbopack build; 28 routes, no font mock or build-config change.
+PASS Playwright Pass A config: 10 passed, 0 failed/skipped in 13.3 seconds.
+PASS existing Playwright config (auth.spec.ts + investigation.spec.ts): 4 passed, 0 failed/skipped in 1.5 minutes.
+  Unauthenticated visitors/BFF rejection; operator CSRF/origin/logout; wrong passphrase;
+  local-model INC-001 investigation, approval, sandbox rollback and verified recovery.
+PASS git diff --check.
+PASS 25 after-only synthetic screenshots: valid PNG signatures, checksums, pixel streams and dimensions.
+PASS 20 width observations (5 pages x 390/768/1280/1440): document width equals viewport.
+PASS intended-file review: no actual DB/MCP secret values, env files, dumps, browser caches or build artifacts.
+No dependency changes, migrations, agent/prompt changes, MCP-policy changes or simulator-gate changes.
+
+Isolation: opspilot_test; disposable uploads; synthetic auth/signing/session secrets; live providers disabled.
+Pass A browser: production web 3185, intercepted synthetic API/session responses, secure web-env allowlist.
+Existing simulator browser: API 8100, web 3100, identity guard, local Ollama and synthetic sandbox only.
+Prior sandbox DB/socket/browser blockers resolved with authorized unrestricted local execution.
+Initial wrapper-only BFF-origin mismatch corrected; valid assertions/security policies preserved.
+Webpack compilation alone omits the repo's Tailwind transform; final evidence uses the normal Turbopack build.
+Fixed genuine UI defects: suppressed React Flow focus outline and cramped mobile filter selects.
+
+Main remains clean at 313ef6c1d674e9e8d36d08ba5054807ffac2177f.
+Main integration deferred: existing API PID 47769 / web PID 47793 use that checkout; activation window required.
+No production records, existing services, .env, shared uploads, models, volumes, backups or other worktree files changed.
+No private Phase C1 evaluation; no make evaluate (agent behavior unchanged); no push/tag/release/publication.
+See PASS_A_COMPLETION.md for screenshots, known limitations and the guarded local merge command.

@@ -1123,6 +1123,9 @@ export default function ArchitectureExplorerPage() {
   const [selectedDetail, setSelectedDetail] = useState<ComponentDetail | null>(
     COMPONENT_DETAILS["fastapi-api"]
   );
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    SYSTEM_NODES.find(node => node.data.detailId === "fastapi-api")?.id
+  );
   const [animatedFlow, setAnimatedFlow] = useState(true);
   const [accessibleMode, setAccessibleMode] = useState(false);
 
@@ -1190,6 +1193,8 @@ export default function ArchitectureExplorerPage() {
         }))
       );
 
+      const detailId = { system: "fastapi-api", workflow: "wf-rca", rag: "rag-hybrid", sources: "src-ext-adapters" }[key];
+      setSelectedId(nextNodes.find(node => node.data.detailId === detailId)?.id);
       // Select default component detail for diagram
       if (key === "system") setSelectedDetail(COMPONENT_DETAILS["fastapi-api"]);
       if (key === "workflow") setSelectedDetail(COMPONENT_DETAILS["wf-rca"]);
@@ -1199,25 +1204,23 @@ export default function ArchitectureExplorerPage() {
     [animatedFlow, setNodes, setEdges]
   );
 
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      const data = node.data as unknown as CustomNodeData;
-      setEdges(current => current.map(edge => ({ ...edge, style: { ...edge.style, stroke: edge.source === node.id || edge.target === node.id ? "var(--accent)" : "var(--border-strong)", strokeWidth: edge.source === node.id || edge.target === node.id ? 2.5 : 1, opacity: edge.source === node.id || edge.target === node.id ? 1 : 0.35 } })));
-      if (data?.detailId && COMPONENT_DETAILS[data.detailId]) {
-        setSelectedDetail(COMPONENT_DETAILS[data.detailId]);
-      }
-    },
-    [setEdges]
-  );
+  const selectNode = useCallback((node: CustomNodeType) => {
+    const detail = COMPONENT_DETAILS[node.data.detailId];
+    if (detail) {
+      setSelectedId(node.id);
+      setSelectedDetail(detail);
+    }
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="architecture-page space-y-6">
+      <p role="status" className="sr-only">{selectedDetail ? `Selected ${selectedDetail.name}` : "Select a component"}</p>
       {/* Page Header */}
       <PageHeader
         title="Interactive Architecture &amp; Workflow Explorer"
         subtitle="Select a component to inspect its contracts and trust boundaries."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link href="/integrations">
               <Button variant="secondary" size="md">
                 Data Sources &amp; Integrations →
@@ -1313,14 +1316,23 @@ export default function ArchitectureExplorerPage() {
         <div className="grid gap-6 lg:grid-cols-12">
           {/* React Flow Canvas (8 columns) */}
           <div className="space-y-2 lg:col-span-8">
-            <div className="relative h-[510px] lg:h-[600px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner">
+            <div className="relative h-[510px] lg:h-[600px] w-full rounded-2xl border border-border bg-bg overflow-hidden shadow-inner"
+              onKeyDownCapture={event => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                const element = (event.target as HTMLElement).closest(".react-flow__node");
+                const node = nodes.find(n => n.id === element?.getAttribute("data-id"));
+                if (node) { event.preventDefault(); event.stopPropagation(); selectNode(node); }
+              }}>
               <ReactFlow
                 key={activeDiagram}
-                nodes={nodes}
-                edges={edges}
+                nodes={nodes.map(node => ({ ...node, selected: node.id === selectedId }))}
+                edges={edges.map(edge => {
+                  const emphasized = edge.source === selectedId || edge.target === selectedId;
+                  return { ...edge, style: { ...edge.style, stroke: emphasized ? "var(--accent)" : "var(--border-strong)", strokeWidth: emphasized ? 2.5 : 1, opacity: emphasized ? 1 : 0.35 } };
+                })}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                onNodeClick={onNodeClick}
+                onNodeClick={(_, node) => selectNode(node)}
                 nodeTypes={nodeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.14, maxZoom: 1.15 }}
@@ -1358,7 +1370,7 @@ export default function ArchitectureExplorerPage() {
               <div className="flex items-center gap-3">
                 <span>• <strong>Pan:</strong> Drag canvas</span>
                 <span>• <strong>Zoom:</strong> Scroll wheel or +/-</span>
-                <span>• <strong>Inspect:</strong> Click any node</span>
+                <span>• <strong>Inspect:</strong> Click a node or focus it and press Enter or Space</span>
               </div>
               <span className="text-[10px] text-text-muted">Auto-centered on diagram switch</span>
             </div>
@@ -1471,7 +1483,7 @@ export default function ArchitectureExplorerPage() {
             ) : (
               <Card title="Component Inspector">
                 <p className="text-xs text-muted">
-                  Click any node in the interactive architecture canvas to inspect its role,
+                  Click a node or focus it and press Enter or Space in the interactive architecture canvas to inspect its role,
                   input/output invariants, error handling, and source files.
                 </p>
               </Card>
