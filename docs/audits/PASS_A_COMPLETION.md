@@ -149,3 +149,27 @@ Legacy history without a valid persisted decision stays unknown. Latest sample t
 Offset pages can shift during concurrent writes; searches beyond the offset ceiling must be narrowed.
 Large-history performance, all-browser behavior and comprehensive assistive technology were not benchmarked.
 Optional telemetry containers were not started. Pass B waits for controlled main activation; none is included.
+
+## Activation follow-up — 25 November 2026
+
+The approved feature was merged normally into main as `c9cda8d5c1d2817403456a498f61371597fc9850`, after
+the separately authorized storage recovery and a fresh read-only safety preflight. No migration or restore ran.
+The initial merged tree exactly equals `032dde6`; application services were launched securely from main.
+
+Authenticated runtime smoke discovered one genuine F01 transport defect: the BFF correctly applies its blanket
+credential filter to a field named `authorization`, replacing the structured metadata with `[REDACTED]`.
+The direct API and old intercepted browser tests did not exercise that boundary together.
+
+The follow-up is additive: the API also returns the same whitelisted metadata as `decision_history`, while
+retaining `authorization` for compatibility. Browser action readers use the safe transport field, preserve
+explicit null and reject redacted legacy strings as unknown. No generic redaction exemption, auth-policy,
+credential, action-enforcement, agent, simulator, MCP, migration or dependency change is introduced (D146).
+
+- New client regressions initially failed on the live redacted shape, then pass with normalization.
+- Proxy regression proves token-bearing nested values and `Authorization` still redact, while safe history survives.
+- Focused isolated Python tests: 34 passed; frontend: 92 passed; lint/typecheck and production Turbopack build pass.
+- Browser fixtures now model the actual BFF transport; the saved-authorization journey is reverified separately.
+- Full final read-only runtime acceptance and data-integrity evidence are stored privately outside Git at
+  `/Users/prawalsharma/OpsPilotBackups/pass-a-activation-20261125T044818Z/`, avoiding production record screenshots in Git.
+
+The completed activation report in that directory supersedes the earlier deferred-activation status above.

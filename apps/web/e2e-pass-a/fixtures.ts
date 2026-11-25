@@ -33,7 +33,8 @@ export async function fixture(page: Page, options: {
     decided_at: pending ? null : "2026-11-20T12:02:00Z", decided_by: pending ? null : "execution-record", decision_comment: null,
     executed_at: pending ? null : "2026-11-20T12:01:00Z", execution_result: pending ? null : { status: "succeeded" },
     verification: pending ? null : { recovered: true, notes: "Synthetic sandbox verification" },
-    authorization: ["unknown", "unavailable", "pending"].includes(authorization) ? null : {
+    authorization: ["unknown", "unavailable", "pending"].includes(authorization) ? null : "[REDACTED]",
+    decision_history: ["unknown", "unavailable", "pending"].includes(authorization) ? null : {
       decision: authorization, decided_by: "original-sre", decided_at: at,
     },
   };

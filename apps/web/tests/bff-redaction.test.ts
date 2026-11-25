@@ -34,3 +34,25 @@ it("redacts sensitive keys in relayed JSON and keeps counters", async () => {
 it("matches the backend policy for nulls and nesting", () => {
   expect(redact({ approval_token: null, x: { session_secret: "v" } })).toEqual({ approval_token: null, x: { session_secret: REDACTED } });
 });
+
+it("relays safe decision metadata while retaining credential redaction", async () => {
+  const history = { decision: "approve", decided_by: "original-sre", decided_at: "2026-11-20T12:00:00Z" };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{
+    authorization: history,
+    decision_history: { ...history, approval_token: SENTINEL },
+    nested: { Authorization: `Bearer ${SENTINEL}` },
+  }]), { headers: { "content-type": "application/json" } })));
+  const { value } = issueSession("alice", "viewer");
+  const req = new NextRequest(`http://127.0.0.1:3000/api/ops/api/v1/investigations/${INV}/actions`, {
+    headers: { cookie: `opspilot_session=${value}` },
+  });
+  const res = await GET(req, { params: Promise.resolve({ path: `api/v1/investigations/${INV}/actions`.split("/") }) } as never);
+  const text = await res.text();
+  expect(res.status).toBe(200);
+  expect(text).not.toContain("SENTINEL");
+  expect(JSON.parse(text)[0]).toEqual({
+    authorization: REDACTED,
+    decision_history: { ...history, approval_token: REDACTED },
+    nested: { Authorization: REDACTED },
+  });
+});
