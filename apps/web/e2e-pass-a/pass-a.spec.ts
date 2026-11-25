@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fixture, investigationId } from "./fixtures";
 
-const output = path.resolve(process.cwd(), "../../docs/images/pass-a/after");
+const output = path.resolve(process.cwd(), process.env.OPSPILOT_PASS_A_OUTPUT_DIR ?? "../../docs/images/pass-a/after");
 test.beforeAll(async () => { await mkdir(output, { recursive: true }); });
 
 for (const width of [390, 768, 1280, 1440]) {

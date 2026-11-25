@@ -20,7 +20,7 @@ export const metric = {
 };
 export async function fixture(page: Page, options: {
   authorization?: "approve" | "reject" | "expired" | "pending" | "unknown" | "unavailable";
-  source?: "simulator" | "upload";
+  source?: "simulator" | "upload" | "connector";
   observationTime?: string | null;
 } = {}) {
   const source = options.source ?? "simulator";
@@ -64,6 +64,13 @@ export async function fixture(page: Page, options: {
         remediation_plan: [], executions: pending ? [] : [{ step: 1, status: "succeeded", message: "Synthetic", action_type: "restart_service" }],
         verification: pending ? null : { recovered: true, notes: "Synthetic sandbox verification" },
       },
+    };
+    else if (path.endsWith("/dataset")) body = {
+      dataset_id: "synthetic-snapshot", incident_id: incidentId, timezone: "UTC", affected_services: ["checkout-api"],
+      files: [], queries: [], created_at: at, retention_days: 30,
+      summary: { records: { log: 0, metric: 1, span: 0, event: 0 }, rejected: 0, redactions: 0,
+        services: ["checkout-api"], metrics_by_service: {}, event_types: [], start: at, end: at, timezones: ["UTC"],
+        samples: { log: [], metric: [], span: [], event: [] }, warnings: [] },
     };
     else if (path.endsWith("/actions")) {
       if (authorization === "unavailable") return route.fulfill({ status: 503, json: { error: { message: "Synthetic history unavailable" } } });
