@@ -1045,3 +1045,34 @@ Not done (next session, in order):
 - Remaining: owner executes local commit; explicit Pass B activation approval; refreshed preflight, stop only
   OpsPilot API/web, history-preserving local merge, secure launch, existing-record smoke and integrity checks.
   Full read-only preflight and boundary: `docs/audits/PASS_B_INTEGRATION_PREFLIGHT.md`. No push/tag/publish.
+
+
+## Status — 2026-11-25, v0.12.0 release candidate
+
+- Supersedes the earlier pending-commit/activation entries: approved Pass B is committed as `6fcd3bc184ca4ea7d437a4a0ee15fa9a03d84121`
+  and activated through history-preserving local main merge `aa09069042bbf87ecb50b877f781dd50e41f3f62`.
+  Approved Pass A `032dde6` and transport correction `f5720b0` are ancestors. The Incident Forensics Lab identity is retained.
+- Activation passed 17 existing-record-only smoke checks. All 30 production table counts, 14 stable-table
+  fingerprints, eight shared/legacy upload hashes and five existing backup hashes matched; schema remains 0011.
+  Expected runtime fencing metadata changed during activation. Private evidence remains outside Git under
+  `~/OpsPilotBackups/pass-b-activation-20261125T055410Z/`. No production record or provider query was created.
+- v0.12.0 consolidates Pass A correctness/responsive work and Pass B contextual workbench/evidence inspection.
+  Final support/contradiction counts distinguish cited, accessible and unavailable exact IDs; model output unchanged.
+  README and `docs/releases/V0.12.0_NOTES.md` describe behavior, API bounds and limitations. D145–D147 remain applicable;
+  no new architecture decision, migration, agent/model/prompt, dependency or safety-policy change.
+- Full release diff against v0.11.0 reviewed: approved source/tests/docs and actual synthetic browser captures only;
+  no private datasets, credentials, generated caches, databases or unrelated changes. Remote preflight confirmed
+  main and peeled v0.11.0 at `313ef6c1d674e9e8d36d08ba5054807ffac2177f`, no v0.12.0 tag and no divergence.
+- Final merged-main checks: `make lint` passed (mypy 116 files, four import contracts, ESLint/TypeScript);
+  `make test`: 725 Python passed, five expected skips (249.03 s), 107 frontend passed in 15 files;
+  normal production Turbopack build passed, 28 routes. Isolated test DB/resources, live providers disabled;
+  PostgreSQL approximately 28.52 GiB free before database tests. No model evaluation or diagnostic-accuracy claim.
+- One focused detached startup check used isolated ports 8140/3140 and `opspilot_test`: API readiness and web login
+  remained 200 after launcher exit at 18.5/30.2 seconds. Test-only stale ownership fields belonged to terminal fixtures,
+  with no unexpired leases, active investigations or pending commands. No startup exit reproduced. Only isolated
+  services stopped; production API PID 37573/web PID 37341 and the secure Next.js credential allowlist preserved.
+- Previously accepted browser evidence retained: 11 Pass B journeys plus one count-correction journey, 10 Pass A
+  regressions and 17 live activation checks. No additional broad UX audit or provider-account validation.
+- Publication authorized: commit these release docs to main, push normally, require Python and web CI success on
+  that exact candidate SHA, then create annotated v0.12.0 and publish as Latest. Any CI/tag/release verification
+  failure stops publication. No force push, service restart, new milestone, model evaluation or production mutation.

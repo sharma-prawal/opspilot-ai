@@ -15,15 +15,19 @@ a sandbox, verifies recovery and writes an RCA report.
 Everything runs on one laptop: open-weight models via native Ollama, one PostgreSQL (with
 pgvector), no paid APIs, no cloud services, no production access.
 
-> **Status: v0.11.0, experimental, local-first.** **AWS CloudWatch** is a read-only evidence provider: Logs Insights
-> events from explicitly mapped log groups and `GetMetricData` metrics of mapped ALB/ECS/Lambda/custom resources feed the
-> existing snapshot-driven investigation, alongside Loki, Prometheus, Datadog and Azure Monitor
-> ([release notes](docs/releases/V0.11.0_NOTES.md)). **It was tested only against a synthetic protocol fixture through
-> the real AWS SDK: no real AWS account was used. AWS authentication, IAM behaviour, live query syntax, quotas and scan
-> costs are not verified.** RCAs stay model-written: deterministic warnings flag unsupported claims, but suggestions can
-> still be wrong.
+> **Status: v0.12.0 — Investigation Experience Refinement, experimental and local-first.**
+> Complete-history search, persisted authorization history, accurate historical-evidence labels and a decision-first
+> workbench with a contextual evidence inspector make saved investigations easier to inspect. Coverage and missing
+> records remain explicit; model confidence is uncalibrated. Simulator authorization/execution/verification stay separate;
+> uploaded and connected investigations remain read-only, with unverified external recovery.
+> [Release notes and limitations](docs/releases/V0.12.0_NOTES.md). These UI improvements do not establish RCA diagnostic accuracy.
+>
+> AWS CloudWatch, Azure Monitor and Datadog remain optional read-only evidence providers. Their live-account
+> compatibility is unverified; connector and claim-warning scenarios were tested using synthetic fixtures, with no real
+> cloud-provider queries. Existing [CloudWatch limitations](docs/releases/V0.11.0_NOTES.md#not-verified--limitations) remain.
 
-Explore the [homepage and investigation screenshots](#screenshots-visual-experience-20),
+Explore the [v0.12 workbench captures](docs/images/pass-b/README.md),
+[homepage and investigation screenshots](#screenshots-visual-experience-20),
 [mobile workbench](docs/images/visual-experience-2/refinement/workbench-mobile.png), and
 [brand guide](docs/design/BRAND.md).
 
@@ -60,6 +64,8 @@ Alert ─► LangGraph investigation ──► MCP tools ──► simulated pay
 | Workflow survives API restart; MCP child crash recovered transparently | ✅ |
 | FastAPI (26 endpoints) and Next.js 16 operator UI (outcome, plan, blocked proposals, evidence, timeline, report) | ✅ |
 | Python and frontend tests, isolated Playwright e2e (own API on `opspilot_test`, identity-checked), ruff, mypy `--strict`, import-linter, production frontend build; Python and web CI jobs on every main push | ✅ |
+| Investigation experience: complete-history reference/title/service search, source/state filters, totals/pagination; persisted authorization history independent of execution; historical metric labels; responsive navigation and architecture keyboard parity | ✅ (v0.12) |
+| Decision-first workbench with shared contextual evidence inspector, exact cited/accessibility/unavailability counts, coverage/provenance and uncalibrated uncertainty; explicit simulator vs read-only boundaries | ✅ (v0.12) |
 | Visual Experience 2.0: original logo/icon exports, three-mode intake, filtered roster, direct approval focus, metric comparisons, source chronology and evidence associations; responsive connector and safety disclosures | ✅ (v0.8) |
 | Held-out retrieval set and incident-level evaluation across all scenarios with retained traces | ✅ |
 
@@ -477,7 +483,7 @@ Layering is enforced by import-linter: agents depend only on ports; nothing impo
 - Setup: [environment audit](docs/setup/ENVIRONMENT_AUDIT.md) · [development guide](docs/development/DEVELOPMENT.md)
 - Status: [progress](docs/PROGRESS.md) · [evaluation baseline](docs/evaluation/BASELINE.md) ·
   [v0.4 model comparison](docs/evaluation/MODEL_COMPARISON_V0.4.md)
-- Release: [v0.4.0 release notes](docs/releases/V0.4.0_NOTES.md) · [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
+- Release: [v0.12.0 release notes](docs/releases/V0.12.0_NOTES.md) · [v0.4.0 release notes](docs/releases/V0.4.0_NOTES.md) · [v0.3.0 release notes](docs/releases/V0.3.0_NOTES.md) · [v0.2.1 release notes](docs/releases/V0.2.1_NOTES.md)
 - Audit and hardening: [Codex audit of v0.2.0](docs/audits/CODEX_AUDIT_9ec857c.md) · remediation records
   [C0](docs/audits/PHASE_C0_REMEDIATION.md) · [C0-F](docs/audits/PHASE_C0_F_REMEDIATION.md) ·
   [C0-G](docs/audits/PHASE_C0_G_REMEDIATION.md) · [C0-H](docs/audits/PHASE_C0_H_REMEDIATION.md) ·
