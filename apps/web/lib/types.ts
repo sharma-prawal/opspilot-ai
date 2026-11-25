@@ -221,6 +221,7 @@ export interface Authorization {
 
 export interface ActionRequest {
   authorization?: Authorization | null;
+  decision_history?: Authorization | null;
   id: string; investigation_id: string; incident_id: string; action_type: string; parameters: Record<string, string>;
   params_hash: string; rationale: string; risk: string; status: string; requested_at: string;
   decided_at: string | null; decided_by: string | null; decision_comment: string | null; executed_at: string | null;

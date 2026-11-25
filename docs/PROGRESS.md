@@ -960,3 +960,23 @@ Not done (next session, in order):
 - Production data, `.env`, shared/legacy uploads, models, volumes, backups, other worktrees/private Phase C1 data
   preserved. No agent/simulator behavior change, no private evaluation, no `make evaluate` and no new quality claim.
   Legacy authorization/sample-time limitations and offset pagination under concurrent writes remain documented.
+
+## Status — 2026-11-25, controlled activation and F01 transport correction
+
+- Storage recovery was completed separately with explicit approval: Colima 30 → 60 GiB, about 28.71 GiB free;
+  schema 0011 dump restored successfully on Mac-backed isolated storage (30 table counts, 58 indexes verified).
+  No restoration or cleanup was repeated for activation; retained verification environments remain untouched.
+- Initial history-preserving main merge: `c9cda8d5c1d2817403456a498f61371597fc9850`, parents baseline
+  `313ef6c` and approved feature `032dde6`; its tree exactly matches the approved feature. Secure launcher used.
+- Real authenticated BFF smoke caught a defect the intercepted fixtures missed: generic credential redaction
+  replaces the safe DTO field `authorization` with `[REDACTED]`. Direct API history was correct; live UI history was not.
+- Additive correction: return the same validated three-field metadata as `decision_history` as well; normalize it
+  in browser action readers, retaining `authorization` for direct API compatibility. Explicit null/redacted legacy
+  values remain unknown. Redaction, authentication, action enforcement and MCP policy are unchanged (D146).
+- Regression tests reproduce the redacted client response, check action/approval/decision readers, verify BFF
+  token redaction still applies recursively, and require both API metadata fields to match. Fixtures now model
+  the real BFF transport. Focused Python: 34 passed on `opspilot_test`; web: 92 passed; lint/typecheck/build pass.
+- Production smoke uses only existing records, blocks browser mutations except session login/logout, and never
+  invokes connector tests/cloud queries, new investigations or remediation. Final activation evidence and row/file
+  integrity comparison are recorded outside Git under `~/OpsPilotBackups/pass-a-activation-20261125T044818Z/`.
+  No private Phase C1 evaluation, push, tag, release or Pass B work.

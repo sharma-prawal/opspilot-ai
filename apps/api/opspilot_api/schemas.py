@@ -159,6 +159,7 @@ class ActionOut(Dto):
     execution_result: dict[str, Any] | None
     verification: dict[str, Any] | None
     authorization: AuthorizationOut | None = None
+    decision_history: AuthorizationOut | None = None
 
 
 class DecisionRequest(BaseModel):

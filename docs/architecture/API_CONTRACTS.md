@@ -158,3 +158,9 @@ payload action ID and parameter hash. Actor and timezone-aware ISO decision time
 fields leave the API; command delivery metadata, tokens and other payload fields are not exposed.
 Missing or malformed legacy history returns null. Mutable action status and execution timestamps do not establish
 an authorization decision. This is a read contract; write paths, approval enforcement and database schema are unchanged.
+
+Activation correction (2026-11-25): the same three-field metadata is also returned as nullable `decision_history`.
+The existing `authorization` field remains compatible for direct API clients. The BFF's unchanged credential
+policy redacts keys containing `authorization`; browser action readers normalize `decision_history` into the
+presentation model. Explicit null stays unknown, and a redacted legacy string is never treated as a decision.
+No redaction exemption, credential field or raw command payload is exposed.

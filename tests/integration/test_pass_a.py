@@ -160,6 +160,7 @@ async def test_saved_authorization_independent_of_execution(
         all_actions = (await client.get("/api/v1/approvals", params={"status": "all"})).json()
         for action in [detail, investigation[0], next(a for a in all_actions if a["id"] == str(action_id))]:
             assert action["status"] == "succeeded"
+            assert action["decision_history"] == action["authorization"]
             if decision:
                 assert action["authorization"] == {
                     "decision": decision,

@@ -54,6 +54,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const post = <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
 
+function actionRecord(action: ActionRequest): ActionRequest {
+  // The BFF intentionally redacts keys containing "authorization". Keep that policy
+  // intact and read the API's safe, whitelisted decision-history metadata instead.
+  const history = "decision_history" in action ? action.decision_history : action.authorization;
+  return { ...action, authorization: history && typeof history === "object" ? history : null };
+}
+
 export const api = {
   overview: () => request<Overview>("api/v1/system/overview"),
   dependencies: () => request<DependencyHealth>("health/dependencies"),
@@ -88,14 +95,14 @@ export const api = {
   events: (id: string) => request<WorkflowEvent[]>(`api/v1/investigations/${id}/events`),
   toolCalls: (id: string) => request<ToolCall[]>(`api/v1/investigations/${id}/tool-calls`),
   evidence: (id: string) => request<Evidence[]>(`api/v1/investigations/${id}/evidence`),
-  actions: (id: string) => request<ActionRequest[]>(`api/v1/investigations/${id}/actions`),
+  actions: (id: string) => request<ActionRequest[]>(`api/v1/investigations/${id}/actions`).then(rows => rows.map(actionRecord)),
   report: (id: string) => request<{ markdown: string; status: string }>(`api/v1/investigations/${id}/report`),
   resume: (id: string) => post(`api/v1/investigations/${id}/resume`),
   cancel: (id: string) => post(`api/v1/investigations/${id}/cancel`, {}),
-  approvals: (status = "pending") => request<ActionRequest[]>(`api/v1/approvals?status=${status}`),
+  approvals: (status = "pending") => request<ActionRequest[]>(`api/v1/approvals?status=${status}`).then(rows => rows.map(actionRecord)),
   // decided_by / actor are set server-side from the signed-in session; any client value is overwritten.
   decide: (actionId: string, body: { decision: "approve" | "reject"; params_hash: string; comment?: string }) =>
-    post<ActionRequest>(`api/v1/approvals/${actionId}/decision`, body),
+    post<ActionRequest>(`api/v1/approvals/${actionId}/decision`, body).then(actionRecord),
   search: (query: string, mode: string, top_k = 8) => post<SearchResponse>("api/v1/knowledge/search", { query, mode, top_k }),
   documents: () => request<KbDocument[]>("api/v1/knowledge/documents"),
 };

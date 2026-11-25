@@ -48,7 +48,10 @@ async def action_outputs(sf: async_sessionmaker[AsyncSession], rows: list[OpsAct
                 )
             ).scalars()
         }
-    return [
-        ActionOut.model_validate(row).model_copy(update={"authorization": authorization_for(row, commands.get(row.id))})
-        for row in rows
-    ]
+    outputs = []
+    for row in rows:
+        history = authorization_for(row, commands.get(row.id))
+        outputs.append(
+            ActionOut.model_validate(row).model_copy(update={"authorization": history, "decision_history": history})
+        )
+    return outputs
