@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
+from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from opspilot_api import repositories as repo
@@ -72,11 +72,59 @@ class IncidentService:
         return to_contract(row)
 
     async def list(self, *, status: IncidentStatus | None = None, limit: int = 50) -> list[Incident]:
-        stmt = select(OpsIncident).order_by(OpsIncident.created_at.desc()).limit(limit)
+        stmt = select(OpsIncident).order_by(OpsIncident.created_at.desc(), OpsIncident.id.desc()).limit(limit)
         if status:
             stmt = stmt.where(OpsIncident.status == status.value)
         async with self._sf() as s:
             return [to_contract(r) for r in (await s.execute(stmt)).scalars()]
+
+    async def search(
+        self,
+        *,
+        q: str = "",
+        source: Literal["simulator", "upload", "connector"] | None = None,
+        status: IncidentStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        stmt = select(OpsIncident.id, OpsIncident.created_at)
+        if q.strip():
+            literal = q.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            stmt = stmt.where(
+                or_(
+                    *(
+                        col.ilike(f"%{literal}%", escape="!")
+                        for col in (OpsIncident.reference, OpsIncident.title, OpsIncident.service)
+                    )
+                )
+            )
+        if source:
+            stmt = stmt.where(OpsIncident.evidence_source == source)
+        if status:
+            stmt = stmt.where(OpsIncident.status == status.value)
+        matching = stmt.cte("matching")
+        total = select(func.count().label("total")).select_from(matching).cte("total")
+        page = (
+            select(matching)
+            .order_by(matching.c.created_at.desc(), matching.c.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .cte("page")
+        )
+        # One statement/snapshot; the count survives an empty or out-of-range page.
+        query = (
+            select(OpsIncident, total.c.total)
+            .select_from(total.outerjoin(page, true()).outerjoin(OpsIncident, OpsIncident.id == page.c.id))
+            .order_by(page.c.created_at.desc(), page.c.id.desc())
+        )
+        async with self._sf() as s:
+            rows = (await s.execute(query)).all()
+        return {
+            "items": [to_contract(row) for row, _ in rows if row is not None],
+            "total": rows[0][1],
+            "limit": limit,
+            "offset": offset,
+        }
 
     async def get(self, incident_id: uuid.UUID) -> Incident:
         async with self._sf() as s:

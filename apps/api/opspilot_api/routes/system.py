@@ -31,6 +31,7 @@ async def overview(rt: Runtime) -> dict[str, Any]:
 
         out: dict[str, Any] = {
             "incidents": await counts(OpsIncident.status),
+            "incident_sources": await counts(OpsIncident.evidence_source),
             "investigations": await counts(OpsInvestigation.status),
             "actions": await counts(OpsActionRequest.status),
             "knowledge": {

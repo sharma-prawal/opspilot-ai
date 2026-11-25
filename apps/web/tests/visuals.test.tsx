@@ -155,6 +155,7 @@ describe("visual interactions", () => {
   it("does not imply approval, execution or verification when no plan ran", () => {
     render(
       <DecisionFlow
+        actions={[]}
         result={{ rejected_proposals: [{ proposal: {}, reason: "Unsafe" }] }}
       />,
     );
@@ -177,5 +178,43 @@ describe("visual interactions", () => {
     );
     expect(screen.getByText("Nothing executed")).toBeDefined();
     expect(screen.queryByText("Simulator recovery verified")).toBeNull();
+  });
+});
+
+describe("Pass A historical records", () => {
+  it("retains approval actor and time after successful execution", () => {
+    render(<DecisionFlow actions={[{
+      status: "succeeded", executed_at: "2026-11-20T12:01:00Z",
+      authorization: { decision: "approve", decided_by: "original-sre", decided_at: "2026-11-20T12:00:00Z" },
+    } as import("../lib/types").ActionRequest]} />);
+    expect(screen.getByText(/Approved — original-sre at 2026-11-20 12:00:00Z/)).toBeDefined();
+    expect(screen.getByText("Simulator execution recorded")).toBeDefined();
+    expect(screen.getByText("Not verified")).toBeDefined();
+  });
+  it("distinguishes missing legacy authorization from unavailable action history", () => {
+    const { rerender } = render(<DecisionFlow actions={[{ status: "succeeded" } as import("../lib/types").ActionRequest]} />);
+    expect(screen.getByText("Authorization unknown")).toBeDefined();
+    rerender(<DecisionFlow />);
+    expect(screen.getByText("Authorization unavailable")).toBeDefined();
+  });
+  it("keeps reject and expiry separate from execution", () => {
+    const { rerender } = render(<DecisionFlow actions={[{ status: "succeeded", authorization: {
+      decision: "reject", decided_by: "sre", decided_at: "2026-11-20T12:00:00Z",
+    } } as import("../lib/types").ActionRequest]} />);
+    expect(screen.getByText(/Rejected — sre/)).toBeDefined();
+    rerender(<DecisionFlow actions={[{ status: "expired", authorization: {
+      decision: "expired", decided_by: "system", decided_at: "2026-11-20T12:00:00Z",
+    } } as import("../lib/types").ActionRequest]} />);
+    expect(screen.getByText(/Expired — system/)).toBeDefined();
+    rerender(<DecisionFlow actions={[{ status: "pending" } as import("../lib/types").ActionRequest]} />);
+    expect(screen.getByText("Pending review")).toBeDefined();
+  });
+  it("labels historical values and observation time without inventing a sample timestamp", () => {
+    render(<MetricComparison evidence={[metric]} onSelect={vi.fn()} />);
+    expect(screen.getByText("Latest in collected evidence")).toBeDefined();
+    expect(screen.getByText(/Evidence observation time: 2026-11-19 12:00:00Z/)).toBeDefined();
+    expect(screen.getByText(/Latest sample time unavailable/)).toBeDefined();
+    expect(screen.queryByText("Current")).toBeNull();
+    expect(screen.getByText(/do not show post-action verification or current live health/)).toBeDefined();
   });
 });

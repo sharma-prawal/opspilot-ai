@@ -8,6 +8,7 @@ import {
   metricValues,
   sourceChronology,
 } from "@/lib/visuals";
+import { authorizationLabel } from "@/lib/authorization";
 import { seriesRuns } from "@/lib/connectors";
 import type {
   ActionRequest,
@@ -141,16 +142,17 @@ export function MetricComparison({
                 {metricLabel(low, unit)} – {metricLabel(high, unit)} ·{" "}
                 {e.evidence_id}
                 {e.observed_at
-                  ? ` · ${utcTime(e.observed_at)}`
-                  : " · Time unavailable"}
+                  ? ` · Evidence observation time: ${utcTime(e.observed_at)}`
+                  : " · Evidence observation time unavailable"}
+                {" · Latest sample time unavailable"}
               </figcaption>
             </figure>
           );
         })
       )}
       <p className="text-xs text-muted">
-        Persisted summaries · baseline, extreme and current are not a time
-        series.
+        Collected investigation evidence · baseline, extreme and latest are not a time series.
+        These historical summaries do not show post-action verification or current live health.
       </p>
     </div>
   );
@@ -452,7 +454,7 @@ export function EvidenceMap({
 
 export function DecisionFlow({
   result,
-  actions = [],
+  actions,
   readOnly = false,
 }: {
   result?: InvestigationResult | null;
@@ -487,20 +489,23 @@ export function DecisionFlow({
           : "No admitted plan",
     },
     {
-      label: "Approval",
-      detail: actions.some((a) => a.status === "pending")
-        ? "Pending review"
-        : actions.some((a) => a.status === "approved")
-          ? "Approved action recorded"
-          : actions.some((a) => a.status === "rejected")
-            ? "Rejected"
-            : "No approval recorded",
+      label: "Authorization",
+      detail: actions === undefined
+        ? "Authorization unavailable"
+        : !actions.length
+          ? "No approval recorded"
+          : [...new Set(actions.map(action => {
+              const decision = authorizationLabel(action);
+              return action.authorization
+                ? `${decision} — ${action.authorization.decided_by} at ${utcTime(action.authorization.decided_at)}`
+                : decision;
+            }))].join(" · "),
     },
     {
       label: "Execution",
       detail: execution.length
         ? `${execution.length} simulator results`
-        : actions.some((a) => a.executed_at)
+        : actions?.some((a) => a.executed_at)
           ? "Simulator execution recorded"
           : "Not executed",
     },

@@ -135,6 +135,12 @@ class EvidenceOut(Dto):
     observed_at: datetime | None
 
 
+class AuthorizationOut(BaseModel):
+    decision: Literal["approve", "reject", "expired"]
+    decided_by: str = Field(min_length=1, strict=True)
+    decided_at: AwareDatetime
+
+
 class ActionOut(Dto):
     id: uuid.UUID
     investigation_id: uuid.UUID
@@ -152,6 +158,7 @@ class ActionOut(Dto):
     executed_at: datetime | None
     execution_result: dict[str, Any] | None
     verification: dict[str, Any] | None
+    authorization: AuthorizationOut | None = None
 
 
 class DecisionRequest(BaseModel):

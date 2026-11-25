@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,9 @@ const LINKS = [
 export function Nav() {
   const path = usePathname();
   const router = useRouter();
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const open = openPath === path;
   const qc = useQueryClient();
   const session = useQuery({
     queryKey: ["session"],
@@ -48,7 +52,16 @@ export function Nav() {
   const count = pending.data?.length ?? 0;
 
   return (
-    <nav aria-label="Primary" className="primary-nav flex flex-wrap items-center gap-1">
+    <nav aria-label="Primary" className="primary-nav" onKeyDown={(event) => {
+      if (event.key === "Escape" && open) {
+        event.preventDefault(); setOpenPath(null); toggle.current?.focus();
+      }
+    }}>
+      <button ref={toggle} type="button" className="nav-toggle" aria-expanded={open}
+        aria-controls="primary-navigation-links" onClick={() => setOpenPath(open ? null : path)}>
+        {open ? "Close navigation" : "Open navigation"} · {LINKS.find(l => l.href === path)?.label ?? (path.startsWith("/investigations") || path.startsWith("/incidents/") ? "Incidents" : "Navigation")}
+      </button>
+      <div id="primary-navigation-links" className="primary-nav-links" data-open={open}>
       {LINKS.map((l) => {
         const active =
           l.href === "/"
@@ -60,6 +73,7 @@ export function Nav() {
         return (
           <Link
             key={l.href}
+            onClick={() => setOpenPath(null)}
             href={l.href}
             aria-label={l.label}
             aria-current={active ? "page" : undefined}
@@ -92,6 +106,7 @@ export function Nav() {
           </button>
         </span>
       )}
+      </div>
     </nav>
   );
 }

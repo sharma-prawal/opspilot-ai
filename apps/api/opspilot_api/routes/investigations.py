@@ -17,6 +17,7 @@ from opspilot_api.schemas import (
     ReportOut,
     ToolCallOut,
 )
+from opspilot_api.services.action_history import action_outputs
 from opspilot_shared.errors import NotFoundError
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
@@ -51,7 +52,7 @@ async def evidence(rt: Runtime, investigation_id: uuid.UUID) -> list[EvidenceOut
 @router.get("/{investigation_id}/actions")
 async def actions(rt: Runtime, investigation_id: uuid.UUID) -> list[ActionOut]:
     await rt.investigations.get(investigation_id)
-    return [ActionOut.model_validate(a) for a in await rt.investigations.actions(investigation_id)]
+    return await action_outputs(rt.infra.session_factory, await rt.investigations.actions(investigation_id))
 
 
 @router.get("/{investigation_id}/report")

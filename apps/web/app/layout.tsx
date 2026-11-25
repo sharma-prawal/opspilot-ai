@@ -59,7 +59,7 @@ export default function RootLayout({
             </div>
           </header>
 
-          <main id="main-content" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+          <main id="main-content" className="min-w-0 mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
             <Suspense>{children}</Suspense>
           </main>
 

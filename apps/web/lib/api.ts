@@ -57,6 +57,14 @@ const post = <T>(path: string, body?: unknown) => request<T>(path, { method: "PO
 export const api = {
   overview: () => request<Overview>("api/v1/system/overview"),
   dependencies: () => request<DependencyHealth>("health/dependencies"),
+  searchIncidents: (filters: { q?: string; source?: string; status?: string; limit?: number; offset?: number }) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || ((key === "source" || key === "status") && value === "all")) continue;
+      params.set(key, String(value));
+    }
+    return request<{ items: Incident[]; total: number; limit: number; offset: number }>(`api/v1/incidents/search?${params}`);
+  },
   incidents: () => request<Incident[]>("api/v1/incidents"),
   incident: (id: string) => request<Incident>(`api/v1/incidents/${id}`),
   scenarios: () => request<{ key: string; title: string }[]>("api/v1/incidents/scenarios"),

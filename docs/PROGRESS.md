@@ -907,3 +907,56 @@ Not done (next session, in order):
   verified.
 - Publication gate: the Python and web CI jobs on the final `main` commit must pass before the annotated `v0.11.0` tag
   and the GitHub release.
+
+
+## Status — 2026-11-24, recreated UI Pass A (uncommitted)
+
+- Exact writable worktree: `/Users/prawalsharma/Documents/Projects/opspilot-ui-pass-a`;
+  `feature/ui-pass-a-mac`, baseline/HEAD `313ef6c1d674e9e8d36d08ba5054807ffac2177f`.
+  Harmless temporary source write/read/delete succeeded. Git metadata was only read.
+- Recovered and read the supplied `PASS_A_COMPLETION.md`; recreated F01 persisted authorization,
+  F02 complete-history server search/pagination and overview source totals, F03 historical metric terminology,
+  F06 responsive controls/disclosure navigation, and architecture keyboard/inspector synchronization. D145.
+- Verification: frontend 86 passed; focused authorization Python unit suite 14 passed; `make lint` passes
+  (strict mypy 116 files, four import contracts, ESLint and Next/TypeScript generation).
+  Production build passes using `pnpm build --webpack` and existing cached Geist fonts.
+- Full Python attempt: 514 passed, 7 skipped, 20 failed, 189 setup errors. Reported errors are sandbox
+  `Operation not permitted` for loopback DB connections and local CloudWatch fixture socket binding.
+  The new PostgreSQL regressions therefore remain unverified. `make test` is not green.
+- Targeted Playwright suite: 10 tests defined, including 390/768/1280/1440 checks; blocked before tests by
+  `listen EPERM` on its isolated port 3185. A separate Chromium launch also fails with Mach rendezvous
+  permission denied. No screenshots or rendered responsive measurements were produced.
+- Default Turbopack build cannot fetch fonts in the sandbox; cached-font retry also needs a denied port binding.
+  Webpack succeeds without network or port binding. No build configuration or dependency lockfile was changed.
+- Original API/web PIDs on 8000/3000 remain present and were not restarted. No production DB connection succeeded,
+  no data migration or provider/model call was made, and `.env`, uploads, models, backups and other worktrees were
+  not modified. Dependencies were copied into this worktree only.
+- Handoff: `docs/audits/PASS_A_COMPLETION.md` has exact contracts, changed files, test results, remaining checks and
+  Mac Terminal Git commands. No commit/merge/push/tag/publish. Pass B is deferred.
+
+## Status — 2026-11-24, UI Pass A final verification and local feature commit
+
+- Continued the existing `feature/ui-pass-a-mac` implementation in the same worktree; no recreation/new worktree,
+  Linux recovery or Pass B. Reviewed every changed/new file; scope remains F01/F02/F03/F06 and architecture keyboard.
+- Authorized unrestricted local execution resolved the earlier sandbox DB/socket/Chromium blockers. Preflight verified
+  `opspilot_test`, no other test clients, free ports 8100/3100/3185, disposable uploads and synthetic sessions;
+  live providers disabled. Existing DB/MCP-role configuration was selected in memory; no `.env` copied or printed.
+- Final `make test`: **725 Python passed, 5 legitimate skips** (3 opt-in model, 2 stopped optional telemetry),
+  **86 web tests passed in 14 files**. `make lint` passes (strict mypy 116 files, 4 import contracts, ESLint/typecheck).
+- Normal production `pnpm build` (Turbopack) passes. Webpack compilation alone does not process the repository's
+  Turbopack-only Tailwind configuration and is not accepted as rendered evidence; final captures use normal build.
+- Playwright: **10/10 Pass A production-browser tests**; **4/4 existing simulator/authentication regressions**, including
+  local-model INC-001 approval, sandbox rollback and verified recovery, on isolated 8100/3100/test DB.
+- Fixed two genuine UI issues found in rendered checks: React Flow suppressed keyboard outline; mobile filter selects
+  were too narrow. Completed tests for logout/CSRF, pending authorization, unknown metric time, Tab/focus and searches
+  by service/reference. Pass A browser server now uses the existing secure web environment allowlist (D145).
+- Evidence: 25 after-only synthetic PNGs and 4 width JSONs in `docs/images/pass-a/after/`; all PNGs validated, all
+  20 document-width observations equal their requested viewport. Final summaries in `docs/audits/PASS_A_COMPLETION.md`,
+  `pass-a-validation.txt`, `pass-a-playwright.json`. `git diff --check` passes. No secrets/generated build artifacts staged.
+- All gates completed before the local feature commit containing this update. No push, tag, release or publication.
+  Designated main remains clean at `313ef6c1d674e9e8d36d08ba5054807ffac2177f`; merge is deferred for a controlled
+  activation window because API PID 47769 / web PID 47793 run from that checkout. They were not stopped/restarted.
+  The completion report contains a guarded merge command using the correct main path.
+- Production data, `.env`, shared/legacy uploads, models, volumes, backups, other worktrees/private Phase C1 data
+  preserved. No agent/simulator behavior change, no private evaluation, no `make evaluate` and no new quality claim.
+  Legacy authorization/sample-time limitations and offset pagination under concurrent writes remain documented.

@@ -1206,7 +1206,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
                 </p>
               )}
             </Card>
-            <Card title="Observed signals">
+            <Card title="Collected investigation evidence">
               <MetricComparison
                 evidence={evidence.data ?? []}
                 onSelect={(eid) => {
