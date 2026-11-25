@@ -980,3 +980,68 @@ Not done (next session, in order):
   invokes connector tests/cloud queries, new investigations or remediation. Final activation evidence and row/file
   integrity comparison are recorded outside Git under `~/OpsPilotBackups/pass-a-activation-20261125T044818Z/`.
   No private Phase C1 evaluation, push, tag, release or Pass B work.
+
+
+## Status — 2026-11-25, UI Pass B investigation workbench (verified; Git write deferred)
+
+- Exact worktree `/Users/prawalsharma/Documents/Projects/opspilot-ui-pass-b`, branch `feature/ui-pass-b-mac`,
+  baseline/current HEAD `0a547d415cac31e4873f1ba893ba87470503ccbc`; source write/read/delete verified.
+  Git metadata is outside writable roots; implementation remains uncommitted, with a guarded local commit
+  recipe in `docs/audits/PASS_B_COMPLETION.md`. No merge, push, tag, release or activation.
+- Located/read the original v0.11 visual audit and recommendations in Downloads and viewed all three
+  accepted concepts. Implemented only F04/F05/F07 as B01/B02/B03, retaining the Incident Forensics Lab identity.
+- B01: grouped historical incident/source/window/saved-time context, header export, prominent leading model
+  hypothesis, evidence-window impact and recorded source chronology. Completed exact actions disclose;
+  pending simulator review stays open. Original model text, safety gates and Pass A decision history retained.
+- B02: one shared contextual inspector across citations, records, charts and chronology; exact IDs only,
+  missing-record state, support/contradiction, distinct recorded time labels, raw data and provenance. Desktop
+  sits alongside hypotheses; tablet/mobile stack. Selection focus, Tab, polite announcement and Escape/Close
+  restoration (including removed-trigger fallback and repeated selection) covered. D147.
+- B03: short limits link near the claim, compact coverage plus exact provider details, gaps and sampling notes.
+  Empty, partial/truncated, unavailable and not attempted stay separate; Azure access uncertainty unchanged.
+  Summary warnings disclose with the original summary; hypothesis warnings remain adjacent to visible claims.
+- No API/backend, schema, model/agent/prompt, connector collection, authorization/action or dependency change.
+  Existing saved-dataset endpoint supplies provenance for read-only uploads/connectors. External recovery stays
+  unverified. No private evaluation or `make evaluate`; no new model-quality or operator-performance claim.
+- Validation: `make test` 725 Python passed / 5 expected skips (238.19 s), web phase 104 passed; final frontend
+  after additional timestamp/focus tests 106 passed in 15 files. `make lint` passes (mypy 116 files, four import
+  contracts, ESLint/typecheck); normal production Turbopack build passes (28 routes).
+- Browser: 11 Pass B journeys and 10 existing Pass A regressions pass on isolated production servers,
+  intercepted synthetic cases only. 390/768/1280/1440 document widths match; no responsive-journey page errors.
+  Representative new text contrasts ≥4.63:1; reduced-motion pulse suppression verified. No full AT certification.
+- Actual after-only screenshots: 13 Pass B views + 25 regression captures, all 38 PNGs integrity-checked,
+  under `docs/images/pass-b/`; index, dimensions/SHA-256, browser JSONs and exact completion record included.
+  Approved Pass A artifacts restored byte-for-byte; optional regression output paths avoid future overwrites.
+- Verification preflight: 142 GiB host free; isolated 8100/3100/3185 free, `opspilot_test` confirmed with no other
+  clients, disposable upload/session resources, live providers disabled. Standard approved execution resolved
+  sandbox socket/Chromium restrictions. Dependency copies stayed inside this worktree; credentials never printed.
+- Original API/web listeners remain PID 17826/17852 on 8000/3000. Production records/schema 0011, main/other
+  worktrees, uploads, backups, `.env`, models, volumes and private Phase C1 data preserved. No cloud query,
+  real remediation, restore or running-app restart. Ready for review/controlled integration after local commit.
+
+
+## Status — 2026-11-25, accepted Pass B finalization and integration preflight
+
+- Owner accepted the visual implementation. Minimal count-only correction: “3 cited supports
+  (2 accessible · 1 unavailable)” for the existing synthetic example; contradictions use the same distinction.
+  Unique model IDs are counted against the actual returned evidence set; no model/source data changed.
+- Focused checks only: 15 Pass B unit tests passed, targeted ESLint passed, final production build/TypeScript
+  passed; one Chromium journey passed at 1440/390 with exact counts, unavailable-record inspection and no
+  overflow. Two actual synthetic final captures added and visually reviewed; total inventory 40 PNGs.
+  Prior accepted broad validation is retained, not repeated. No unrelated visual modification.
+- Full Pass B diff and intended artifacts reviewed; no unrelated backend/dependency/DB/cache/secret file.
+  Approved Pass A captures preserved. Completion, decision and interaction records updated.
+- Read-only integration preflight (11:11 IST): main clean at `0a547d415cac31e4873f1ba893ba87470503ccbc`;
+  feature HEAD at approved baseline with intended changes pending; baseline ancestry verified. Original API
+  PID 17826 and web PID 17852 still run from main; secure web launcher verified; both health checks 200.
+- Schema 0011 and prior restore-verified dump/hash available; no migration required. PostgreSQL 28.52 GiB free
+  (50% used). Zero active investigations, pending/approved/executing actions, pending/delivering commands,
+  unexpired leases/owned investigations or queued ingestion/tool/simulator execution jobs. One normal idle
+  server fencing session is distinct from work leases. All 30 table counts and eight upload hashes match.
+- No production mutation, stop/restart, merge, storage recovery, cloud query or remediation. Git metadata is
+  outside writable roots; no Git write attempted. Exact one-command owner fallback: `rtk proxy bash
+  /Users/prawalsharma/Documents/Projects/opspilot-ui-pass-b/docs/audits/PASS_B_COMMIT.sh` (one line).
+  Helper stages the explicit reviewed set and verifies post-commit clean tree/baseline ancestry, printing SHA.
+- Remaining: owner executes local commit; explicit Pass B activation approval; refreshed preflight, stop only
+  OpsPilot API/web, history-preserving local merge, secure launch, existing-record smoke and integrity checks.
+  Full read-only preflight and boundary: `docs/audits/PASS_B_INTEGRATION_PREFLIGHT.md`. No push/tag/publish.

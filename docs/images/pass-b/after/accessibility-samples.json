@@ -1,0 +1,22 @@
+[
+  {
+    "selector": ".review-hypothesis-pick strong",
+    "contrast": 13.33294501123378
+  },
+  {
+    "selector": ".review-hypothesis-pick .text-muted",
+    "contrast": 4.631811576755346
+  },
+  {
+    "selector": ".hypothesis-review .claim-notes",
+    "contrast": 5.268113422697814
+  },
+  {
+    "selector": ".citation-record .text-success",
+    "contrast": 5.483924052498799
+  },
+  {
+    "selector": ".citation-record .text-danger",
+    "contrast": 6.4700447145121895
+  }
+]

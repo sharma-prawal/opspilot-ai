@@ -7,7 +7,7 @@ export default defineConfig({
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  reporter: [["list"], ["json", { outputFile: "../../docs/audits/pass-a-playwright.json" }]],
+  reporter: [["list"], ["json", { outputFile: process.env.OPSPILOT_PASS_A_REPORT ?? "../../docs/audits/pass-a-playwright.json" }]],
   use: { baseURL: "http://127.0.0.1:3185", trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

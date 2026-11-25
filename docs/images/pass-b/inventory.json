@@ -1,0 +1,242 @@
+[
+  {
+    "file": "docs/images/pass-b/after/connector-readonly-1440.png",
+    "width": 1440,
+    "height": 2396,
+    "sha256": "8c3288d1e6f1c6d8d9858113189e9882cd71a206188eb6002e5386ba3bcce63e"
+  },
+  {
+    "file": "docs/images/pass-b/after/coverage-1440.png",
+    "width": 1440,
+    "height": 3288,
+    "sha256": "1012f9b59357fed3827ac13afd00f8c6eb03a66642249514002d5641bbeddc20"
+  },
+  {
+    "file": "docs/images/pass-b/after/inspector-1280.png",
+    "width": 1280,
+    "height": 2396,
+    "sha256": "6aaa3f92b99f8e61634997366092b3dbfb7a9d22bcfa13a2b97c9ba27fc06615"
+  },
+  {
+    "file": "docs/images/pass-b/after/inspector-1440.png",
+    "width": 1440,
+    "height": 2396,
+    "sha256": "42391c64152d304360d143f12b9a0481fc63ff1ca0975cad6b58805ec9efe501"
+  },
+  {
+    "file": "docs/images/pass-b/after/inspector-390.png",
+    "width": 390,
+    "height": 4511,
+    "sha256": "6c58f4cab4e1e191ce5de6cd6282e6b8d203b6ab4bf65e0474bf0046a61fb675"
+  },
+  {
+    "file": "docs/images/pass-b/after/inspector-768.png",
+    "width": 768,
+    "height": 3791,
+    "sha256": "51b11ef8cdf53e275e9ebc91bd15cd6e093e28b76898e761b3431a9c6bc2c138"
+  },
+  {
+    "file": "docs/images/pass-b/after/simulator-pending-1440.png",
+    "width": 1440,
+    "height": 2735,
+    "sha256": "85b3dd4579b0b4a0759111edbd190910abdcecfb11ed7332da933b5753a8853f"
+  },
+  {
+    "file": "docs/images/pass-b/after/simulator-verified-1440.png",
+    "width": 1440,
+    "height": 2333,
+    "sha256": "efeefeec270caf155e40c2862960684e18bec499a2f2d96ca60ebed91e770df3"
+  },
+  {
+    "file": "docs/images/pass-b/after/upload-readonly-1440.png",
+    "width": 1440,
+    "height": 2370,
+    "sha256": "2a449fe8ec4717b22d4fb423910b5f4729a4c5877887c48bd85d5a7adadb83d2"
+  },
+  {
+    "file": "docs/images/pass-b/after/workbench-1280.png",
+    "width": 1280,
+    "height": 2396,
+    "sha256": "7085b7cf64cb180ae5b43916de940dd674bf23d35948189ccaa37332c3606a6e"
+  },
+  {
+    "file": "docs/images/pass-b/after/workbench-1440.png",
+    "width": 1440,
+    "height": 2396,
+    "sha256": "8c3288d1e6f1c6d8d9858113189e9882cd71a206188eb6002e5386ba3bcce63e"
+  },
+  {
+    "file": "docs/images/pass-b/after/workbench-390.png",
+    "width": 390,
+    "height": 4283,
+    "sha256": "3cf1b911ae04efcd834f66240c56ba2a7b80cbbd87a722aaf46bd0e131cbbf27"
+  },
+  {
+    "file": "docs/images/pass-b/after/workbench-768.png",
+    "width": 768,
+    "height": 3580,
+    "sha256": "2c4421745866bb1ee520493f49133fbbbe25449244e1637d3f5e7971c59c97c3"
+  },
+  {
+    "file": "docs/images/pass-b/final-counts/counts-1440.png",
+    "width": 1440,
+    "height": 2396,
+    "sha256": "ec55ca9a362f3085470705358292ab820a305f6e063fa527586bbbc56f4dc77b"
+  },
+  {
+    "file": "docs/images/pass-b/final-counts/counts-390.png",
+    "width": 390,
+    "height": 3930,
+    "sha256": "8447fb5a79da761998a0b641d910ccdb5f6eac75c0951a5b43695677d0aa6566"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/architecture-1280.png",
+    "width": 1280,
+    "height": 7079,
+    "sha256": "4a87878dceb33c433c10f73830c4ac89abe9649a05c8a1a2a0465c88181b0682"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/architecture-1440.png",
+    "width": 1440,
+    "height": 7079,
+    "sha256": "2ca332f619786176d504ad60325a432c7e41a204fd4daac034b355b1a301fb62"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/architecture-390.png",
+    "width": 390,
+    "height": 12505,
+    "sha256": "c1a8c59bd0073e52963ee6d0f3aa64202b058f3574622cd35121164b38fd4d24"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/architecture-768.png",
+    "width": 768,
+    "height": 7964,
+    "sha256": "62bb2dea6dfb3188bdccbfaeb767a87622a7268ab29a304cdd20fd4bf194a16d"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/architecture-keyboard-1440.png",
+    "width": 1440,
+    "height": 1029,
+    "sha256": "61c538428b13734b776c3f9127ae56cd909ec1e25d0831bd8c8bc4e535d8b5e3"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/historical-metrics-1440.png",
+    "width": 1440,
+    "height": 1949,
+    "sha256": "e9c67a0ebd93b9890a97eb82ad4e526f9d72c6822ae54ad7486b40a11dacf4d7"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/intake-1280.png",
+    "width": 1280,
+    "height": 1514,
+    "sha256": "d7694625e6d936afa0e96df5cd9c4f13b82bb20c7eb186f7cf66a4919b3250cb"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/intake-1440.png",
+    "width": 1440,
+    "height": 1514,
+    "sha256": "c73a5d2a33a72db5af54e8e71067f504cc247a95ee92752955e810e231fd76aa"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/intake-390.png",
+    "width": 390,
+    "height": 3132,
+    "sha256": "8ce888430ee8a68104d17e5038169a39d7b94ebe563add0aa177db93fd2840a5"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/intake-768.png",
+    "width": 768,
+    "height": 2391,
+    "sha256": "9b47f01f50ab35d3371aee2d2f6ed26fcef23a523bcbb9f346ea99152d3107f6"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/navigation-open-390.png",
+    "width": 390,
+    "height": 5992,
+    "sha256": "5cfae0121813375c1872342382939d5b22975c67b82c60b9c6183f70b8db6678"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/navigation-open-768.png",
+    "width": 768,
+    "height": 5899,
+    "sha256": "3bfcf1ad4845e4e2f64e9c607940de5c70d524b5b8f72df9f1be20b48b089926"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/overview-1280.png",
+    "width": 1280,
+    "height": 1412,
+    "sha256": "67b26f953e3087abae6d2c05f6f321b08480d0fd3339469409b4183f69554f3e"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/overview-1440.png",
+    "width": 1440,
+    "height": 1412,
+    "sha256": "58afeede28520f1abecf7b89bb70073a872d83c55a2a9c0bc9e5399df21093f7"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/overview-390.png",
+    "width": 390,
+    "height": 2758,
+    "sha256": "091202ea64677b5a0ce21da68685905eec296313360bc78505f1e59379543463"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/overview-768.png",
+    "width": 768,
+    "height": 2313,
+    "sha256": "df68bcbcf46ecb6669b86285388e6b44aa5db4400ea00530b7732518ff1e0f99"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/roster-1280.png",
+    "width": 1280,
+    "height": 5327,
+    "sha256": "d9f761637bd75386e647f58a3971b4d96c23f70c7d4b16203debd07ba4acf39c"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/roster-1440.png",
+    "width": 1440,
+    "height": 5327,
+    "sha256": "fcd1e20f3c2d8a140d79b39b9499f536b792da3f05516a8a5d8529ddc31e7476"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/roster-390.png",
+    "width": 390,
+    "height": 5657,
+    "sha256": "58acfa497999fc02982e1dcfe090ced8f32e82805a741afb45cdcfd5aa1981e6"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/roster-768.png",
+    "width": 768,
+    "height": 5564,
+    "sha256": "6bbde333d90a66572ffa6590143c527319a7c1b8196b829071f15dab0c420e5a"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/saved-authorization-1440.png",
+    "width": 1440,
+    "height": 1806,
+    "sha256": "9fc78ee0a3e1bf450a1269171ce4be864340c7925095b11f9305cdaeca81781f"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/workbench-1280.png",
+    "width": 1280,
+    "height": 1806,
+    "sha256": "663087fbeb33b20a43d8d75d1972f068ba8e7e2aeec932f74dd901e2e20fe11f"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/workbench-1440.png",
+    "width": 1440,
+    "height": 1806,
+    "sha256": "9fc78ee0a3e1bf450a1269171ce4be864340c7925095b11f9305cdaeca81781f"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/workbench-390.png",
+    "width": 390,
+    "height": 3231,
+    "sha256": "724a39f6122ec351b8f740182af627f4e02255d3233eae25126742fada95c570"
+  },
+  {
+    "file": "docs/images/pass-b/regressions/workbench-768.png",
+    "width": 768,
+    "height": 2845,
+    "sha256": "7edf171feb5379c5ff23cbeba60543583f8ca175616f86b4326859e6469438fd"
+  }
+]

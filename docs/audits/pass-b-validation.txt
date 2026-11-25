@@ -1,0 +1,37 @@
+UI Pass B — 25 November 2026
+Worktree: /Users/prawalsharma/Documents/Projects/opspilot-ui-pass-b
+Branch: feature/ui-pass-b-mac
+Baseline/current HEAD: 0a547d415cac31e4873f1ba893ba87470503ccbc
+Local commit deferred: Git metadata outside writable roots; no Git write attempted.
+
+make test: PASS — Python 725 passed, 5 skipped, 0 failures/errors, 238.19 s; web 104 passed.
+Final frontend: PASS — 106 tests / 15 files, including 14 Pass B tests.
+make lint: PASS — Ruff/format, mypy 116 files, 4 import contracts, ESLint/typegen/tsc.
+Production build: PASS — normal Next 16.4.5 Turbopack, 28 routes.
+Pass B Chromium: PASS — 11 passed, 0 skipped/failed/flaky.
+Pass A regression Chromium: PASS — 10 passed, 0 skipped/failed/flaky.
+Responsive: 390/768/1280/1440 document widths equal viewport widths; 0 page errors.
+Representative new text contrasts: 4.63:1–13.33:1; reduced-motion pulse disabled.
+Artifacts: 38 PNGs (13 Pass B + 25 regressions), CRC/decompression/dimensions/SHA-256 checked.
+git diff --check: PASS.
+
+Python skips: 3 opt-in local model, 2 optional stopped Loki/Prometheus tests.
+Backend unchanged after full Python pass; final frontend gates cover later UI refinements.
+No make evaluate (agent/simulator behavior unchanged); no benchmark/quality claim.
+Browser responses fully intercepted synthetic saved cases; no API process, cloud or remediation call.
+Python uses opspilot_test, stub/fixture providers and disposable uploads/synthetic credentials.
+Main API/web PIDs 17826/17852 on 8000/3000 preserved; no restart or production write.
+No merge, push, tag, publication, migration, restore, volume change or private evaluation.
+Full handoff and guarded local commit commands: docs/audits/PASS_B_COMPLETION.md.
+
+Accepted finalization: minimal count-only presentation correction, deduplicated actual IDs.
+Focused Pass B unit tests: 15 passed (one new dynamic count/availability regression).
+Targeted ESLint: PASS. Final count-correction production build / TypeScript: PASS.
+Focused Chromium count journey: 1 passed at 1440 and 390; exact document widths; 2 final screenshots.
+Earlier broad suites were not rerun. Existing 38 captures preserved; final inventory totals 40 synthetic PNGs.
+Read-only integration preflight 2026-11-25 11:11 IST: PASS; main clean at approved baseline;
+original API/web PIDs 17826/17852; ready/login HTTP 200; schema 0011; backup SHA verified;
+PostgreSQL free 30624817152 bytes / 28.52 GiB; all eight work/lease/job counters zero;
+all 30 table counts and eight upload hashes match prior records. No migration needed.
+Git metadata still inaccessible for writes: feature uncommitted, HEAD remains approved baseline.
+Owner commit helper: docs/audits/PASS_B_COMMIT.sh; then explicit activation approval required.

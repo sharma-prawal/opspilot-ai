@@ -3,6 +3,39 @@
 Baseline: published v0.7.1; origin/main 1ee1b700, CI run 44548721335 passed.
 Mode: Operate. Evolve the approved Incident Forensics Lab identity.
 
+## Pass B workbench interaction — 25 November 2026
+
+The investigation header groups historical incident state, service, source, investigation status,
+evidence window and saved-snapshot time. Missing times stay unavailable. Model/start metadata discloses;
+RCA export remains in the header. An impact label is explicitly scoped to the evidence window.
+
+`HypothesisReview` presents exact model titles/descriptions, uncalibrated estimates, claim limitations
+and supporting/contradicting references. `EvidenceInspector` shares selection across this review,
+the collected-record list, metric/relationship charts and source chronology. Selection never requires
+a tab change. Missing IDs open an unavailable state; source references are never transformed into IDs.
+Raw data and citations disclose. Stored event, occurrence, onset, deployment and configuration timestamps
+keep separate labels from evidence observation time. At desktop widths the two reading areas sit together;
+at ≤900 px the inspector stacks in document flow. No overlay or focus trap is introduced.
+
+Enter/Space activate evidence. Selection focuses and reveals the inspector heading. Escape/Close restores
+the originating control, falling back to the selected hypothesis if that control was removed. Repeated
+selection still reveals the inspector. A polite status announces the exact ID and relationship.
+
+`EvidenceCoverage` reads the existing saved-dataset endpoint for uploads/connectors, never collects new
+telemetry. The short limits row links to counts, reported gaps, provider query statuses and exact provenance.
+Azure empty queries retain “No accessible matching records — access/coverage not independently verified.”
+Never-attempted CloudWatch mappings, failed sources, partial/truncated collection and ordinary empty
+queries remain separate. Summary warnings disclose with the unchanged summary; hypothesis warnings stay
+beside their visible claims. Counts distinguish unique model-cited supports/contradictions from accessible and unavailable records, using exact IDs in the returned evidence.
+
+Simulator proposal, authorization, execution and verification remain distinct through the existing
+`DecisionFlow`/`ApprovalCard` paths, including Pass A's safe decision-history transport. Completed exact-action
+detail discloses; pending review remains open, with working review links. Uploaded and connected cases
+offer suggestions only and explicitly retain unverified recovery. Metric comparisons remain historical,
+source chronology remains observation chronology and workflow chronology stays in the audit disclosure.
+
+Validation and synthetic rendered evidence: [Pass B completion](../audits/PASS_B_COMPLETION.md).
+
 ## Direction
 
 An engineer opens a case to identify the affected service, compare explanations,

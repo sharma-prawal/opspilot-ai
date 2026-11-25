@@ -22,31 +22,15 @@ import {
   Composition,
   DecisionFlow,
   EvidenceMap,
-  HypothesisComparison,
   MetricComparison,
-  SourceTimeline,
 } from "@/components/visuals";
+import { EvidenceInspector, HypothesisReview, evidenceSourceRef } from "@/components/evidence-inspector";
+import { EvidenceCoverage } from "@/components/evidence-coverage";
 import { evidenceGroup } from "@/lib/visuals";
 import { api } from "@/lib/api";
 import { humanize, ms, STAGES, stageIndex, utcTime } from "@/lib/format";
 import type { Evidence, WorkflowEvent } from "@/lib/types";
 import { downloadText } from "@/lib/uploads";
-
-/** Where stored evidence came from (file and line/row, or connector query and entry/point) */
-function sourceRef(e: Evidence): string | null {
-  const d = e.data as {
-    attributes?: { source_ref?: string };
-    sources?: string;
-    metadata?: { source_ref?: string };
-  };
-  const value =
-    d?.attributes?.source_ref ?? d?.sources ?? d?.metadata?.source_ref;
-  return value == null
-    ? null
-    : typeof value === "string"
-      ? value
-      : JSON.stringify(value);
-}
 
 const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
 
@@ -469,7 +453,8 @@ function EvidenceList({
                 tabIndex={0}
                 role="button"
                 aria-label={`Inspect ${e.evidence_id}`}
-                aria-expanded={isSelected}
+                aria-pressed={isSelected}
+                aria-controls="evidence-inspector"
                 onKeyDown={(event) => {
                   if (event.target !== event.currentTarget) return;
                   if (event.key === "Enter" || event.key === " ") {
@@ -493,7 +478,7 @@ function EvidenceList({
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="exhibit-tag">{e.evidence_id}</span>
                     <Badge>{humanize(e.kind)}</Badge>
                     {e.service && (
@@ -517,7 +502,7 @@ function EvidenceList({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-muted">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
                     <span>tool: {e.source_tool}</span>
                     <span>·</span>
                     <span>rel: {e.relevance.toFixed(2)}</span>
@@ -533,13 +518,13 @@ function EvidenceList({
                   {e.summary}
                 </p>
 
-                {sourceRef(e) && (
+                {evidenceSourceRef(e) && (
                   <div className="mt-2 rounded border border-purple/30 bg-purple-soft/20 px-2.5 py-1.5 text-[11px] text-muted font-mono">
                     <span className="font-semibold text-text-muted">
                       Source reference coordinate:
                     </span>{" "}
                     <span className="text-purple font-bold">
-                      {sourceRef(e)}
+                      {evidenceSourceRef(e)}
                     </span>
                   </div>
                 )}
@@ -556,17 +541,6 @@ function EvidenceList({
                     <code className="text-[10px]">
                       {e.citation.chunk_id.slice(0, 8)}
                     </code>
-                  </div>
-                )}
-
-                {isSelected && e.data && (
-                  <div className="mt-3 rounded border border-border bg-panel-2 p-3 font-mono text-[11px]">
-                    <div className="mb-1 font-bold text-text-muted uppercase text-[10px]">
-                      Underlying Forensic Payload
-                    </div>
-                    <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-text">
-                      {JSON.stringify(e.data, null, 2)}
-                    </pre>
                   </div>
                 )}
               </div>
@@ -635,6 +609,12 @@ function InvestigationWorkspace({ id }: { id: string }) {
     enabled: !!inv.data?.incident_id,
   });
 
+  const snapshot = useQuery({
+    queryKey: ["dataset", inv.data?.incident_id],
+    queryFn: () => api.dataset(inv.data!.incident_id),
+    enabled: incident.data?.evidence_source === "upload" || incident.data?.evidence_source === "connector",
+  });
+
   const resume = useMutation({
     mutationFn: () => api.resume(id),
     onSuccess: () => qc.invalidateQueries(),
@@ -653,6 +633,23 @@ function InvestigationWorkspace({ id }: { id: string }) {
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
     null,
   );
+  const evidenceTrigger = useRef<HTMLElement | null>(null);
+  const inspectEvidence = (evidenceId: string) => {
+    evidenceTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedEvidenceId(evidenceId || null);
+    if (evidenceId && evidenceId === selectedEvidenceId) {
+      const heading = document.querySelector<HTMLElement>("#evidence-inspector h3");
+      heading?.focus({ preventScroll: true });
+      heading?.scrollIntoView?.({ block: "nearest" });
+    }
+  };
+  const dismissEvidence = () => {
+    setSelectedEvidenceId(null);
+    const target = evidenceTrigger.current?.isConnected ? evidenceTrigger.current
+      : document.querySelector<HTMLElement>('.review-hypothesis-pick[aria-pressed="true"]');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ block: "nearest" });
+  };
   const [evidenceGroupFilter, setEvidenceGroupFilter] = useState("all");
   const [remediationRequest, setRemediationRequest] = useState(0);
   const handledRemediation = useRef(0);
@@ -673,18 +670,13 @@ function InvestigationWorkspace({ id }: { id: string }) {
   }, [status, id, qc]);
 
   useEffect(() => {
-    const target =
-      activeTab === "evidence"
-        ? selectedEvidenceId
-        : activeTab === "traces" && selectedEventId
-          ? `event-${selectedEventId}`
-          : null;
+    const target = activeTab === "traces" && selectedEventId ? `event-${selectedEventId}` : null;
     if (target) {
       const element = document.getElementById(target);
       element?.focus({ preventScroll: true });
       element?.scrollIntoView({ block: "nearest", behavior: "instant" });
     }
-  }, [activeTab, selectedEvidenceId, selectedEventId]);
+  }, [activeTab, selectedEventId]);
 
   useEffect(() => {
     if (
@@ -715,7 +707,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
     [rca],
   );
   const cited = useMemo(
-    () => new Set(hyps.flatMap((h) => h.supporting_evidence_ids)),
+    () => new Set(hyps.flatMap((h) => [...h.supporting_evidence_ids, ...h.contradicting_evidence_ids])),
     [hyps],
   );
 
@@ -743,7 +735,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="workbench space-y-5">
       {/* Top Breadcrumb & Dossier Identity */}
       <div>
         <div className="mb-2 flex items-center gap-2 font-mono text-xs text-muted">
@@ -771,10 +763,8 @@ function InvestigationWorkspace({ id }: { id: string }) {
           }
           subtitle={
             v && (
+              <details className="panel-context"><summary>Investigation metadata</summary>
               <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-muted">
-                {incident.data && (
-                  <SourceBadge source={incident.data.evidence_source} />
-                )}
                 <span>
                   Dossier ID:{" "}
                   <code className="font-bold text-text">
@@ -801,6 +791,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
                   </>
                 )}
               </div>
+              </details>
             )
           }
           actions={
@@ -808,7 +799,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
               {incident.data && (
                 <SeverityBadge severity={incident.data.severity} />
               )}
-              {v && <StatusBadge status={v.status} />}
+              {report.data && <Button size="sm" variant="outline" onClick={() => downloadText(`RCA-${incident.data?.reference ?? id.slice(0, 8)}.md`, report.data!.markdown)}>Export RCA report</Button>}
               {canResume && (
                 <Button
                   variant="primary"
@@ -860,85 +851,12 @@ function InvestigationWorkspace({ id }: { id: string }) {
           tools.error
         }
       />
-      <dl className="incident-facts">
-        <div>
-          <dt>Affected service</dt>
-          <dd>{incident.data?.service ?? "Unavailable"}</dd>
-        </div>
-        <div>
-          <dt>Detected (UTC)</dt>
-          <dd>{utcTime(incident.data?.detected_at)}</dd>
-        </div>
-        <div>
-          <dt>Evidence source</dt>
-          <dd>
-            <SourceBadge source={source} />
-          </dd>
-        </div>
-        <div>
-          <dt>Investigation state</dt>
-          <dd>{v ? <StatusBadge status={v.status} /> : "Loading…"}</dd>
-        </div>
+      <dl className="incident-facts workbench-context">
+        <div><dt>Service · historical incident state</dt><dd>{incident.data?.service ?? "Unavailable"} · {incident.data?.status ?? "Unavailable"}</dd></div>
+        <div><dt>Investigation source / state</dt><dd><SourceBadge source={source} /> {v ? <StatusBadge status={v.status} /> : "Loading…"}</dd></div>
+        <div><dt>Evidence window (UTC)</dt><dd>{utcTime(v?.result?.window?.start ?? snapshot.data?.summary?.window?.start ?? snapshot.data?.summary?.start)} → {utcTime(v?.result?.window?.end ?? snapshot.data?.summary?.window?.end ?? snapshot.data?.summary?.end)}</dd></div>
+        <div><dt>{readOnly ? "Snapshot saved (UTC)" : "Investigation saved (UTC)"}</dt><dd>{utcTime(readOnly ? snapshot.data?.created_at : v?.updated_at)}<span className="block font-sans font-normal text-xs text-muted">Historical evidence · not live operational health</span></dd></div>
       </dl>
-
-      <section className="case-conclusion" aria-label="Leading conclusion">
-        <div>
-          <h2>
-            {hyps[0]?.title ??
-              (v && TERMINAL.has(v.status)
-                ? "No primary hypothesis available"
-                : "Following the evidence…")}
-          </h2>
-          <p>
-            {outcome?.summary ??
-              (isAwaitingApproval
-                ? "Analysis is ready. Review the proposed action before simulator execution."
-                : rca?.summary
-                  ? "Compare the explanations and inspect their source evidence below."
-                  : "Findings will appear as the investigation progresses.")}
-          </p>
-          {/* v0.10: deterministic notes on the model's wording stay visible next to the conclusion (read-only RCAs:
-              unsupported certainty, log lines presented as change history, "ongoing" = end of the evidence window) */}
-          {!!rca?.evidence_warnings?.length && (
-            <ul className="mt-2 space-y-1" aria-label="Notes on the analysis summary">
-              {rca.evidence_warnings.map((w) => (
-                <li key={w} role="note" className="text-xs text-warn">
-                  ⚠ {w}
-                </li>
-              ))}
-            </ul>
-          )}
-          {rca?.summary && (
-            <details className="compact-disclosure mt-3">
-              <summary>
-                {readOnly ? "Full analysis summary (model-written hypothesis, not a verified cause)" : "Full analysis summary"}
-              </summary>
-              <p className="mt-2">{rca.summary}</p>
-            </details>
-          )}
-        </div>
-        {outcome ? (
-          <div>
-            <StatusBadge status={outcome.code} />
-            {outcome.escalate && (
-              <p className="mt-2 text-warn">
-                Escalate
-                {outcome.escalate_to
-                  ? ` to ${outcome.escalate_to}`
-                  : " to an operator"}
-              </p>
-            )}
-          </div>
-        ) : isAwaitingApproval && source === "simulator" ? (
-          <a
-            href="#remediation-section"
-            onClick={openRemediation}
-            className="action-link"
-          >
-            Review proposed action ↓
-          </a>
-        ) : null}
-      </section>
 
       {readOnly && (
         <div className="rounded border border-info/30 bg-info-soft p-3 text-sm text-info">
@@ -950,11 +868,13 @@ function InvestigationWorkspace({ id }: { id: string }) {
             .
           </strong>{" "}
           Suggestions only. Nothing executed; external recovery is unverified.
+          {" "}<a className="text-link" href="#remediation-section" onClick={openRemediation}>Inspect suggested actions</a>
         </div>
       )}
       {isAwaitingApproval && source === "simulator" && (
         <div
           role="alert"
+          aria-label="Leading conclusion"
           className="flex flex-wrap items-center justify-between gap-3 rounded border border-warn/40 bg-warn-soft p-3 text-sm"
         >
           <strong className="text-warn">OPERATOR ACTION REQUIRED</strong>
@@ -968,6 +888,10 @@ function InvestigationWorkspace({ id }: { id: string }) {
           </a>
         </div>
       )}
+      {rca?.impact && <section className="text-sm" aria-label="Observed impact in the evidence window">
+        <strong>Observed impact in the evidence window: {humanize(rca.impact.state)}</strong>
+        {!!rca.impact.reasons?.length && <details className="compact-disclosure mt-2"><summary>Impact observations</summary><ul className="mt-2 space-y-1">{rca.impact.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
+      </section>}
       {outcome && (
         <details className="compact-disclosure">
           <summary>
@@ -979,6 +903,34 @@ function InvestigationWorkspace({ id }: { id: string }) {
           <p className="mt-2 text-sm text-text-muted">{outcome.reason}</p>
         </details>
       )}
+
+      <p className="text-xs text-muted">Evidence limits: {rca?.evidence_gaps ? `${rca.evidence_gaps.length} reported gaps` : "Reported gaps unavailable"}{snapshot.error ? " · snapshot provenance unavailable" : ""}. <a className="text-link" href="#evidence-coverage">Review collection coverage</a>. Missing sources remain unknown.</p>
+
+      <div className="hypothesis-evidence-workbench">
+        <HypothesisReview hypotheses={hyps} evidence={evidence.data ?? []} selectedRank={activeHypothesis?.rank}
+          selectedEvidenceId={selectedEvidenceId} onHypothesis={setSelectedHypothesisRank} onEvidence={inspectEvidence} />
+        <EvidenceInspector evidence={evidence.data ?? []} selectedId={selectedEvidenceId} hypothesis={activeHypothesis}
+          pending={evidence.isPending} error={!!evidence.error} onDismiss={dismissEvidence} onSelect={inspectEvidence} />
+      </div>
+
+
+
+      <EvidenceCoverage evidence={evidence.data} dataset={snapshot.data} source={source} gaps={rca?.evidence_gaps}
+        pending={readOnly && snapshot.isPending} error={!!snapshot.error} />
+
+      {(rca?.summary || outcome) && <details className="compact-disclosure model-summary">
+        <summary>Model summary and report-reading notes{rca?.evidence_warnings?.length ? ` · ${rca.evidence_warnings.length} claim warnings` : ""}</summary>
+        <p className="mt-3 text-sm leading-relaxed">{rca?.summary ?? outcome?.summary}</p>
+        {!!rca?.evidence_warnings?.length && <div className="claim-notes mt-3" role="note"><strong>Deterministic claim-calibration warnings</strong><ul>{rca.evidence_warnings.map(w => <li key={w}>{w}</li>)}</ul></div>}
+        {!!rca?.citation_violations?.length && <p className="text-warn mt-2 text-xs">{rca.citation_violations.length} invalid model citations discarded. Original report retained.</p>}
+        {outcome && <p className="mt-3 text-sm">Saved outcome: <StatusBadge status={outcome.code} /> {outcome.summary}{outcome.escalate ? ` · Escalate ${outcome.escalate_to ?? "to an operator"}` : ""}</p>}
+      </details>}
+
+      {source === "simulator" && <section className="decision-overview" aria-label="Simulator decision and recovery status">
+        <h2 className="font-serif-heading text-base font-bold mb-3">Simulator decision &amp; recovery</h2>
+        <DecisionFlow result={v?.result} actions={actions.data} />
+        <a href="#remediation-section" onClick={openRemediation} className="text-link mt-3 inline-block">{isAwaitingApproval ? "Review exact proposed action" : "Inspect action and verification details"}</a>
+      </section>}
 
       {/* Workspace Navigation Tabs */}
       <div
@@ -1036,6 +988,8 @@ function InvestigationWorkspace({ id }: { id: string }) {
           <div className="space-y-6 lg:col-span-2">
             {/* Mutating Mode: Remediation Plan & Safety Gates */}
             {source === "simulator" && (
+              <details className="action-history" open={isAwaitingApproval || remediationRequest > 0 || undefined}>
+              <summary className="compact-disclosure cursor-pointer mb-3 text-sm font-semibold">Exact simulator actions, authorization and safety gates</summary>
               <Card
                 id="remediation-section"
                 title="Remediation Plan & Safety Gates"
@@ -1070,9 +1024,6 @@ function InvestigationWorkspace({ id }: { id: string }) {
                         : "No remediation action proposed."}
                   </Empty>
                 )}
-                <div className="mt-5">
-                  <DecisionFlow result={v?.result} actions={actions.data} />
-                </div>
                 {!!v?.result?.remediation_plan?.length && (
                   <details className="compact-disclosure mb-4">
                     <summary>
@@ -1165,68 +1116,29 @@ function InvestigationWorkspace({ id }: { id: string }) {
                   </details>
                 )}
               </Card>
+              </details>
             )}
 
-            <Card title="Root Cause Hypotheses">
-              {hyps.length ? (
-                <HypothesisComparison
-                  hypotheses={hyps}
-                  evidence={evidence.data ?? []}
-                  selected={activeHypothesis?.rank}
-                  onSelect={setSelectedHypothesisRank}
-                  onEvidence={(eid) => {
-                    setEvidenceGroupFilter("all");
-                    setSelectedEvidenceId(eid);
-                    setActiveTab("evidence");
-                  }}
-                />
-              ) : (
-                <Empty>
-                  {v && TERMINAL.has(v.status)
-                    ? "No root-cause hypotheses generated. Inspect the evidence and report for gaps."
-                    : "Collecting evidence. Hypotheses will appear after analysis."}
-                </Empty>
-              )}
-              {!!rca?.evidence_gaps?.length && (
-                <details className="compact-disclosure mt-4">
-                  <summary className="text-warn">
-                    Evidence gaps ({rca.evidence_gaps.length})
-                  </summary>
-                  <ul className="mt-2 list-disc space-y-2 pl-4 text-xs text-text-muted">
-                    {rca.evidence_gaps.map((gap, i) => (
-                      <li key={i}>{gap}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-              {!!rca?.citation_violations?.length && (
-                <p className="mt-4 text-xs text-warn">
-                  {rca.citation_violations.length} invalid model citations
-                  discarded.
-                </p>
-              )}
-            </Card>
             <Card title="Collected investigation evidence">
               <MetricComparison
                 evidence={evidence.data ?? []}
                 onSelect={(eid) => {
-                  setEvidenceGroupFilter("all");
-                  setSelectedEvidenceId(eid);
-                  setActiveTab("evidence");
+                  inspectEvidence(eid);
                 }}
               />
             </Card>
-            <Card title="Evidence relationships">
+            <details className="compact-disclosure">
+              <summary>Evidence relationship diagram · model associations</summary>
+              <Card title="Evidence relationships">
               <EvidenceMap
                 hypothesis={activeHypothesis}
                 evidence={evidence.data ?? []}
                 onSelect={(eid) => {
-                  setEvidenceGroupFilter("all");
-                  setSelectedEvidenceId(eid);
-                  setActiveTab("evidence");
+                  inspectEvidence(eid);
                 }}
               />
-            </Card>
+              </Card>
+            </details>
 
             {/* Read-Only Mode: Advisory Suggestions (Requirement 5) */}
             {readOnly && (
@@ -1303,6 +1215,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
               </Card>
             )}
 
+            <ErrorNote error={report.error} />
             {/* Formal RCA Postmortem Report */}
             {report.data && (
               <Card
@@ -1417,16 +1330,6 @@ function InvestigationWorkspace({ id }: { id: string }) {
                 Explore source records →
               </button>
             </Card>
-            <Card title="Source chronology">
-              <SourceTimeline
-                evidence={evidence.data ?? []}
-                onSelect={(eid) => {
-                  setEvidenceGroupFilter("all");
-                  setSelectedEvidenceId(eid);
-                  setActiveTab("evidence");
-                }}
-              />
-            </Card>
             <details className="compact-disclosure dossier-paper p-4">
               <summary>
                 Workflow chronology · {events.data?.length ?? "—"} events
@@ -1475,7 +1378,7 @@ function InvestigationWorkspace({ id }: { id: string }) {
       {activeTab === "evidence" && (
         <Card
           title={`Collected Evidence (${evidence.data?.length ?? 0})`}
-          subtitle="Persisted operational evidence gathered from telemetry, git changes, dependency graphs, and hybrid RAG"
+          subtitle="Persisted records from the investigation source; collection and relationship limits appear in Evidence coverage"
         >
           <ErrorNote error={evidence.error} />
           {evidence.data?.length ? (
@@ -1485,13 +1388,13 @@ function InvestigationWorkspace({ id }: { id: string }) {
               evidence={evidence.data}
               highlight={cited}
               selectedEvidenceId={selectedEvidenceId}
-              onSelectEvidence={setSelectedEvidenceId}
+              onSelectEvidence={inspectEvidence}
               activeHypSupportingSet={activeHypSupportingSet}
               activeHypContradictingSet={activeHypContradictingSet}
-              selectedHypothesisRank={selectedHypothesisRank}
+              selectedHypothesisRank={activeHypothesis?.rank}
             />
           ) : (
-            <Empty>No evidence gathered yet.</Empty>
+            <Empty>{evidence.isPending ? "Loading collected evidence…" : evidence.error ? "Collected evidence unavailable." : "No evidence records returned."}</Empty>
           )}
         </Card>
       )}

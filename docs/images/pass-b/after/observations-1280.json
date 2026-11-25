@@ -1,0 +1,18 @@
+{
+  "viewport": 1280,
+  "document": 1280,
+  "claimBounds": {
+    "x": 25,
+    "y": 474.65625,
+    "width": 630,
+    "height": 727.09375
+  },
+  "inspectorBounds": {
+    "x": 655,
+    "y": 474.65625,
+    "width": 600,
+    "height": 727.09375
+  },
+  "font": "14px",
+  "errors": []
+}

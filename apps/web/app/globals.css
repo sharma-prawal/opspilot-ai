@@ -1626,3 +1626,43 @@ button:disabled { cursor: default; opacity: 0.5; }
   .primary-nav-links > span { margin: 8px 0 0; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--border); flex-wrap: wrap; overflow-wrap: anywhere; }
   .primary-nav-links > span > span { min-width: 0; flex-wrap: wrap; }
 }
+
+/* Pass B: one claim-and-source reading surface; stack at tablet widths. */
+.workbench { overflow-wrap: anywhere; }
+.workbench > div:first-child > div:last-child { margin-bottom: 0; }
+.workbench-context { padding-block: 0 12px; border-top: 0; }
+.workbench-context dd { font-size: 0.75rem; line-height: 1.6; }
+.workbench-context dd > .inline-flex { margin: 2px 4px 2px 0; }
+.hypothesis-evidence-workbench { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.hypothesis-review, .evidence-inspector { min-width: 0; padding: 20px; }
+.evidence-inspector { border-left: 1px solid var(--border); background: var(--panel-2); }
+.evidence-inspector .inline-flex { max-width: 100%; white-space: normal; }
+.review-hypothesis { border: 1px solid var(--border); border-radius: 4px; }
+.review-hypothesis.is-selected { border-color: var(--accent); }
+.review-hypothesis-pick { display: block; width: 100%; text-align: left; padding: 12px; cursor: pointer; }
+.review-hypothesis-pick:hover, .citation-record:hover { background: var(--accent-soft); }
+.review-hypothesis-pick[aria-pressed="true"] { background: var(--accent-soft); }
+.citation-record { display: flex; flex-wrap: wrap; gap: 4px 10px; text-align: left; width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 9px 10px; font-size: 0.75rem; cursor: pointer; }
+.citation-record > span:last-child { flex-basis: 100%; color: var(--text-muted); }
+.citation-record.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+.inspector-facts { display: grid; gap: 10px; font-size: 0.75rem; }
+.inspector-facts dt { color: var(--muted); margin-bottom: 2px; }
+.inspector-facts dd { margin: 0; overflow-wrap: anywhere; }
+.inspector-payload { max-width: 100%; max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.75rem; line-height: 1.65; background: var(--panel); padding: 12px; border: 1px solid var(--border); border-radius: 3px; }
+.coverage-summary, .decision-overview { padding: 16px 20px; border-block: 1px solid var(--border); font-size: 0.75rem; }
+.coverage-queries > li { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.claim-notes { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border: 1px solid var(--border); border-radius: 3px; font-size: 0.75rem; line-height: 1.65; }
+.claim-notes li { margin-top: 4px; }
+.model-summary[open] { max-width: 75ch; }
+.inspector-dismiss { min-height: 32px; }
+.workbench .workbench-tabs { flex-wrap: wrap; }
+.workbench .decision-flow { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .hypothesis-evidence-workbench { grid-template-columns: minmax(0, 1fr); }
+  .evidence-inspector { border-left: 0; border-top: 1px solid var(--border); }
+  .workbench .decision-flow { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .hypothesis-review, .evidence-inspector, .coverage-summary, .decision-overview { padding: 16px; }
+  .workbench .workbench-tabs > button { padding: 10px 8px; }
+}
